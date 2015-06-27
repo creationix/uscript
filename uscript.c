@@ -91,7 +91,7 @@ static const uint8_t* skip(const uint8_t* pc) {
     return pc; \
   }
 
-static const uint8_t* eval(const uint8_t* pc, int* res) {
+static const uint8_t* eval(const uint8_t* pc, int32_t* res) {
 
   // If the high bit is set, it's an opcode index.
   if (*pc & 0x80) switch ((enum opcodes)*pc++) {

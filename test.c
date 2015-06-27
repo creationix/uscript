@@ -1,3 +1,5 @@
+#!/usr/bin/tcc -run
+
 //#define OP_LOG
 #include "uscript.c"
 #include <stdio.h>
