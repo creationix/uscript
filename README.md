@@ -42,8 +42,8 @@ contains 7 bits.  The least significant bits come first.
 
 ## Events
 
-- wait [expression] - wait for expression to be true (blocking)
-- on [expression] [name] - call function when expression is true (non-blocking)
+- wait [expression] - wait for expression to be 1 (blocking)
+- on [expression] [name] - call function when expression is 1 (non-blocking)
 
 ## Timers
 
@@ -159,7 +159,7 @@ start 1000 t13
 
 ## Watch expressions
 
-The `wait` and `on` statements accept an expression and wait for it to be true.
+The `wait` and `on` statements accept an expression and wait for it to be 1.
 This is done without resorting to busy-poll by doing a dependency graph analysis
 and getting all the possible changeable state that could affect the expression.
 This includes pins, variables, and functions.

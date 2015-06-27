@@ -1,140 +1,68 @@
-
-#ifdef OP_LOG
-#include <stdio.h>
-#endif
-
-#include <stdbool.h>
 #include <stdint.h>
-#include <assert.h>
-#include <unistd.h>
-
-#define OP_CODES(XX) \
-/* User Programs \
-XX(DEF) XX(RM) XX(CALL) XX(RUN) */\
-/* variables */\
-XX(SET) XX(GET) XX(INCR) XX(DECR) \
-/* control flow */\
-XX(IF) XX(ELIF) XX(ELSE) XX(MATCH) XX(WHEN) XX(WHILE) XX(DO)\
-/* logic (short circuit and/or) */\
-XX(NOT) XX(AND) XX(OR) \
-/* bitwise logic */\
-XX(BNOT) XX(BAND) XX(BOR) XX(BXOR) \
-/* comparison */\
-XX(EQ) XX(NEQ) XX(GTE) XX(LT) \
-/* math */\
-XX(NEG) XX(ADD) XX(SUB) XX(MUL) XX(DIV) XX(MOD) /*XX(RAND)*/ \
-/* events */\
-/*XX(WAIT) XX(ON) */\
-/* timer */\
-XX(DELAY) /*XX(TIMER) */\
-/* io */\
-/*XX(PM) XX(DW) XX(PW) XX(DR) XX(AR)*/ \
-/* neopixel */\
-/*XX(NP) XX(NPW) XX(RGB) XX(HSV) XX(HCL) XX(UPDATE) */\
-/* servo */\
-/*XX(SERVO) XX(MOVE) */\
-/* tone */\
-/*XX(TONE)*/
 
 enum opcodes {
-  OP_MAX_NUM = 127,
-  #define XX(name) OP_ ## name,
-    OP_CODES(XX)
-  #undef XX
+  /* User Programs
+  OP_DEF = 128, OP_RM, OP_CALL, OP_RUN, */
+  /* variables */
+  OP_SET = 128, OP_GET, OP_INCR, OP_DECR,
+  /* control flow */
+  OP_IF, OP_ELIF, OP_ELSE, OP_MATCH, OP_WHEN, OP_WHILE, OP_DO,
+  /* logic (short circuit and/or) */
+  OP_NOT, OP_AND, OP_OR,
+  /* bitwise logic */
+  OP_BNOT, OP_BAND, OP_BOR, OP_BXOR,
+  /* comparison */
+  OP_EQ, OP_NEQ, OP_GTE, OP_LT,
+  /* math */
+  OP_NEG, OP_ADD, OP_SUB, OP_MUL, OP_DIV, OP_MOD, /*OP_RAND,*/
+  /* events */
+  /*OP_WAIT, OP_ON, */
+  /* timer */
+  /*OP_DELAY, OP_TIMER, */
+  /* io */
+  /*OP_PM, OP_DW, OP_PW, OP_DR, OP_AR,*/
+  /* neopixel */
+  /*OP_NP, OP_NPW, OP_RGB, OP_HSV, OP_HCL, OP_UPDATE, */
+  /* servo */
+  /*OP_SERVO, OP_MOVE, */
+  /* tone */
+  /*OP_TONE,*/
 };
-
-
-#ifdef OP_LOG
-static const char* op_name(enum opcodes code) {
-  switch (code) {
-    case OP_MAX_NUM: return "MAX_NUM";
-    #define XX(name) case OP_ ## name: return #name;
-      OP_CODES(XX)
-    #undef XX
-  }
-  return "NUMBER";
-}
-#endif
 
 static int32_t vars[26];
 
-#define binop(code, op) \
-  case code: { \
-    int32_t a, b; \
-    pc = eval(pc, &a); \
-    pc = eval(pc, &b); \
-    *res = a op b; \
-    return pc; \
-  }
-#define unop(code, op) \
-  case code: { \
-    pc = eval(pc, res); \
-    *res = op*res; \
-    return pc; \
-  }
-
-const uint8_t* skip(const uint8_t* pc) {
+static const uint8_t* skip(const uint8_t* pc) {
   // If the high bit is set, it's an opcode index.
-  if (*pc & 0x80) {
-    #ifdef OP_LOG
-    printf("SOP=%02x - %s\n", *pc, op_name(*pc));
-    #endif
+  if (*pc & 0x80) switch ((enum opcodes)*pc++) {
 
-    switch ((enum opcodes)*pc++) {
-    case OP_MAX_NUM: assert(0);
-    case OP_ELIF: case OP_WHEN: case OP_ELSE:
-      // Unexpected elif, when, or else opcode
-      assert(0);
-
-    case OP_IF:
-      pc = skip(pc); // cond
-      while (*pc == OP_ELIF) pc = skip(skip(++pc)); // cond/val
-      if (*pc == OP_ELSE) pc = skip(++pc); // val
-      return pc;
-
-    case OP_MATCH:
-      pc = skip(pc); // cond
-      while (*pc == OP_WHEN) pc = skip(skip(++pc)); // cond/val
-      if (*pc == OP_ELSE) pc = skip(++pc); // val
-      return pc;
-
+    // Need to read the length header to skip do
     case OP_DO: {
       uint8_t count = *pc++;
       while (count--) pc = skip(pc);
       return pc;
     }
 
-    case OP_SET: return skip(pc + 1);
-    case OP_GET:
-    case OP_INCR:
-    case OP_DECR:
+    // Opcodes that consume one opcode
+    case OP_GET: case OP_INCR: case OP_DECR:
       return pc + 1;
 
-    case OP_NOT:
-    case OP_BNOT:
-    case OP_NEG:
-    case OP_DELAY:
+    // Opcodes that consume one opcode and one expression
+    case OP_SET: return skip(pc + 1);
+
+
+    // Opcodes that consume one expression
+    case OP_NOT: case OP_BNOT: case OP_NEG: case OP_ELSE:
+    case OP_MATCH: case OP_IF:
       return skip(pc);
 
-    case OP_WHILE:
-    case OP_AND:
-    case OP_OR:
-    case OP_BAND:
-    case OP_BOR:
-    case OP_BXOR:
-    case OP_EQ:
-    case OP_NEQ:
-    case OP_GTE:
-    case OP_LT:
-    case OP_ADD:
-    case OP_SUB:
-    case OP_MUL:
-    case OP_DIV:
-    case OP_MOD: {
+    // Opcodes that consume two expressions
+    case OP_WHILE: case OP_AND: case OP_OR: case OP_BAND: case OP_BOR:
+    case OP_BXOR: case OP_EQ: case OP_NEQ: case OP_GTE: case OP_LT:
+    case OP_ADD: case OP_SUB: case OP_MUL: case OP_DIV: case OP_MOD:
+    case OP_ELIF: case OP_WHEN: {
       return skip(skip(pc));
     }
 
-    }
   }
 
   // Otherwise it's a variable length encoded integer.
@@ -147,19 +75,29 @@ const uint8_t* skip(const uint8_t* pc) {
   }
 }
 
-const uint8_t* eval(const uint8_t* pc, int* res) {
+#define binop(code, op) \
+  case code: { \
+    int32_t a, b; \
+    pc = eval(pc, &a); \
+    pc = eval(pc, &b); \
+    *res = a op b; \
+    return pc; \
+  }
+
+#define unop(code, op) \
+  case code: { \
+    pc = eval(pc, res); \
+    *res = op*res; \
+    return pc; \
+  }
+
+static const uint8_t* eval(const uint8_t* pc, int* res) {
 
   // If the high bit is set, it's an opcode index.
-  if (*pc & 0x80) {
-    #ifdef OP_LOG
-    printf("OP=%02x - %s\n", *pc, op_name(*pc));
-    #endif
-
-    switch ((enum opcodes)*pc++) {
-    case OP_MAX_NUM: assert(0);
+  if (*pc & 0x80) switch ((enum opcodes)*pc++) {
     case OP_ELIF: case OP_WHEN: case OP_ELSE:
       // Unexpected elif, when, or else opcode
-      assert(0);
+      return 0;
 
     case OP_SET: {
       uint8_t idx = *pc++;
@@ -181,11 +119,11 @@ const uint8_t* eval(const uint8_t* pc, int* res) {
 
     case OP_IF: {
       int32_t cond;
-      bool done = false;
+      char done = 0;
       *res = 0;
       pc = eval(pc, &cond);
       if (cond) {
-        done = true;
+        done = 1;
         pc = eval(pc, res);
       }
       else pc = skip(pc);
@@ -197,7 +135,7 @@ const uint8_t* eval(const uint8_t* pc, int* res) {
         else {
           pc = eval(pc, &cond);
           if (cond) {
-            done = true;
+            done = 1;
             pc = eval(pc, res);
           }
           else pc = skip(pc);
@@ -213,7 +151,7 @@ const uint8_t* eval(const uint8_t* pc, int* res) {
 
     case OP_MATCH: {
       int32_t val, cond;
-      bool done = false;
+      char done = 0;
       *res = 0;
       pc = eval(pc, &val);
       while (*pc == OP_WHEN) {
@@ -224,7 +162,7 @@ const uint8_t* eval(const uint8_t* pc, int* res) {
         }
         pc = eval(pc, &cond);
         if (cond == val) {
-          done = true;
+          done = 1;
           pc = eval(pc, res);
         }
         else pc = skip(pc);
@@ -288,11 +226,6 @@ const uint8_t* eval(const uint8_t* pc, int* res) {
     binop(OP_DIV, /)
     binop(OP_MOD, %)
 
-    case OP_DELAY:
-      pc = eval(pc, res);
-      usleep(*res * 1000);
-      return pc;
-  }
   }
 
   // Otherwise it's a variable length encoded integer.

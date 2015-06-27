@@ -1,6 +1,7 @@
 //#define OP_LOG
 #include "uscript.c"
 #include <stdio.h>
+#include <assert.h>
 
 static inline void test(const char* description, const uint8_t* program, int32_t exp, int32_t res) {
   int32_t out;
@@ -123,7 +124,7 @@ int main() {
   test("while (--i) s = s + i", (uint8_t[])
     { OP_WHILE, OP_DECR, 8,
         OP_SET, 18, OP_ADD, OP_GET, 18, OP_GET, 8 }, 10, 100);
-  test("while 1 delay 1000", (uint8_t[])
-    { OP_WHILE, 1, OP_DELAY, 104, 15 }, 5, 1000);
+  // test("while 1 delay 1000", (uint8_t[])
+  //   { OP_WHILE, 1, OP_DELAY, 104, 15 }, 5, 1000);
   return 0;
 }
