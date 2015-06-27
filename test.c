@@ -1,4 +1,4 @@
-#!/usr/bin/tcc -run
+#!/usr/bin/tcc -run -Wall -Werror
 
 //#define OP_LOG
 #include "uscript.c"
@@ -128,5 +128,4 @@ int main() {
         OP_SET, 18, OP_ADD, OP_GET, 18, OP_GET, 8 }, 10, 100);
   // test("while 1 delay 1000", (uint8_t[])
   //   { OP_WHILE, 1, OP_DELAY, 104, 15 }, 5, 1000);
-  return 0;
 }
