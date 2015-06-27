@@ -1,12 +1,11 @@
-#define OP_LOG
+//#define OP_LOG
 #include "uscript.c"
+#include <stdio.h>
 
 static inline void test(const char* description, const uint8_t* program, int32_t exp, int32_t res) {
   int32_t out;
   int32_t used = eval(program, &out) - program;
-  #ifdef OP_LOG
   printf("%s --> %d (%d/%d)\n", description, out, used, exp);
-  #endif
   assert(used == exp);
   assert(res == out);
 }
