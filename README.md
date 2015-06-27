@@ -54,14 +54,16 @@ contains 7 bits.  The least significant bits come first.
 
 - set [variable] [expression] - store value
 - get [variable] - get value
+- incr [variable] - increment variable by 1 (++i)
+- decr [variable] - decrement variable by 1 (--i)
 
 ## Control Flow
 
 - if [expression] [expression] elif [expression] [expression] else [expression]
 - match [expression] with [expression] [expression] else [expression]
 - while [expression] [expression] - conditional loop
-- do [expression]* end - create a block of multiple expressions
-- loop [expression]* end - unconditional loop
+- do [num] [expression]* - create a block of multiple expressions
+- loop [num] [expression]* - unconditional loop
 - break [expression] - exit while/loop with value
 
 ## Logic
