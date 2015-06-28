@@ -8,13 +8,14 @@ enum opcodes {
   /* control flow */
   OP_IF, OP_ELIF, OP_ELSE, OP_MATCH, OP_WHEN, OP_WHILE, OP_DO,
   /* logic (short circuit and/or) */
-  OP_NOT, OP_AND, OP_OR,
+  OP_NOT, OP_AND, OP_OR, OP_XOR,
   /* bitwise logic */
   OP_BNOT, OP_BAND, OP_BOR, OP_BXOR,
+  OP_LSHIFT, OP_RSHIFT,
   /* comparison */
-  OP_EQ, OP_NEQ, OP_GTE, OP_LT,
+  OP_EQ, OP_NEQ, OP_GTE, OP_LTE, OP_GT, OP_LT,
   /* math */
-  OP_NEG, OP_ADD, OP_SUB, OP_MUL, OP_DIV, OP_MOD, /*OP_RAND,*/
+  OP_NEG, OP_ADD, OP_SUB, OP_MUL, OP_DIV, OP_MOD,
   /* events */
   /*OP_WAIT, OP_ON, */
   /* timer */
@@ -51,17 +52,17 @@ static const uint8_t* skip(const uint8_t* pc) {
 
 
     // Opcodes that consume one expression
-    case OP_NOT: case OP_BNOT: case OP_NEG: case OP_ELSE:
-    case OP_MATCH: case OP_IF:
+    case OP_NOT: case OP_BNOT: case OP_NEG:
+    case OP_MATCH: case OP_IF: case OP_ELSE:
       return skip(pc);
 
     // Opcodes that consume two expressions
-    case OP_WHILE: case OP_AND: case OP_OR: case OP_BAND: case OP_BOR:
-    case OP_BXOR: case OP_EQ: case OP_NEQ: case OP_GTE: case OP_LT:
+    case OP_WHILE: case OP_ELIF: case OP_WHEN:
+    case OP_AND: case OP_OR: case OP_XOR:
+    case OP_BAND: case OP_BOR: case OP_BXOR: case OP_LSHIFT: case OP_RSHIFT:
+    case OP_EQ: case OP_NEQ: case OP_GTE: case OP_LTE: case OP_GT: case OP_LT:
     case OP_ADD: case OP_SUB: case OP_MUL: case OP_DIV: case OP_MOD:
-    case OP_ELIF: case OP_WHEN: {
       return skip(skip(pc));
-    }
 
   }
 
@@ -192,11 +193,6 @@ static const uint8_t* eval(const uint8_t* pc, int32_t* res) {
       return pc;
     }
 
-    //
-    // case OP_LOOP:
-    //
-    // case OP_BREAK:
-
     unop(OP_NOT, !)
     case OP_AND:
       pc = eval(pc, res);
@@ -208,15 +204,27 @@ static const uint8_t* eval(const uint8_t* pc, int32_t* res) {
       if (*res) pc = skip(pc);
       else pc = eval(pc, res);
       return pc;
+    case OP_XOR: {
+      int32_t a, b;
+      pc = eval(pc, &a);
+      pc = eval(pc, &b);
+      *res = a ? (b ? 0 : a) : (b ? b : 0);
+      return pc;
+    }
+
 
     unop(OP_BNOT, ~)
     binop(OP_BAND, &)
     binop(OP_BOR, |)
     binop(OP_BXOR, ^)
+    binop(OP_LSHIFT, <<)
+    binop(OP_RSHIFT, >>)
 
     binop(OP_EQ, ==)
     binop(OP_NEQ, !=)
     binop(OP_GTE, >=)
+    binop(OP_LTE, <=)
+    binop(OP_GT, >)
     binop(OP_LT, <)
 
     unop(OP_NEG, -)

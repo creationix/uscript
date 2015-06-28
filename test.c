@@ -45,6 +45,14 @@ int main() {
     { OP_AND, 7, OP_SET, 2, OP_NEG, 2 }, 6, -2);
   test("b", (uint8_t[])
     { OP_GET, 2}, 2, -2);
+  test("5 ^^ 0", (uint8_t[])
+    { OP_XOR, 5, 0 }, 3, 5);
+  test("0 ^^ 7", (uint8_t[])
+    { OP_XOR, 0, 7 }, 3, 7);
+  test("10 ^^ 14", (uint8_t[])
+    { OP_XOR, 10, 14 }, 3, 0);
+  test("0 ^^ 0", (uint8_t[])
+    { OP_XOR, 0, 0 }, 3, 0);
   test("~42", (uint8_t[])
     { OP_BNOT, 42 }, 2, -43);
   test("43 & 34", (uint8_t[])
