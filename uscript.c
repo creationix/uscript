@@ -1,5 +1,8 @@
 #include <stdint.h>
 
+// global variables.
+static int32_t vars[26];
+
 enum opcodes {
   /* User Programs
   OP_DEF = 128, OP_RM, OP_CALL, OP_RUN, */
@@ -30,7 +33,118 @@ enum opcodes {
   /*OP_TONE,*/
 };
 
-static int32_t vars[26];
+static const char* op_names =
+  "SET\0GET\0INCR\0DECR\0"
+  "IF\0ELIF\0ELSE\0MATCH\0WHEN\0WHILE\0DO\0"
+  "NOT\0AND\0OR\0XOR\0"
+  "BNOT\0BAND\0BOR\0BXOR\0"
+  "LSHIFT\0RSHIFT\0"
+  "EQ\0NEQ\0GTE\0LTE\0GT\0LT\0"
+  "NEG\0ADD\0SUB\0MUL\0DIV\0MOD\0\0";
+
+static const char* op_to_name(enum opcodes op) {
+  int count = op - 128;
+  const char* name = op_names;
+  while (count--) while (*name++);
+  return name;
+}
+
+static enum opcodes name_to_op(const char* name, int len) {
+  enum opcodes op = 128;
+  const char* list = op_names;
+  while (*list) {
+    int i;
+    for (i = 0; *list == name[i]; list++) {
+      if (++i == len && !*(list + 1)) return op;
+    }
+    while (*list++);
+    op++;
+  }
+  return 0;
+}
+
+static int compile(uint8_t* program) {
+  uint8_t *cc = program,
+          *pc = program;
+  while (*cc) {
+    // Skip white space
+    if (*cc == ' ' || *cc == '\n') cc++;
+
+    // Integer parsing
+    else if (*cc >= '0' && *cc <= '9') {
+
+      // Parse the decimal ascii number
+      int32_t val = 0;
+      do {
+        val = val * 10 + *cc++ - '0';
+      } while (*cc >= 0x30 && *cc < 0x40);
+
+      // Make sure it ended on a word boundary
+      if (*cc && *cc != ' ' && *cc != '\n') return program - cc - 1;
+
+      // Encode as a variable length binary integer.
+      if (val < 0x40) {
+        *pc++ = val & 0x3f;
+      }
+      else {
+        *pc++ = (val & 0x3f) | 0x40;
+        val >>= 6;
+        while (val) {
+          if (val < 0x80) {
+            *pc++ = val & 0x7f;
+            break;
+          }
+          *pc++ = (val & 0x7f) | 0x80;
+          val >>= 7;
+        }
+      }
+
+      // printf("INTEGER %d\n", val);
+    }
+
+    // Variable parsing
+    else if (*cc >= 'a' && *cc <= 'z') {
+
+      // Decode letters a-z as numbers 0-25
+      uint8_t index = *cc++ - 'a';
+
+      // Make sure it ended on a word boundary
+      // Variables must be single digit.
+      if (*cc && *cc != ' ' && *cc != '\n') return program - cc - 1;
+
+      // Encode as simple integer.
+      *pc++ = index;
+
+      // printf("VARIABLE %c\n", index + 'a');
+    }
+
+    // Opcode parsing
+    else if (*cc >= 'A' && *cc <= 'Z') {
+      // Pre-scan the opcode to get it's length
+      uint8_t *name = cc;
+      do cc++; while (*cc >= 'A' && *cc <= 'Z');
+
+      // Make sure it ended on a word boundary
+      if (*cc && *cc != ' ' && *cc != '\n') return program - cc - 1;
+
+      // Look up the string in the table
+      uint8_t op = name_to_op((const char*)name, cc - name);
+
+      // Handle non-matches
+      if (op < 128) return program - name - 1;
+
+      // Write as simple opcode integer
+      *pc++ = op;
+
+      // printf("OPCODE %s\n", op_to_name(op));
+    }
+    else {
+      // Invalid character
+      return program - cc - 1;
+    }
+  }
+  return pc - program;
+}
 
 static const uint8_t* skip(const uint8_t* pc) {
   // If the high bit is set, it's an opcode index.
@@ -211,7 +325,6 @@ static const uint8_t* eval(const uint8_t* pc, int32_t* res) {
       *res = a ? (b ? 0 : a) : (b ? b : 0);
       return pc;
     }
-
 
     unop(OP_BNOT, ~)
     binop(OP_BAND, &)

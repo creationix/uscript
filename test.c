@@ -5,135 +5,97 @@
 #include <stdio.h>
 #include <assert.h>
 
-static inline void test(const char* description, const uint8_t* program, int32_t exp, int32_t res) {
-  int32_t out;
-  int32_t used = eval(program, &out) - program;
-  printf("%s --> %d (%d/%d)\n", description, out, used, exp);
-  assert(used == exp);
-  assert(res == out);
+#define KNRM  "\x1B[0m"
+#define KRED  "\x1B[31m"
+#define KGRN  "\x1B[1;32m"
+#define KYEL  "\x1B[33m"
+#define KBLU  "\x1B[1;34m"
+#define KMAG  "\x1B[1;35m"
+#define KCYN  "\x1B[36m"
+#define KWHT  "\x1B[37m"
+
+static void test_raw(uint8_t* code, int len, int32_t answer) {
+  printf(KBLU "< ");
+  for (int i = 0; i < len; i++) {
+    printf("%02x ", code[i]);
+  }
+  printf(">" KNRM);
+  int32_t result;
+  int32_t used = eval(code, &result) - code;
+  printf(" %s(%d/%d)\n%s%d%s\n", KWHT, used, len, KYEL, result, KNRM);
+  assert(used == len);
+  assert(result == answer);
 }
 
-#if 0
-// Prints the bytes needed to encode a number.
-// Useful for creating dummy programs.
-static void dump(uint32_t i) {
-  if (i < 0x40) {
-    printf("%d\n", i & 0x3f);
-    return;
+static void test(uint8_t* code, int32_t answer) {
+  printf(KGRN "%s\n" KNRM, code);
+  int len = compile(code);
+  if ((int) len < 0) {
+    int offset = 1 - (int)len;
+    printf("Unexpected input at %d: '%s'\n", offset, code + offset);
+    assert(0);
   }
-  printf("%d, ", (i & 0x3f) | 0x40);
-  i >>= 6;
-  while (i) {
-    if (i < 0x80) {
-      printf("%d\n", i & 0x7f);
-      return;
-    }
-    printf("%d, ", (i & 0x7f) | 0x80);
-    i >>= 7;
-  }
+
+  test_raw(code, len, answer);
 }
-#endif
 
 int main() {
-  test("!42", (uint8_t[])
-    { OP_NOT, 42 }, 2, 0);
-  test("7 || (b = -2)", (uint8_t[])
-    { OP_OR, 7, OP_SET, 2, OP_NEG, 2 }, 6, 7);
-  test("b", (uint8_t[])
-    { OP_GET, 2}, 2, 0);
-  test("7 && (b = -2)", (uint8_t[])
-    { OP_AND, 7, OP_SET, 2, OP_NEG, 2 }, 6, -2);
-  test("b", (uint8_t[])
-    { OP_GET, 2}, 2, -2);
-  test("5 ^^ 0", (uint8_t[])
-    { OP_XOR, 5, 0 }, 3, 5);
-  test("0 ^^ 7", (uint8_t[])
-    { OP_XOR, 0, 7 }, 3, 7);
-  test("10 ^^ 14", (uint8_t[])
-    { OP_XOR, 10, 14 }, 3, 0);
-  test("0 ^^ 0", (uint8_t[])
-    { OP_XOR, 0, 0 }, 3, 0);
-  test("~42", (uint8_t[])
-    { OP_BNOT, 42 }, 2, -43);
-  test("43 & 34", (uint8_t[])
-    { OP_BAND, 43, 34 }, 3, 34);
-  test("43 | 34", (uint8_t[])
-    { OP_BOR, 43, 34 }, 3, 43);
-  test("43 ^ 34", (uint8_t[])
-    { OP_BXOR, 43, 34 }, 3, 9);
-  test("a = 5", (uint8_t[])
-    { OP_SET, 0, 5 }, 3, 5);
-  test("a", (uint8_t[])
-    { OP_GET, 0 }, 2, 5);
-  test("1 < 2", (uint8_t[])
-    { OP_LT, 1, 2 }, 3, 1);
-  test("1 >= 2", (uint8_t[])
-    { OP_GTE, 1, 2 }, 3, 0);
-  test("1 == 2", (uint8_t[])
-    { OP_EQ, 1, 2 }, 3, 0);
-  test("1 != 2", (uint8_t[])
-    { OP_NEQ, 1, 2 }, 3, 1);
-  test("1 + (2 * 3)", (uint8_t[])
-    { OP_ADD, 1, OP_MUL, 2, 3 }, 5, 7);
-  test("(1 - 2) * 3", (uint8_t[])
-    { OP_MUL, OP_SUB, 1, 2, 3 }, 5, -3);
-  test("10 / 3", (uint8_t[])
-    { OP_DIV, 10, 3 }, 3, 3);
-  test("10 % 3", (uint8_t[])
-    { OP_MOD, 10, 3 }, 3, 1);
-  test("10", (uint8_t[])
-    { 10 }, 1, 10);
-  test("100", (uint8_t[])
-    { 100, 1 }, 2, 100);
-  test("1000", (uint8_t[])
-    { 104, 15 }, 2, 1000);
-  test("10000", (uint8_t[])
-    { 80, 156, 1 }, 3, 10000);
-  test("100000", (uint8_t[])
-    { 96, 154, 12 }, 3, 100000);
-  test("1000000", (uint8_t[])
-    { 64, 137, 122 }, 3, 1000000);
-  test("10000000", (uint8_t[])
-    { 64, 218, 196, 9 }, 4, 10000000);
-  test("100000000", (uint8_t[])
-    { 64, 132, 175, 95 }, 4, 100000000);
-  test("1000000000", (uint8_t[])
-    { 64, 168, 214, 185, 7 }, 5, 1000000000);
-  test("-1000000000", (uint8_t[])
-    { OP_NEG, 64, 168, 214, 185, 7 }, 6, -1000000000);
-  test("if (1) 9", (uint8_t[])
-    { OP_IF, 1, 9 }, 3, 9);
-  test("if (0) 9", (uint8_t[])
-    { OP_IF, 0, 9 }, 3, 0);
-  test("if (1) 9 else 5", (uint8_t[])
-    { OP_IF, 1, 9, OP_ELSE, 5}, 5, 9);
-  test("if (0) 9 else 5", (uint8_t[])
-    { OP_IF, 0, 9, OP_ELSE, 5}, 5, 5);
-  test("if (1) 9 elif (0) 3 else 5", (uint8_t[])
-    { OP_IF, 1, 9, OP_ELIF, 0, 3, OP_ELSE, 5}, 8, 9);
-  test("if (0) 9 elif (1) 3 else 5", (uint8_t[])
-    { OP_IF, 0, 9, OP_ELIF, 1, 3, OP_ELSE, 5}, 8, 3);
-  test("match (42) with (42) 7", (uint8_t[])
-    { OP_MATCH, 42, OP_WHEN, 42, 7 }, 5, 7);
-  test("match (42) with (34) 7", (uint8_t[])
-    { OP_MATCH, 42, OP_WHEN, 34, 7 }, 5, 0);
-  test("match (42) with (34) 7 with (42) 9", (uint8_t[])
-    { OP_MATCH, 42, OP_WHEN, 34, 7, OP_WHEN, 42, 9 }, 8, 9);
-  test("match (42) with (34) 7 else 5", (uint8_t[])
-    { OP_MATCH, 42, OP_WHEN, 34, 7, OP_ELSE, 5}, 7, 5);
-  test("i = 10", (uint8_t[])
-    { OP_SET, 8, 10 }, 3, 10);
-  test("while (i) --i", (uint8_t[])
-    { OP_WHILE, OP_GET, 8, OP_DECR, 8 }, 5, 0);
-  test("s = 0", (uint8_t[])
-    { OP_SET, 18, 0 }, 3, 0);
-  test("while (i < 10) do { ++i; s = s + i; }", (uint8_t[])
-    { OP_WHILE, OP_LT, OP_GET, 8, 10, OP_DO, 2,
-        OP_INCR, 8,
-        OP_SET, 18, OP_ADD, OP_GET, 18, OP_GET, 8 }, 16, 55);
-  test("while (--i) s = s + i", (uint8_t[])
-    { OP_WHILE, OP_DECR, 8,
-        OP_SET, 18, OP_ADD, OP_GET, 18, OP_GET, 8 }, 10, 100);
-  // test("while 1 delay 1000", (uint8_t[])
-  //   { OP_WHILE, 1, OP_DELAY, 104, 15 }, 5, 1000);
+  test((uint8_t*)"NOT 42", 0);
+  test((uint8_t*)"OR 7 SET b NEG 2", 7);
+  test((uint8_t*)"GET b", 0);
+  test((uint8_t*)"AND 7 SET b NEG 2", -2);
+  test((uint8_t*)"XOR 5 0", 5);
+  test((uint8_t*)"XOR 0 7", 7);
+  test((uint8_t*)"XOR 10 14", 0);
+  test((uint8_t*)"XOR 0 0", 0);
+  test((uint8_t*)"BNOT 42", -43);
+  test((uint8_t*)"BAND 43 34", 34);
+  test((uint8_t*)"BOR 43 34", 43);
+  test((uint8_t*)"BXOR 43 34", 9);
+  test((uint8_t*)"SET a 5", 5);
+  test((uint8_t*)"GET a", 5);
+  test((uint8_t*)"LT 1 2", 1);
+  test((uint8_t*)"GTE 1 2", 0);
+  test((uint8_t*)"EQ 1 2", 0);
+  test((uint8_t*)"NEQ 1 2", 1);
+  test((uint8_t*)"ADD 1 MUL 2 3", 7);
+  test((uint8_t*)"MUL SUB 1 2 3", -3);
+  test((uint8_t*)"DIV 10 3", 3);
+  test((uint8_t*)"MOD 10 3", 1);
+  test((uint8_t*)"1", 1);
+  test((uint8_t*)"10", 10);
+  test((uint8_t*)"100", 100);
+  test((uint8_t*)"1000", 1000);
+  test((uint8_t*)"10000", 10000);
+  test((uint8_t*)"100000", 100000);
+  test((uint8_t*)"1000000", 1000000);
+  test((uint8_t*)"10000000", 10000000);
+  test((uint8_t*)"100000000", 100000000);
+  test((uint8_t*)"1000000000", 1000000000);
+  test((uint8_t*)"NEG 1000000000", -1000000000);
+  test((uint8_t*)"IF 1 9", 9);
+  test((uint8_t*)"IF 0 9", 0);
+  test((uint8_t*)"IF 11 9 ELSE 5", 9);
+  test((uint8_t*)"IF 0 9 ELSE 5", 5);
+  test((uint8_t*)"IF 14 9 ELIF 0 3 ELSE 5", 9);
+  test((uint8_t*)"IF 0 9 ELIF 0 3 ELSE 5", 5);
+  test((uint8_t*)"IF 0 9 ELIF 1 3 ELSE 5", 3);
+  test((uint8_t*)"IF 0 9 ELIF 1 3", 3);
+  test((uint8_t*)"MATCH 42 WHEN 42 7", 7);
+  test((uint8_t*)"MATCH 42 WHEN 34 7", 0);
+  test((uint8_t*)"MATCH 42 WHEN 34 7 WHEN 42 9", 9);
+  test((uint8_t*)"MATCH 42 WHEN 34 7 ELSE 5", 5);
+  test((uint8_t*)"SET i 10", 10);
+  test((uint8_t*)"WHILE GET i DECR i", 0);
+  test((uint8_t*)"SET s 0", 0);
+  test((uint8_t*)
+    "DO 2\n"
+    "  SET i 0\n"
+    "  SET s 0\n", 0);
+  test((uint8_t*)
+    "WHILE LT GET i 10 DO 2\n"
+    "  INCR i\n"
+    "  SET s ADD GET s GET i", 55);
+  test((uint8_t*)"WHILE DECR i SET s ADD GET s GET i", 100);
+
 }
