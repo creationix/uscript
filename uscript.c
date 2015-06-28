@@ -1,5 +1,7 @@
 #include <stdint.h>
 
+// #define ARDUINO
+
 // global variables.
 static int32_t vars[26];
 
@@ -21,10 +23,12 @@ enum opcodes {
   OP_NEG, OP_ADD, OP_SUB, OP_MUL, OP_DIV, OP_MOD,
   /* events */
   /*OP_WAIT, OP_ON, */
+#ifdef ARDUINO
   /* timer */
-  /*OP_DELAY, OP_TIMER, */
+  OP_DELAY, /*OP_TIMER, */
   /* io */
-  /*OP_PM, OP_DW, OP_PW, OP_DR, OP_AR,*/
+  OP_PM, OP_DW, OP_PW, OP_DR, OP_AR,
+#endif
   /* neopixel */
   /*OP_NP, OP_NPW, OP_RGB, OP_HSV, OP_HCL, OP_UPDATE, */
   /* servo */
@@ -40,7 +44,13 @@ static const char* op_names =
   "BNOT\0BAND\0BOR\0BXOR\0"
   "LSHIFT\0RSHIFT\0"
   "EQ\0NEQ\0GTE\0LTE\0GT\0LT\0"
-  "NEG\0ADD\0SUB\0MUL\0DIV\0MOD\0\0";
+  "NEG\0ADD\0SUB\0MUL\0DIV\0MOD\0"
+#ifdef ARDUINO
+  "DELAY\0"
+  "PM\0DW\0PW\0DR\0AR\0"
+#endif
+  "\0"
+;
 
 static const char* op_to_name(enum opcodes op) {
   int count = op - 128;
@@ -49,8 +59,8 @@ static const char* op_to_name(enum opcodes op) {
   return name;
 }
 
-static enum opcodes name_to_op(const char* name, int len) {
-  enum opcodes op = 128;
+static int name_to_op(const char* name, int len) {
+  int op = 128;
   const char* list = op_names;
   while (*list) {
     int i;
@@ -128,7 +138,7 @@ static int compile(uint8_t* program) {
       if (*cc && *cc != ' ' && *cc != '\n') return program - cc - 1;
 
       // Look up the string in the table
-      uint8_t op = name_to_op((const char*)name, cc - name);
+      uint8_t op = name_to_op((char*)name, cc - name);
 
       // Handle non-matches
       if (op < 128) return program - name - 1;
@@ -146,7 +156,7 @@ static int compile(uint8_t* program) {
   return pc - program;
 }
 
-static const uint8_t* skip(const uint8_t* pc) {
+static uint8_t* skip(uint8_t* pc) {
   // If the high bit is set, it's an opcode index.
   if (*pc & 0x80) switch ((enum opcodes)*pc++) {
 
@@ -206,7 +216,7 @@ static const uint8_t* skip(const uint8_t* pc) {
     return pc; \
   }
 
-static const uint8_t* eval(const uint8_t* pc, int32_t* res) {
+static uint8_t* eval(uint8_t* pc, int32_t* res) {
 
   // If the high bit is set, it's an opcode index.
   if (*pc & 0x80) switch ((enum opcodes)*pc++) {
@@ -291,7 +301,7 @@ static const uint8_t* eval(const uint8_t* pc, int32_t* res) {
     }
 
     case OP_WHILE: {
-      const uint8_t* c = pc;
+      uint8_t* c = pc;
       int32_t cond;
       *res = 0;
       while (pc = eval(c, &cond), cond) {
