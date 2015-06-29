@@ -1,6 +1,10 @@
 #include <stdint.h>
 
-#define ARDUINO
+// #define ARDUINO
+
+#ifdef ARDUINO
+#include "Arduino.h"
+#endif
 
 // global variables.
 static int32_t vars[26];
@@ -115,6 +119,14 @@ static int compile(uint8_t* program) {
     // Variable parsing
     else if (*cc >= 'a' && *cc <= 'z') {
 
+      #ifdef ARDUINO
+        if (*cc == 'a' && *(cc + 1) >= '0' && *(cc + 1) <= '9') {
+          cc++;
+          *pc++ = *cc++ - '0' + A0;
+          if (*cc && *cc != ' ' && *cc != '\n') return program - cc - 1;
+          continue;
+        }
+      #endif
       // Decode letters a-z as numbers 0-25
       uint8_t index = *cc++ - 'a';
 
@@ -367,11 +379,11 @@ static uint8_t* eval(uint8_t* pc, int32_t* res) {
 
     case OP_DELAY:
       pc = eval(pc, res);
-      delay(res);
+      delay(*res);
       return pc;
 
     case OP_PM: {
-      int pin;
+      int32_t pin;
       pc = eval(pc, &pin);
       pc = eval(pc, res);
       pinMode(pin, *res);
@@ -379,7 +391,7 @@ static uint8_t* eval(uint8_t* pc, int32_t* res) {
     }
 
     case OP_DW: {
-      int pin;
+      int32_t pin;
       pc = eval(pc, &pin);
       pc = eval(pc, res);
       digitalWrite(pin, *res);
@@ -387,7 +399,7 @@ static uint8_t* eval(uint8_t* pc, int32_t* res) {
     }
 
     case OP_AW: {
-      int pin;
+      int32_t pin;
       pc = eval(pc, &pin);
       pc = eval(pc, res);
       analogWrite(pin, *res);
@@ -395,14 +407,14 @@ static uint8_t* eval(uint8_t* pc, int32_t* res) {
     }
 
     case OP_DR: {
-      int pin;
+      int32_t pin;
       pc = eval(pc, &pin);
       *res = digitalRead(pin);
       return pc;
     }
 
     case OP_AR: {
-      int pin;
+      int32_t pin;
       pc = eval(pc, &pin);
       *res = analogRead(pin);
       return pc;

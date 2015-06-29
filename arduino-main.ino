@@ -1,3 +1,7 @@
+#define ARDUINO
+#define MAX_LEN 140
+
+
 #include "uscript.c"
 
 
@@ -6,7 +10,6 @@ void setup() {
   Serial.print("> ");
 }
 
-#define MAX_LEN 140
 static uint8_t line[MAX_LEN + 1];
 int offset = 0;
 
@@ -18,7 +21,7 @@ void loop() {
       line[offset++] = c;
       Serial.write(c);
     }
-    else if (c == 127 or c == 8) {
+    else if (offset > 0 && (c == 127 or c == 8)) {
       line[--offset] = 0;
       Serial.write("\x08 \x08");
     }
