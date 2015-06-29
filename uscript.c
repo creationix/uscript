@@ -1,6 +1,6 @@
 #include <stdint.h>
 
-// #define ARDUINO
+#define ARDUINO
 
 // global variables.
 static int32_t vars[26];
@@ -27,7 +27,7 @@ enum opcodes {
   /* timer */
   OP_DELAY, /*OP_TIMER, */
   /* io */
-  OP_PM, OP_DW, OP_PW, OP_DR, OP_AR,
+  OP_PM, OP_DW, OP_AW, OP_DR, OP_AR,
 #endif
   /* neopixel */
   /*OP_NP, OP_NPW, OP_RGB, OP_HSV, OP_HCL, OP_UPDATE, */
@@ -47,7 +47,7 @@ static const char* op_names =
   "NEG\0ADD\0SUB\0MUL\0DIV\0MOD\0"
 #ifdef ARDUINO
   "DELAY\0"
-  "PM\0DW\0PW\0DR\0AR\0"
+  "PM\0DW\0AW\0DR\0AR\0"
 #endif
   "\0"
 ;
@@ -178,6 +178,9 @@ static uint8_t* skip(uint8_t* pc) {
     // Opcodes that consume one expression
     case OP_NOT: case OP_BNOT: case OP_NEG:
     case OP_MATCH: case OP_IF: case OP_ELSE:
+    #ifdef ARDUINO
+    case OP_DELAY: case OP_DR: case OP_AR:
+    #endif
       return skip(pc);
 
     // Opcodes that consume two expressions
@@ -186,6 +189,9 @@ static uint8_t* skip(uint8_t* pc) {
     case OP_BAND: case OP_BOR: case OP_BXOR: case OP_LSHIFT: case OP_RSHIFT:
     case OP_EQ: case OP_NEQ: case OP_GTE: case OP_LTE: case OP_GT: case OP_LT:
     case OP_ADD: case OP_SUB: case OP_MUL: case OP_DIV: case OP_MOD:
+    #ifdef ARDUINO
+    case OP_PM: case OP_DW: case OP_AW:
+    #endif
       return skip(skip(pc));
 
   }
@@ -356,6 +362,53 @@ static uint8_t* eval(uint8_t* pc, int32_t* res) {
     binop(OP_MUL, *)
     binop(OP_DIV, /)
     binop(OP_MOD, %)
+
+    #ifdef ARDUINO
+
+    case OP_DELAY:
+      pc = eval(pc, res);
+      delay(res);
+      return pc;
+
+    case OP_PM: {
+      int pin;
+      pc = eval(pc, &pin);
+      pc = eval(pc, res);
+      pinMode(pin, *res);
+      return pc;
+    }
+
+    case OP_DW: {
+      int pin;
+      pc = eval(pc, &pin);
+      pc = eval(pc, res);
+      digitalWrite(pin, *res);
+      return pc;
+    }
+
+    case OP_AW: {
+      int pin;
+      pc = eval(pc, &pin);
+      pc = eval(pc, res);
+      analogWrite(pin, *res);
+      return pc;
+    }
+
+    case OP_DR: {
+      int pin;
+      pc = eval(pc, &pin);
+      *res = digitalRead(pin);
+      return pc;
+    }
+
+    case OP_AR: {
+      int pin;
+      pc = eval(pc, &pin);
+      *res = analogRead(pin);
+      return pc;
+    }
+
+    #endif
 
   }
 
