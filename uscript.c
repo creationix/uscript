@@ -22,8 +22,7 @@ enum opcodes {
   /* logic (short circuit and/or) */
   OP_NOT, OP_AND, OP_OR, OP_XOR,
   /* bitwise logic */
-  OP_BNOT, OP_BAND, OP_BOR, OP_BXOR,
-  OP_LSHIFT, OP_RSHIFT,
+  OP_BNOT, OP_BAND, OP_BOR, OP_BXOR, OP_LSHIFT, OP_RSHIFT,
   /* comparison */
   OP_EQ, OP_NEQ, OP_GTE, OP_LTE, OP_GT, OP_LT,
   /* math */

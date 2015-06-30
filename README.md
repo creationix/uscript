@@ -32,149 +32,88 @@ The remaining 7 bits and all 8 bits in each digit after that consist of a more
 bit and data bits.  The first byte contains 6 bits of data and each after that
 contains 7 bits.  The least significant bits come first.
 
-## User Code
-
-- def [name] [expression] - define function
-- rm [name] - delete function
-- call [name] - call function (blocking) (proper tail call support)
-- run [name] - put function in event queue (non-blocking)
-- return [expression] - exit function early with value
-
-## Events
-
-- wait [expression] - wait for expression to be 1 (blocking)
-- on [expression] [name] - call function when expression is 1 (non-blocking)
-
-## Timers
-
-- delay [expression] - delay for ms (blocking)
-- timer [expression] [name] - run function after ms (non-blocking)
-
 ## Variables
 
-- set [variable] [expression] - store value
-- get [variable] - get value
-- incr [variable] - increment variable by 1 (++i)
-- decr [variable] - decrement variable by 1 (--i)
+- SET [variable] [expression] - store value
+- GET [variable] - get value
+- INCR [variable] [expression] - increment variable by expression
+- DECR [variable] [expression] - decrement variable by expression
 
 ## Control Flow
 
-- if [expression] [expression] elif [expression] [expression] else [expression]
-- match [expression] with [expression] [expression] else [expression]
-- while [expression] [expression] - conditional loop
-- do [num] [expression]* - create a block of multiple expressions
-- loop [num] [expression]* - unconditional loop
-- break [expression] - exit while/loop with value
+- IF [expression] [expression] ELIF [expression] [expression] ELSE [expression]
+- MATCH [expression] WHEN [expression] [expression] ELSE [expression]
+- WHILE [expression] [expression] - conditional loop
+- DO [num] [expression]* - create a block of multiple expressions
+- FOR [variable] [expression] [expression] [expression] - Iterate variable from
+   first expression to second expression evaluating third expression every time.
 
 ## Logic
 
-- not [expression] - logical not
-- and [expression] [expression] - logical and with short-circuit and value preservation
-- or  [expression] [expression] - logical or with short-circuit and value preservation
-- xor [expression] [expression] - logical exclusive or
+- NOT [expression] - logical not
+- AND [expression] [expression] - logical and with short-circuit and value preservation
+- OR  [expression] [expression] - logical or with short-circuit and value preservation
+- XOR [expression] [expression] - logical exclusive or
+
+## Bitwise Operations
+
+- BNOT   [expression] - bitwise not
+- BAND   [expression] [expression] - bitwise and
+- BOR    [expression] [expression] - bitwise or
+- BXOR   [expression] [expression] - bitwise exclusive or
+- LSHIFT [expression] [expression] - left shift
+- RSHIFT [expression] [expression] - right shift
 
 ## Comparison
 
-- eq  [expression] [expression] - equal
-- neq [expression] [expression] - not equal
-- gte [expression] [expression] - greater than or equal
-- lt  [expression] [expression] - less than
+- EQ  [expression] [expression] - equal
+- NEQ [expression] [expression] - not equal
+- GTE [expression] [expression] - greater than or equal
+- LTE [expression] [expression] - less than or equal
+- GT  [expression] [expression] - greater than
+- LT  [expression] [expression] - less than
 
 ## Arithmetic
 
-- neg [expression] - negate value
-- add [expression] [expression] - add
-- sub [expression] [expression] - subtract
-- mul [expression] [expression] - multiply
-- div [expression] [expression] - divide
-- mod [expression] [expression] - mod
+- NEG [expression] - negate value
+- ADD [expression] [expression] - add
+- SUB [expression] [expression] - subtract
+- MUL [expression] [expression] - multiply
+- DIV [expression] [expression] - integer divide
+- MOD [expression] [expression] - modulus
 
-## Random Library
+## Misc
 
- - rand [expression] - Random number between 0 and val - 1
+- DELAY [expression] - Pause VM for specified number of ms.
 
-## Pin Library
+## Wireing
 
-- pm [pin] [expression] - pin mode
-- dw [pin] [expression] - digital write
-- pw [pin] [expression] - pwm write
-- dr [pin] - digital read
-- ar [pin] - analog read
+Currently only works for microcontrollers, but soon raspberry pi too.
 
-## Neopixel Library
-
- - np [pin] [num] - setup neopixel strip
- - npw [pin] [idx] [rgb] - set red/green/blue pixel from r << 16 | g << 8 | b
- - rgb [r] [g] [b] - combine red/green/blue into rgb integer
- - hsv [h] [s] [v] - convert hue/saturation/value to rgb
- - hcl [h] [c] [l] - convert luma/chroma/hue pixel to rgb
- - update [pin] - send update
-
-
-## Servo Library
-
- - servo [pin] [duty] [freq] - Setup servo
- - move [pin] [duty] - update duty cycle
-
-## Tone library
-
- - tone [pin] [freq] [duration]
-
-# Misc
+- PM [expression] [expression] - pinMode
+- DW [expression] [expression] - digitalWrite
+- AW [expression] [expression] - analogWrite
+- DR [expression] - digitalRead
+- AR [expression] - analogRead
 
 ## Constraints
 
- - 26 local variables a-z containing 32-bit signed integers
- - name -> index -> offset - user function mapping (use index in ast)
- - enum -> index - builtin function mapping (modules are ifdef blocks)
+ - 26 local variables a-z containing 32-bit signed integers (64-bit on desktop builds.)
 
 ## Constants
 
- - T / ON / OUT - constants for 1
- - F / OFF / IN - constants for 0
+ - a0, a1, aN in arduino mode for specifying analog pins.
 
 ## Assembly Syntax
 
 Here is a sample program that toggles pin 13 every second:
 
-```uscript
-; define a function that toggles pin 13
-func t13
-  dw 13
-    not dr 13
-
-; set pin 13 to output mode
-pm 13 OUT
-; run the t13 code every 1000 ms
-start 1000 t13
+```uscript-asm
+PM 13 1
+WHILE 1
+  DW NOT DR 13
+  DELAY 1000
 ```
-
-## Binary Format
-
-
-
-```
-[func] [t13] [dw] 13 [not] [dr] 13 [pm] 13 OUT [start] 1000 [t13]
-```
-
-## Watch expressions
-
-The `wait` and `on` statements accept an expression and wait for it to be 1.
-This is done without resorting to busy-poll by doing a dependency graph analysis
-and getting all the possible changeable state that could affect the expression.
-This includes pins, variables, and functions.
-
-Pins will busy-poll under the hood (once per active pin) if the hardware doesn't
-support interrupts.  On top of this abstraction, they will appear event based.
-
-Variables will have hooks in the code on set to be event based.
-
-Functions will have hooks in function definition and deletion.  Also function
-contents will be scanned recursively for state dependencies. The graph will be
-re-calculated if a function is modified.
-
-It's best to not use functions that have side-effects in this expression as
-they will be called whenever a change happens and the result needs to be tested.
 
 [bitlash]: http://bitlash.net/
 [web assembly]: https://github.com/WebAssembly/design/blob/master/README.md
