@@ -1,5 +1,6 @@
 #include "uscript.c"
 #include <stdio.h>
+#include <stdlib.h>
 
 #define KNRM  "\x1B[0m"
 #define KRED  "\x1B[1;31m"
@@ -10,10 +11,9 @@
 #define KCYN  "\x1B[36m"
 #define KWHT  "\x1B[37m"
 
-
 int main() {
-  uint8_t* line;
-  size_t size;
+  uint8_t* line = NULL;
+  size_t size = 0;
   while (1) {
     printf(KNRM "> " KGRN);
     if (getline((char**)&line, &size, stdin) < 0) return 0;
@@ -26,11 +26,10 @@ int main() {
       printf("Unexpected input\n" KNRM);
       continue;
     }
-    while (len > 0) {
+    uint8_t* program = line;
+    while (program - line < len) {
       int32_t result;
-      uint8_t* end = eval(line, &result);
-      len -= end - line;
-      line = end;
+      program = eval(program, &result);
       printf("%s%d%s\n", KBLU, result, KNRM);
     }
   }

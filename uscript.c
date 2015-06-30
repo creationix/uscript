@@ -4,6 +4,8 @@
 
 #ifdef ARDUINO
 #include "Arduino.h"
+#else
+#include <unistd.h>
 #endif
 
 // global variables.
@@ -27,9 +29,9 @@ enum opcodes {
   OP_NEG, OP_ADD, OP_SUB, OP_MUL, OP_DIV, OP_MOD,
   /* events */
   /*OP_WAIT, OP_ON, */
-#ifdef ARDUINO
   /* timer */
   OP_DELAY, /*OP_TIMER, */
+#ifdef ARDUINO
   /* io */
   OP_PM, OP_DW, OP_AW, OP_DR, OP_AR,
 #endif
@@ -49,14 +51,14 @@ static const char* op_names =
   "LSHIFT\0RSHIFT\0"
   "EQ\0NEQ\0GTE\0LTE\0GT\0LT\0"
   "NEG\0ADD\0SUB\0MUL\0DIV\0MOD\0"
-#ifdef ARDUINO
   "DELAY\0"
+#ifdef ARDUINO
   "PM\0DW\0AW\0DR\0AR\0"
 #endif
   "\0"
 ;
 
-static const char* op_to_name(enum opcodes op) {
+const char* op_to_name(enum opcodes op) {
   int count = op - 128;
   const char* name = op_names;
   while (count--) while (*name++);
@@ -77,7 +79,7 @@ static int name_to_op(const char* name, int len) {
   return 0;
 }
 
-static int compile(uint8_t* program) {
+int compile(uint8_t* program) {
   uint8_t *cc = program,
           *pc = program;
   while (*cc) {
@@ -127,12 +129,13 @@ static int compile(uint8_t* program) {
           continue;
         }
       #endif
+
       // Decode letters a-z as numbers 0-25
       uint8_t index = *cc++ - 'a';
 
       // Make sure it ended on a word boundary
       // Variables must be single digit.
-      if (*cc && *cc != ' ' && *cc != '\n') return program - cc - 1;
+      if (*cc && *cc != ' ' && *cc != '\n') return program - cc;
 
       // Encode as simple integer.
       *pc++ = index;
@@ -190,8 +193,9 @@ static uint8_t* skip(uint8_t* pc) {
     // Opcodes that consume one expression
     case OP_NOT: case OP_BNOT: case OP_NEG:
     case OP_MATCH: case OP_IF: case OP_ELSE:
+    case OP_DELAY:
     #ifdef ARDUINO
-    case OP_DELAY: case OP_DR: case OP_AR:
+    case OP_DR: case OP_AR:
     #endif
       return skip(pc);
 
@@ -234,7 +238,7 @@ static uint8_t* skip(uint8_t* pc) {
     return pc; \
   }
 
-static uint8_t* eval(uint8_t* pc, int32_t* res) {
+uint8_t* eval(uint8_t* pc, int32_t* res) {
 
   // If the high bit is set, it's an opcode index.
   if (*pc & 0x80) switch ((enum opcodes)*pc++) {
@@ -375,7 +379,14 @@ static uint8_t* eval(uint8_t* pc, int32_t* res) {
     binop(OP_DIV, /)
     binop(OP_MOD, %)
 
-    #ifdef ARDUINO
+    #ifndef ARDUINO
+
+    case OP_DELAY:
+      pc = eval(pc, res);
+      usleep(*res * 1000);
+      return pc;
+
+    #else
 
     case OP_DELAY:
       pc = eval(pc, res);
