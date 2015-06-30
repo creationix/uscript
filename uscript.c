@@ -1,7 +1,7 @@
 #include <stdint.h>
 
 // #define ARDUINO
-// #include "rpi-ui.c"
+// #include "rpi-io.c"
 
 #ifdef ARDUINO
   #include "Arduino.h"
