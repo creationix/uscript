@@ -467,7 +467,7 @@ uint8_t* eval(uint8_t* pc, var* res) {
       pc = eval(pc, &pin);
       pc = eval(pc, res);
       INP_GPIO(pin);
-      if (res) OUT_GPIO(pin);
+      if (*res) OUT_GPIO(pin);
       return pc;
     }
 
@@ -475,7 +475,7 @@ uint8_t* eval(uint8_t* pc, var* res) {
       var pin;
       pc = eval(pc, &pin);
       pc = eval(pc, res);
-      if (res) GPIO_SET = 1 << pin;
+      if (*res) GPIO_SET = 1 << pin;
       else GPIO_CLR = 1 << pin;
       return pc;
     }
