@@ -16,7 +16,10 @@ int main() {
   size_t size = 0;
   while (1) {
     printf(KNRM "> " KGRN);
-    if (getline((char**)&line, &size, stdin) < 0) return 0;
+    if (getline((char**)&line, &size, stdin) < 0) {
+      printf(KNRM "\n");
+      return 0;
+    }
     printf(KNRM);
     int len = compile(line);
     if ((int) len < 0) {
