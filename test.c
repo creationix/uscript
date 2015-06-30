@@ -86,7 +86,7 @@ int main() {
   test((uint8_t*)"MATCH 42 WHEN 34 7 WHEN 42 9", 9);
   test((uint8_t*)"MATCH 42 WHEN 34 7 ELSE 5", 5);
   test((uint8_t*)"SET i 10", 10);
-  test((uint8_t*)"WHILE GET i DECR i", 0);
+  test((uint8_t*)"WHILE GET i DECR i 1", 0);
   test((uint8_t*)"SET s 0", 0);
   test((uint8_t*)
     "DO 2\n"
@@ -94,8 +94,8 @@ int main() {
     "  SET s 0\n", 0);
   test((uint8_t*)
     "WHILE LT GET i 10 DO 2\n"
-    "  INCR i\n"
+    "  INCR i 1\n"
     "  SET s ADD GET s GET i", 55);
-  test((uint8_t*)"WHILE DECR i SET s ADD GET s GET i", 100);
-
+  test((uint8_t*)"WHILE DECR i 1 SET s ADD GET s GET i", 100);
+  test((uint8_t*)"FOR i 1 10 INCR s GET i", 155);
 }

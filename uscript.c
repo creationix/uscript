@@ -17,7 +17,7 @@ enum opcodes {
   /* variables */
   OP_SET = 128, OP_GET, OP_INCR, OP_DECR,
   /* control flow */
-  OP_IF, OP_ELIF, OP_ELSE, OP_MATCH, OP_WHEN, OP_WHILE, OP_DO,
+  OP_IF, OP_ELIF, OP_ELSE, OP_MATCH, OP_WHEN, OP_WHILE, OP_DO, OP_FOR,
   /* logic (short circuit and/or) */
   OP_NOT, OP_AND, OP_OR, OP_XOR,
   /* bitwise logic */
@@ -45,7 +45,7 @@ enum opcodes {
 
 static const char* op_names =
   "SET\0GET\0INCR\0DECR\0"
-  "IF\0ELIF\0ELSE\0MATCH\0WHEN\0WHILE\0DO\0"
+  "IF\0ELIF\0ELSE\0MATCH\0WHEN\0WHILE\0DO\0FOR\0"
   "NOT\0AND\0OR\0XOR\0"
   "BNOT\0BAND\0BOR\0BXOR\0"
   "LSHIFT\0RSHIFT\0"
@@ -183,11 +183,16 @@ static uint8_t* skip(uint8_t* pc) {
     }
 
     // Opcodes that consume one opcode
-    case OP_GET: case OP_INCR: case OP_DECR:
+    case OP_GET:
       return pc + 1;
 
     // Opcodes that consume one opcode and one expression
-    case OP_SET: return skip(pc + 1);
+    case OP_SET: case OP_INCR: case OP_DECR:
+      return skip(pc + 1);
+
+    // Opcodes that consume one opcode and three expressions
+    case OP_FOR:
+      return skip(skip(skip(pc + 1)));
 
 
     // Opcodes that consume one expression
@@ -209,6 +214,7 @@ static uint8_t* skip(uint8_t* pc) {
     case OP_PM: case OP_DW: case OP_AW:
     #endif
       return skip(skip(pc));
+
 
   }
 
@@ -256,13 +262,21 @@ uint8_t* eval(uint8_t* pc, int32_t* res) {
       *res = vars[*pc];
       return pc + 1;
 
-    case OP_INCR:
-      *res = ++vars[*pc];
-      return pc + 1;
+    case OP_INCR: {
+      int32_t step;
+      uint8_t idx = *pc++;
+      pc = eval(pc, &step);
+      *res = vars[idx] += step;
+      return pc;
+    }
 
-    case OP_DECR:
-      *res = --vars[*pc];
-      return pc + 1;
+    case OP_DECR: {
+      int32_t step;
+      uint8_t idx = *pc++;
+      pc = eval(pc, &step);
+      *res = vars[idx] -= step;
+      return pc;
+    }
 
     case OP_IF: {
       int32_t cond;
@@ -336,6 +350,20 @@ uint8_t* eval(uint8_t* pc, int32_t* res) {
       uint8_t count = *pc++;
       *res = 0;
       while (count--) pc = eval(pc, res);
+      return pc;
+    }
+
+    case OP_FOR: {
+      uint8_t idx = *pc++;
+      int32_t start, end;
+      pc = eval(pc, &start);
+      pc = eval(pc, &end);
+      uint8_t* body = pc;
+      *res = 0;
+      while (start <= end) {
+        vars[idx] = start++;
+        pc = eval(body, res);
+      }
       return pc;
     }
 
