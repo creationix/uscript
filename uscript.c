@@ -12,8 +12,6 @@
 static int32_t vars[26];
 
 enum opcodes {
-  /* User Programs
-  OP_DEF = 128, OP_RM, OP_CALL, OP_RUN, */
   /* variables */
   OP_SET = 128, OP_GET, OP_INCR, OP_DECR,
   /* control flow */
@@ -27,20 +25,16 @@ enum opcodes {
   OP_EQ, OP_NEQ, OP_GTE, OP_LTE, OP_GT, OP_LT,
   /* math */
   OP_NEG, OP_ADD, OP_SUB, OP_MUL, OP_DIV, OP_MOD,
-  /* events */
-  /*OP_WAIT, OP_ON, */
   /* timer */
-  OP_DELAY, /*OP_TIMER, */
+  OP_DELAY,
 #ifdef ARDUINO
   /* io */
   OP_PM, OP_DW, OP_AW, OP_DR, OP_AR,
 #endif
-  /* neopixel */
-  /*OP_NP, OP_NPW, OP_RGB, OP_HSV, OP_HCL, OP_UPDATE, */
-  /* servo */
-  /*OP_SERVO, OP_MOVE, */
-  /* tone */
-  /*OP_TONE,*/
+  /* User Programs
+  OP_DEF = 128, OP_RM, OP_CALL, OP_RUN, */
+  /* events */
+  /* OP_TIMER, OP_ON, */
 };
 
 static const char* op_names =
