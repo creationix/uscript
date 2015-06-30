@@ -1,15 +1,19 @@
 #include <stdint.h>
 
 // #define ARDUINO
+// #include "rpi-ui.c"
 
 #ifdef ARDUINO
-#include "Arduino.h"
-#define var int32_t
+  #include "Arduino.h"
+  #define var int32_t
+  #define OP_WIREING
 #else
-#include <unistd.h>
-#define var int64_t
+  #include <unistd.h>
+  #define var int64_t
+  #ifdef BCM2708_PERI_BASE
+    #define OP_WIREING
+  #endif
 #endif
-
 
 // global variables.
 static var vars[26];
@@ -29,10 +33,10 @@ enum opcodes {
   OP_NEG, OP_ADD, OP_SUB, OP_MUL, OP_DIV, OP_MOD,
   /* timer */
   OP_DELAY,
-#ifdef ARDUINO
+  #ifdef OP_WIREING
   /* io */
   OP_PM, OP_DW, OP_AW, OP_DR, OP_AR,
-#endif
+  #endif
   /* User Programs
   OP_DEF = 128, OP_RM, OP_CALL, OP_RUN, */
   /* events */
@@ -48,9 +52,9 @@ static const char* op_names =
   "EQ\0NEQ\0GTE\0LTE\0GT\0LT\0"
   "NEG\0ADD\0SUB\0MUL\0DIV\0MOD\0"
   "DELAY\0"
-#ifdef ARDUINO
+  #ifdef OP_WIREING
   "PM\0DW\0AW\0DR\0AR\0"
-#endif
+  #endif
   "\0"
 ;
 
@@ -195,7 +199,7 @@ static uint8_t* skip(uint8_t* pc) {
     case OP_NOT: case OP_BNOT: case OP_NEG:
     case OP_MATCH: case OP_IF: case OP_ELSE:
     case OP_DELAY:
-    #ifdef ARDUINO
+    #ifdef OP_WIREING
     case OP_DR: case OP_AR:
     #endif
       return skip(pc);
@@ -206,7 +210,7 @@ static uint8_t* skip(uint8_t* pc) {
     case OP_BAND: case OP_BOR: case OP_BXOR: case OP_LSHIFT: case OP_RSHIFT:
     case OP_EQ: case OP_NEQ: case OP_GTE: case OP_LTE: case OP_GT: case OP_LT:
     case OP_ADD: case OP_SUB: case OP_MUL: case OP_DIV: case OP_MOD:
-    #ifdef ARDUINO
+    #ifdef OP_WIREING
     case OP_PM: case OP_DW: case OP_AW:
     #endif
       return skip(skip(pc));
@@ -452,6 +456,50 @@ uint8_t* eval(uint8_t* pc, var* res) {
       var pin;
       pc = eval(pc, &pin);
       *res = analogRead(pin);
+      return pc;
+    }
+
+    #endif
+    #ifdef BCM2708_PERI_BASE
+
+    case OP_PM: {
+      var pin;
+      pc = eval(pc, &pin);
+      pc = eval(pc, res);
+      INP_GPIO(pin);
+      if (res) OUT_GPIO(pin);
+      return pc;
+    }
+
+    case OP_DW: {
+      var pin;
+      pc = eval(pc, &pin);
+      pc = eval(pc, res);
+      if (res) GPIO_SET = 1 << pin;
+      else GPIO_CLR = 1 << pin;
+      return pc;
+    }
+
+    case OP_AW: {
+      var pin;
+      pc = eval(pc, &pin);
+      pc = eval(pc, res);
+      // TODO: pwm write somehow?
+      return pc;
+    }
+
+    case OP_DR: {
+      var pin;
+      pc = eval(pc, &pin);
+      *res = !!GET_GPIO(pin);
+      return pc;
+    }
+
+    case OP_AR: {
+      var pin;
+      pc = eval(pc, &pin);
+      // TODO: there are no analog inputs right?
+      *res = 0;
       return pc;
     }
 

@@ -1,6 +1,5 @@
-#define ARDUINO
-#define MAX_LEN 140
 
+#define MAX_LEN 140
 
 #include "uscript.c"
 

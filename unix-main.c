@@ -12,6 +12,9 @@
 #define KWHT  "\x1B[37m"
 
 int main() {
+  #ifdef BCM2708_PERI_BASE
+  setup_io();
+  #endif
   uint8_t* line = NULL;
   size_t size = 0;
   while (1) {
