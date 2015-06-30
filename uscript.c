@@ -9,6 +9,7 @@
   #define OP_WIREING
 #else
   #include <unistd.h>
+  #include <stdlib.h>
   #define var int64_t
   #ifdef BCM2708_PERI_BASE
     #define OP_WIREING
@@ -31,8 +32,8 @@ enum opcodes {
   OP_EQ, OP_NEQ, OP_GTE, OP_LTE, OP_GT, OP_LT,
   /* math */
   OP_NEG, OP_ADD, OP_SUB, OP_MUL, OP_DIV, OP_MOD,
-  /* timer */
-  OP_DELAY,
+  /* misc */
+  OP_DELAY, OP_RAND,
   #ifdef OP_WIREING
   /* io */
   OP_PM, OP_DW, OP_AW, OP_DR, OP_AR,
@@ -51,7 +52,7 @@ static const char* op_names =
   "LSHIFT\0RSHIFT\0"
   "EQ\0NEQ\0GTE\0LTE\0GT\0LT\0"
   "NEG\0ADD\0SUB\0MUL\0DIV\0MOD\0"
-  "DELAY\0"
+  "DELAY\0RAND\0"
   #ifdef OP_WIREING
   "PM\0DW\0AW\0DR\0AR\0"
   #endif
@@ -198,7 +199,7 @@ static uint8_t* skip(uint8_t* pc) {
     // Opcodes that consume one expression
     case OP_NOT: case OP_BNOT: case OP_NEG:
     case OP_MATCH: case OP_IF: case OP_ELSE:
-    case OP_DELAY:
+    case OP_DELAY: case OP_RAND:
     #ifdef OP_WIREING
     case OP_DR: case OP_AR:
     #endif
@@ -414,12 +415,26 @@ uint8_t* eval(uint8_t* pc, var* res) {
       usleep(*res * 1000);
       return pc;
 
+    case OP_RAND: {
+      var a;
+      pc = eval(pc, &a);
+      *res = rand() % a;
+      return pc;
+    }
+
     #else
 
     case OP_DELAY:
       pc = eval(pc, res);
       delay(*res);
       return pc;
+
+    case OP_RAND: {
+      var a;
+      pc = eval(pc, &a);
+      *res = random(a);
+      return pc;
+    }
 
     case OP_PM: {
       var pin;

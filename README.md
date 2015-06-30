@@ -85,6 +85,7 @@ contains 7 bits.  The least significant bits come first.
 ## Misc
 
 - DELAY [expression] - Pause VM for specified number of ms.
+- RANDOM [expression] - Return a number between 0 and value - 1.
 
 ## Wireing
 
