@@ -14,20 +14,20 @@
 #define KCYN  "\x1B[36m"
 #define KWHT  "\x1B[37m"
 
-static void test_raw(uint8_t* code, int len, int32_t answer) {
+static void test_raw(uint8_t* code, int len, var answer) {
   printf(KBLU "< ");
   for (int i = 0; i < len; i++) {
     printf("%02x ", code[i]);
   }
   printf(">" KNRM);
-  int32_t result;
-  int32_t used = eval(code, &result) - code;
+  var result;
+  var used = eval(code, &result) - code;
   printf(" %s(%d/%d)\n%s%d%s\n", KWHT, used, len, KYEL, result, KNRM);
   assert(used == len);
   assert(result == answer);
 }
 
-static void test(uint8_t* code, int32_t answer) {
+static void test(uint8_t* code, var answer) {
   printf(KGRN "%s\n" KNRM, code);
   int len = compile(code);
   if ((int) len < 0) {

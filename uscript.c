@@ -4,12 +4,15 @@
 
 #ifdef ARDUINO
 #include "Arduino.h"
+#define var int32_t
 #else
 #include <unistd.h>
+#define var int64_t
 #endif
 
+
 // global variables.
-static int32_t vars[26];
+static var vars[26];
 
 enum opcodes {
   /* variables */
@@ -84,7 +87,7 @@ int compile(uint8_t* program) {
     else if (*cc >= '0' && *cc <= '9') {
 
       // Parse the decimal ascii number
-      int32_t val = 0;
+      var val = 0;
       do {
         val = val * 10 + *cc++ - '0';
       } while (*cc >= 0x30 && *cc < 0x40);
@@ -224,7 +227,7 @@ static uint8_t* skip(uint8_t* pc) {
 
 #define binop(code, op) \
   case code: { \
-    int32_t a, b; \
+    var a, b; \
     pc = eval(pc, &a); \
     pc = eval(pc, &b); \
     *res = a op b; \
@@ -238,7 +241,7 @@ static uint8_t* skip(uint8_t* pc) {
     return pc; \
   }
 
-uint8_t* eval(uint8_t* pc, int32_t* res) {
+uint8_t* eval(uint8_t* pc, var* res) {
 
   // If the high bit is set, it's an opcode index.
   if (*pc & 0x80) switch ((enum opcodes)*pc++) {
@@ -257,7 +260,7 @@ uint8_t* eval(uint8_t* pc, int32_t* res) {
       return pc + 1;
 
     case OP_INCR: {
-      int32_t step;
+      var step;
       uint8_t idx = *pc++;
       pc = eval(pc, &step);
       *res = vars[idx] += step;
@@ -265,7 +268,7 @@ uint8_t* eval(uint8_t* pc, int32_t* res) {
     }
 
     case OP_DECR: {
-      int32_t step;
+      var step;
       uint8_t idx = *pc++;
       pc = eval(pc, &step);
       *res = vars[idx] -= step;
@@ -273,7 +276,7 @@ uint8_t* eval(uint8_t* pc, int32_t* res) {
     }
 
     case OP_IF: {
-      int32_t cond;
+      var cond;
       char done = 0;
       *res = 0;
       pc = eval(pc, &cond);
@@ -305,7 +308,7 @@ uint8_t* eval(uint8_t* pc, int32_t* res) {
     }
 
     case OP_MATCH: {
-      int32_t val, cond;
+      var val, cond;
       char done = 0;
       *res = 0;
       pc = eval(pc, &val);
@@ -332,7 +335,7 @@ uint8_t* eval(uint8_t* pc, int32_t* res) {
 
     case OP_WHILE: {
       uint8_t* c = pc;
-      int32_t cond;
+      var cond;
       *res = 0;
       while (pc = eval(c, &cond), cond) {
         eval(pc, res);
@@ -349,7 +352,7 @@ uint8_t* eval(uint8_t* pc, int32_t* res) {
 
     case OP_FOR: {
       uint8_t idx = *pc++;
-      int32_t start, end;
+      var start, end;
       pc = eval(pc, &start);
       pc = eval(pc, &end);
       uint8_t* body = pc;
@@ -373,7 +376,7 @@ uint8_t* eval(uint8_t* pc, int32_t* res) {
       else pc = eval(pc, res);
       return pc;
     case OP_XOR: {
-      int32_t a, b;
+      var a, b;
       pc = eval(pc, &a);
       pc = eval(pc, &b);
       *res = a ? (b ? 0 : a) : (b ? b : 0);
@@ -416,7 +419,7 @@ uint8_t* eval(uint8_t* pc, int32_t* res) {
       return pc;
 
     case OP_PM: {
-      int32_t pin;
+      var pin;
       pc = eval(pc, &pin);
       pc = eval(pc, res);
       pinMode(pin, *res);
@@ -424,7 +427,7 @@ uint8_t* eval(uint8_t* pc, int32_t* res) {
     }
 
     case OP_DW: {
-      int32_t pin;
+      var pin;
       pc = eval(pc, &pin);
       pc = eval(pc, res);
       digitalWrite(pin, *res);
@@ -432,7 +435,7 @@ uint8_t* eval(uint8_t* pc, int32_t* res) {
     }
 
     case OP_AW: {
-      int32_t pin;
+      var pin;
       pc = eval(pc, &pin);
       pc = eval(pc, res);
       analogWrite(pin, *res);
@@ -440,14 +443,14 @@ uint8_t* eval(uint8_t* pc, int32_t* res) {
     }
 
     case OP_DR: {
-      int32_t pin;
+      var pin;
       pc = eval(pc, &pin);
       *res = digitalRead(pin);
       return pc;
     }
 
     case OP_AR: {
-      int32_t pin;
+      var pin;
       pc = eval(pc, &pin);
       *res = analogRead(pin);
       return pc;

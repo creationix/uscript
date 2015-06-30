@@ -31,9 +31,9 @@ int main() {
     }
     uint8_t* program = line;
     while (program - line < len) {
-      int32_t result;
+      var result;
       program = eval(program, &result);
-      printf("%s%d%s\n", KBLU, result, KNRM);
+      printf("%s%lld%s\n", KBLU, result, KNRM);
     }
   }
 }

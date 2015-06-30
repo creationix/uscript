@@ -39,7 +39,7 @@ void loop() {
         else {
           int offset = 0;
           while (offset < len) {
-            int32_t result;
+            var result;
             offset = eval(line + offset, &result) - line;
             Serial.println(result);
           }
