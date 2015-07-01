@@ -113,5 +113,21 @@ int main() {
   test((uint8_t*)"DO 2 SET m 10000 RUN s", 50005000);
   test((uint8_t*)"DO 2 SET m 100000 RUN s", 5000050000);
   test((uint8_t*)"DO 2 SET m 1000000 RUN s", 500000500000);
-  test((uint8_t*)"DO 2 SET m 10000000 RUN s", 50000005000000);
+  test((uint8_t*)"WAIT GET y SET z 42", 0);
+  test((uint8_t*)"GET z", 0);
+  test((uint8_t*)"SET y 1", 1);
+  while (process_events());
+  test((uint8_t*)"GET z", 42);
+  test((uint8_t*)"SET s 0", 0);
+  test((uint8_t*)"DEF p DO 2 SET r 10 WAIT GET s RUN q", 15);
+  test((uint8_t*)"DEF q DO 2 SET r 20 WAIT NOT GET s RUN p", 16);
+  test((uint8_t*)"RUN p", 0);
+  test((uint8_t*)"GET r", 10);
+  test((uint8_t*)"SET s 1", 1);
+  while (process_events());
+  test((uint8_t*)"GET r", 20);
+  test((uint8_t*)"SET s 0", 0);
+  while (process_events());
+  test((uint8_t*)"GET r", 10);
+
 }
