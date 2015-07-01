@@ -24,7 +24,7 @@ int main() {
   uint8_t* line = NULL;
   size_t size = 0;
   while (1) {
-    process_events();
+    while (process_events());
 
     printf(KNRM "> " KGRN);
     if (getline((char**)&line, &size, stdin) < 0) {

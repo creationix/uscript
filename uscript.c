@@ -584,13 +584,15 @@ uint8_t* eval(uint8_t* pc, var* res) {
   }
 }
 
-void process_events() {
+int process_events() {
   struct event** parent = &queue;
   struct event* evt;
+  int count = 0;
   while ((evt = *parent)) {
     var cond;
     uint8_t* prog = eval(evt->code, &cond);
     if (cond) {
+      count++;
       var res;
       eval(prog, &res);
       *parent = evt->next;
@@ -600,4 +602,5 @@ void process_events() {
       parent = &(evt->next);
     }
   }
+  return count;
 }
