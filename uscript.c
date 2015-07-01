@@ -10,6 +10,8 @@
   #define var int32_t
   #define OP_WIRING
 #else
+  #include <sys/select.h>
+  #include <sys/time.h>
   #include <unistd.h>
   #include <stdlib.h>
   #include <stdio.h>
@@ -429,10 +431,14 @@ uint8_t* eval(uint8_t* pc, var* res) {
 
     #ifndef ARDUINO
 
-    case OP_DELAY:
+    case OP_DELAY: {
       pc = eval(pc, res);
-      usleep(*res * 1000);
+      struct timeval t;
+      t.tv_sec = *res / 1000;
+      t.tv_usec = (*res % 1000) * 1000;
+      select(0, NULL, NULL, NULL, &t);
       return pc;
+    }
 
     case OP_RAND:
       pc = eval(pc, res);

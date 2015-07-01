@@ -1,6 +1,7 @@
-#include "uscript.c"
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
+#include "uscript.c"
 
 #define KNRM  "\x1B[0m"
 #define KRED  "\x1B[1;31m"
