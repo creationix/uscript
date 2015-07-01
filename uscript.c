@@ -19,6 +19,8 @@
   #endif
 #endif
 
+void (*print_fn)(var);
+
 // global variables.
 static var vars[26];
 
@@ -420,6 +422,11 @@ uint8_t* eval(uint8_t* pc, var* res) {
     binop(OP_DIV, /)
     binop(OP_MOD, %)
 
+    case OP_PRINT:
+      pc = eval(pc, res);
+      print_fn(*res);
+      return pc;
+
     #ifndef ARDUINO
 
     case OP_DELAY:
@@ -432,11 +439,6 @@ uint8_t* eval(uint8_t* pc, var* res) {
       *res = rand() % *res;
       return pc;
 
-    case OP_PRINT:
-      pc = eval(pc, res);
-      printf("%lld\r\n", *res);
-      return pc;
-
     #else
 
     case OP_DELAY:
@@ -447,11 +449,6 @@ uint8_t* eval(uint8_t* pc, var* res) {
     case OP_RAND:
       pc = eval(pc, res);
       *res = random(*res);
-      return pc;
-
-    case OP_PRINT:
-      pc = eval(pc, res);
-      Serial.println(*res);
       return pc;
 
     case OP_PM: {

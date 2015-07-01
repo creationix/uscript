@@ -11,7 +11,13 @@
 #define KCYN  "\x1B[36m"
 #define KWHT  "\x1B[37m"
 
+void myprint(int64_t num) {
+  printf("%lld\r\n", num);
+}
+
 int main() {
+  print_fn = &myprint;
+
   #ifdef BCM2708_PERI_BASE
   setup_io();
   #endif

@@ -3,18 +3,20 @@
 
 #include "uscript.c"
 
+static void myprint(int32_t val) {
+  Serial.println(val);
+}
 
 void setup() {
   Serial.begin(9600);
   Serial.print("> ");
+  print_fn = &myprint;
 }
 
 static uint8_t line[MAX_LEN + 1];
 int offset = 0;
 
 void loop() {
-
-  process_events();
 
   while (Serial.available() > 0) {
     char c = Serial.read();
@@ -47,8 +49,12 @@ void loop() {
         }
 
       }
-      Serial.write("> ");
       offset = 0;
+      process_events();
+      Serial.write("> ");
     }
   }
+
+  process_events();
+
 }
