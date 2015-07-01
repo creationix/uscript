@@ -56,7 +56,7 @@ enum opcodes {
   OP_PM, OP_DW, OP_AW, OP_DR, OP_AR,
   #endif
   /* stubs */
-  OP_DEF, OP_RM, OP_RUN, OP_WAIT, /*OP_TIMEOUT,*/
+  OP_DEF, OP_RM, OP_RUN, OP_WATCH, OP_WAIT, /*OP_TIMEOUT,*/
 };
 
 static const char* op_names =
@@ -71,7 +71,7 @@ static const char* op_names =
   #ifdef OP_WIRING
   "PM\0DW\0AW\0DR\0AR\0"
   #endif
-  "DEF\0RM\0RUN\0WAIT\0"
+  "DEF\0RM\0RUN\0WATCH\0WAIT\0"
   "\0"
 ;
 
@@ -218,6 +218,7 @@ static uint8_t* skip(uint8_t* pc) {
     #ifdef OP_WIRING
     case OP_DR: case OP_AR:
     #endif
+    case OP_WAIT:
       return skip(pc);
 
     // Opcodes that consume two expressions
@@ -229,7 +230,7 @@ static uint8_t* skip(uint8_t* pc) {
     #ifdef OP_WIRING
     case OP_PM: case OP_DW: case OP_AW:
     #endif
-    case OP_WAIT:
+    case OP_WATCH:
       return skip(skip(pc));
 
 
@@ -454,7 +455,7 @@ uint8_t* eval(uint8_t* pc, var* res) {
 
     case OP_RAND:
       pc = eval(pc, res);
-      *res = random(*res);
+      *res = random() % *res;
       return pc;
 
     case OP_PM: {
@@ -563,7 +564,7 @@ uint8_t* eval(uint8_t* pc, var* res) {
       else *res = 0;
       return pc + 1;
 
-    case OP_WAIT: {
+    case OP_WATCH: {
       uint8_t* end = skip(skip(pc));
       struct event* evt = (struct event*)malloc(sizeof(*evt) + end - pc);
       memcpy(evt->code, pc, end - pc);
@@ -571,6 +572,12 @@ uint8_t* eval(uint8_t* pc, var* res) {
       queue = evt;
       *res = 0;
       return end;
+    }
+
+    case OP_WAIT: {
+      uint8_t* start = pc;
+      while (pc = eval(start, res), !*res);
+      return pc;
     }
 
   }

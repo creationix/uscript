@@ -84,7 +84,6 @@ contains 7 bits.  The least significant bits come first.
 
 ## Misc
 
-- DELAY [expression] - Pause VM for specified number of ms.
 - RANDOM [expression] - Return a number between 0 and value - 1.
 
 ## Wireing
@@ -103,12 +102,18 @@ Stubs are subroutines.  They don't have parameters, but do share the same 26
 global variables as the rest of the VM.  You get 26 slots for storing them.
 The definitions are stored in EEPROM or some other persistent storage.
 
-- OP_DEF [variable] [expression] - store an expression
-- OP_RM [variable] - delete a stored expression
-- OP_RUN [variable] - run a stored expression
-- OP_TIMEOUT [variable] [expression] - run stored expression once after ms
-- OP_WAIT [variable] [expression] - run stored expression once expression is true
-- OP_AUTO [expression] - store an expression to run at device boot.
+- DEF [variable] [expression] - store an expression
+- RM [variable] - delete a stored expression
+- RUN [variable] - run a stored expression
+
+## Wait/Watch
+
+- WAIT [expression] - Block until an expression is true.
+- WATCH [expression] [expression] - In the background, watch for first
+    expression to be true.  When it is, run second expression once.
+- DELAY [expression] - Block until given ms have elapsed.
+- AFTER [expression] [expression] - In the background, wait ms, then run code.
+- AUTO [expression] - store an expression to run at device boot.
 
 ## Constraints
 
