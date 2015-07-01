@@ -12,7 +12,7 @@
 #define KWHT  "\x1B[37m"
 
 void myprint(int64_t num) {
-  printf("%lld\r\n", num);
+  printf("%ld\r\n", num);
 }
 
 int main() {
@@ -44,7 +44,7 @@ int main() {
     while (program - line < len) {
       var result;
       program = eval(program, &result);
-      printf("%s%lld%s\n", KBLU, result, KNRM);
+      printf("%s%ld%s\n", KBLU, result, KNRM);
     }
   }
 }

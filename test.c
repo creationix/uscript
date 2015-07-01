@@ -21,8 +21,8 @@ static void test_raw(uint8_t* code, int len, var answer) {
   }
   printf(">" KNRM);
   var result;
-  var used = eval(code, &result) - code;
-  printf(" %s(%d/%d)\n%s%d%s\n", KWHT, used, len, KYEL, result, KNRM);
+  int used = eval(code, &result) - code;
+  printf(" %s(%d/%d)\n%s%ld%s\n", KWHT, used, len, KYEL, result, KNRM);
   assert(used == len);
   assert(result == answer);
 }
@@ -98,4 +98,20 @@ int main() {
     "  SET s ADD GET s GET i", 55);
   test((uint8_t*)"WHILE DECR i 1 SET s ADD GET s GET i", 100);
   test((uint8_t*)"FOR i 1 10 INCR s GET i", 155);
+  test((uint8_t*)"DEF a ADD GET a 10", 0);
+  test((uint8_t*)"SET a 10", 10);
+  test((uint8_t*)"RUN a", 20);
+  test((uint8_t*)"RM a", 0);
+  test((uint8_t*)"RUN a", 0);
+  test((uint8_t*)
+    "DEF s DO 2\n"
+    "  SET s 0\n"
+    "  FOR i 1 GET m\n"
+    "    INCR s GET i", 18);
+  test((uint8_t*)"DO 2 SET m 100 RUN s", 5050);
+  test((uint8_t*)"DO 2 SET m 1000 RUN s", 500500);
+  test((uint8_t*)"DO 2 SET m 10000 RUN s", 50005000);
+  test((uint8_t*)"DO 2 SET m 100000 RUN s", 5000050000);
+  test((uint8_t*)"DO 2 SET m 1000000 RUN s", 500000500000);
+  test((uint8_t*)"DO 2 SET m 10000000 RUN s", 50000005000000);
 }
