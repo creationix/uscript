@@ -12,6 +12,7 @@
 #else
   #include <unistd.h>
   #include <stdlib.h>
+  #include <stdio.h>
   #define var int64_t
   #ifdef BCM2708_PERI_BASE
     #define OP_WIRING
@@ -20,8 +21,16 @@
 
 // global variables.
 static var vars[26];
+
 // global functions/lambdas/subroutines (heap allocated)
 static uint8_t* stubs[26];
+
+// Active event listeners
+struct event {
+  struct event* next;
+  uint8_t code[]; // Contains condition and block as two expressions
+};
+static struct event* queue;
 
 enum opcodes {
   /* variables */
@@ -37,13 +46,13 @@ enum opcodes {
   /* math */
   OP_NEG, OP_ADD, OP_SUB, OP_MUL, OP_DIV, OP_MOD,
   /* misc */
-  OP_DELAY, OP_RAND,
+  OP_DELAY, OP_RAND, OP_PRINT,
   #ifdef OP_WIRING
   /* io */
   OP_PM, OP_DW, OP_AW, OP_DR, OP_AR,
   #endif
   /* stubs */
-  OP_DEF, OP_RM, OP_RUN, /*OP_TIMEOUT, OP_WAIT,*/
+  OP_DEF, OP_RM, OP_RUN, OP_WAIT, /*OP_TIMEOUT,*/
 };
 
 static const char* op_names =
@@ -54,11 +63,11 @@ static const char* op_names =
   "LSHIFT\0RSHIFT\0"
   "EQ\0NEQ\0GTE\0LTE\0GT\0LT\0"
   "NEG\0ADD\0SUB\0MUL\0DIV\0MOD\0"
-  "DELAY\0RAND\0"
+  "DELAY\0RAND\0PRINT\0"
   #ifdef OP_WIRING
   "PM\0DW\0AW\0DR\0AR\0"
   #endif
-  "DEF\0RM\0RUN\0"
+  "DEF\0RM\0RUN\0WAIT\0"
   "\0"
 ;
 
@@ -201,7 +210,7 @@ static uint8_t* skip(uint8_t* pc) {
     // Opcodes that consume one expression
     case OP_NOT: case OP_BNOT: case OP_NEG:
     case OP_MATCH: case OP_IF: case OP_ELSE:
-    case OP_DELAY: case OP_RAND:
+    case OP_DELAY: case OP_RAND: case OP_PRINT:
     #ifdef OP_WIRING
     case OP_DR: case OP_AR:
     #endif
@@ -216,6 +225,7 @@ static uint8_t* skip(uint8_t* pc) {
     #ifdef OP_WIRING
     case OP_PM: case OP_DW: case OP_AW:
     #endif
+    case OP_WAIT:
       return skip(skip(pc));
 
 
@@ -417,12 +427,15 @@ uint8_t* eval(uint8_t* pc, var* res) {
       usleep(*res * 1000);
       return pc;
 
-    case OP_RAND: {
-      var a;
-      pc = eval(pc, &a);
-      *res = rand() % a;
+    case OP_RAND:
+      pc = eval(pc, res);
+      *res = rand() % *res;
       return pc;
-    }
+
+    case OP_PRINT:
+      pc = eval(pc, res);
+      printf("%lld\r\n", *res);
+      return pc;
 
     #else
 
@@ -431,12 +444,15 @@ uint8_t* eval(uint8_t* pc, var* res) {
       delay(*res);
       return pc;
 
-    case OP_RAND: {
-      var a;
-      pc = eval(pc, &a);
-      *res = random(a);
+    case OP_RAND:
+      pc = eval(pc, res);
+      *res = random(*res);
       return pc;
-    }
+
+    case OP_PRINT:
+      pc = eval(pc, res);
+      Serial.println(*res);
+      return pc;
 
     case OP_PM: {
       var pin;
@@ -544,6 +560,16 @@ uint8_t* eval(uint8_t* pc, var* res) {
       else *res = 0;
       return pc + 1;
 
+    case OP_WAIT: {
+      uint8_t* end = skip(skip(pc));
+      struct event* evt = (struct event*)malloc(sizeof(*evt) + end - pc);
+      memcpy(evt->code, pc, end - pc);
+      evt->next = queue;
+      queue = evt;
+      *res = 0;
+      return end;
+    }
+
   }
 
   // Otherwise it's a variable length encoded integer.
@@ -558,5 +584,22 @@ uint8_t* eval(uint8_t* pc, var* res) {
     if (!(*pc++ & 0x80)) return pc;
     *res |= (*pc & 0x1f) << 27;
     return pc + 1;
+  }
+}
+
+void process_events() {
+  struct event** parent = &queue;
+  struct event* evt;
+  while ((evt = *parent)) {
+    var cond;
+    uint8_t* prog = eval(evt->code, &cond);
+    if (cond) {
+      var res;
+      eval(prog, &res);
+      *parent = evt->next;
+    }
+    else {
+      parent = &(evt->next);
+    }
   }
 }

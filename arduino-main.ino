@@ -14,6 +14,8 @@ int offset = 0;
 
 void loop() {
 
+  process_events();
+
   while (Serial.available() > 0) {
     char c = Serial.read();
     if (offset < MAX_LEN && c >= 0x20 && c < 0x7f) {
