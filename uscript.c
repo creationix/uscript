@@ -594,6 +594,7 @@ void process_events() {
       var res;
       eval(prog, &res);
       *parent = evt->next;
+      free(evt);
     }
     else {
       parent = &(evt->next);
