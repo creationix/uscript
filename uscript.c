@@ -1,4 +1,6 @@
 #include <stdint.h>
+#include <string.h>
+#include <assert.h>
 
 // #define ARDUINO
 // #include "rpi-io.c"
@@ -6,18 +8,20 @@
 #ifdef ARDUINO
   #include "Arduino.h"
   #define var int32_t
-  #define OP_WIREING
+  #define OP_WIRING
 #else
   #include <unistd.h>
   #include <stdlib.h>
   #define var int64_t
   #ifdef BCM2708_PERI_BASE
-    #define OP_WIREING
+    #define OP_WIRING
   #endif
 #endif
 
 // global variables.
 static var vars[26];
+// global functions/lambdas/subroutines (heap allocated)
+static uint8_t* stubs[26];
 
 enum opcodes {
   /* variables */
@@ -34,14 +38,12 @@ enum opcodes {
   OP_NEG, OP_ADD, OP_SUB, OP_MUL, OP_DIV, OP_MOD,
   /* misc */
   OP_DELAY, OP_RAND,
-  #ifdef OP_WIREING
+  #ifdef OP_WIRING
   /* io */
   OP_PM, OP_DW, OP_AW, OP_DR, OP_AR,
   #endif
-  /* User Programs
-  OP_DEF = 128, OP_RM, OP_CALL, OP_RUN, */
-  /* events */
-  /* OP_TIMER, OP_ON, */
+  /* stubs */
+  OP_DEF, OP_RM, OP_RUN, /*OP_TIMEOUT, OP_WAIT,*/
 };
 
 static const char* op_names =
@@ -53,9 +55,10 @@ static const char* op_names =
   "EQ\0NEQ\0GTE\0LTE\0GT\0LT\0"
   "NEG\0ADD\0SUB\0MUL\0DIV\0MOD\0"
   "DELAY\0RAND\0"
-  #ifdef OP_WIREING
+  #ifdef OP_WIRING
   "PM\0DW\0AW\0DR\0AR\0"
   #endif
+  "DEF\0RM\0RUN\0"
   "\0"
 ;
 
@@ -176,7 +179,7 @@ static uint8_t* skip(uint8_t* pc) {
   // If the high bit is set, it's an opcode index.
   if (*pc & 0x80) switch ((enum opcodes)*pc++) {
 
-    // Need to read the length header to skip do
+    // Need to read the length header to skip DO
     case OP_DO: {
       uint8_t count = *pc++;
       while (count--) pc = skip(pc);
@@ -184,23 +187,22 @@ static uint8_t* skip(uint8_t* pc) {
     }
 
     // Opcodes that consume one opcode
-    case OP_GET:
+    case OP_GET: case OP_RM: case OP_RUN:
       return pc + 1;
 
     // Opcodes that consume one opcode and one expression
-    case OP_SET: case OP_INCR: case OP_DECR:
+    case OP_SET: case OP_INCR: case OP_DECR: case OP_DEF:
       return skip(pc + 1);
 
     // Opcodes that consume one opcode and three expressions
     case OP_FOR:
       return skip(skip(skip(pc + 1)));
 
-
     // Opcodes that consume one expression
     case OP_NOT: case OP_BNOT: case OP_NEG:
     case OP_MATCH: case OP_IF: case OP_ELSE:
     case OP_DELAY: case OP_RAND:
-    #ifdef OP_WIREING
+    #ifdef OP_WIRING
     case OP_DR: case OP_AR:
     #endif
       return skip(pc);
@@ -211,7 +213,7 @@ static uint8_t* skip(uint8_t* pc) {
     case OP_BAND: case OP_BOR: case OP_BXOR: case OP_LSHIFT: case OP_RSHIFT:
     case OP_EQ: case OP_NEQ: case OP_GTE: case OP_LTE: case OP_GT: case OP_LT:
     case OP_ADD: case OP_SUB: case OP_MUL: case OP_DIV: case OP_MOD:
-    #ifdef OP_WIREING
+    #ifdef OP_WIRING
     case OP_PM: case OP_DW: case OP_AW:
     #endif
       return skip(skip(pc));
@@ -519,6 +521,28 @@ uint8_t* eval(uint8_t* pc, var* res) {
     }
 
     #endif
+
+    case OP_DEF: {
+      assert(*pc >=0 && *pc <= 26);
+      *res = *pc++;
+      uint8_t* end = skip(pc);
+      if (stubs[*res]) free(stubs[*res]);
+      stubs[*res] = (uint8_t*)malloc(end - pc);
+      memcpy(stubs[*res], pc, end - pc);
+      return end;
+    }
+
+    case OP_RM:
+      assert(*pc >=0 && *pc <= 26);
+      free(stubs[*res = *pc]);
+      stubs[*res] = 0;
+      return pc + 1;
+
+    case OP_RUN:
+      assert(*pc >=0 && *pc <= 26);
+      if (stubs[*pc]) eval(stubs[*pc], res);
+      else *res = 0;
+      return pc + 1;
 
   }
 

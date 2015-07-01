@@ -97,6 +97,19 @@ Currently only works for microcontrollers, but soon raspberry pi too.
 - DR [expression] - digitalRead
 - AR [expression] - analogRead
 
+## Saved Expressions
+
+Stubs are subroutines.  They don't have parameters, but do share the same 26
+global variables as the rest of the VM.  You get 26 slots for storing them.
+The definitions are stored in EEPROM or some other persistent storage.
+
+- OP_DEF [variable] [expression] - store an expression
+- OP_RM [variable] - delete a stored expression
+- OP_RUN [variable] - run a stored expression
+- OP_TIMEOUT [variable] [expression] - run stored expression once after ms
+- OP_WAIT [variable] [expression] - run stored expression once expression is true
+- OP_AUTO [expression] - store an expression to run at device boot.
+
 ## Constraints
 
  - 26 local variables a-z containing 32-bit signed integers (64-bit on desktop builds.)
