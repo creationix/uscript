@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
+#include <inttypes.h>
 #include "uscript.c"
 
 #define KNRM  "\x1B[0m"
@@ -13,7 +14,7 @@
 #define KWHT  "\x1B[37m"
 
 void myprint(int64_t num) {
-  printf("%ld\r\n", num);
+  printf("%"PRId64"\r\n", num);
 }
 
 int main() {
@@ -45,7 +46,7 @@ int main() {
     while (program - line < len) {
       var result;
       program = eval(program, &result);
-      printf("%s%ld%s\n", KBLU, result, KNRM);
+      printf("%s%"PRId64"%s\n", KBLU, result, KNRM);
     }
   }
 }
