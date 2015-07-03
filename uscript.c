@@ -261,10 +261,8 @@ static uint8_t* skip(uint8_t* pc) {
   // Otherwise it's a variable length encoded integer.
   else {
     if (!(*pc++ & 0x40)) return pc;
-    if (!(*pc++ & 0x80)) return pc;
-    if (!(*pc++ & 0x80)) return pc;
-    if (!(*pc++ & 0x80)) return pc;
-    return pc + 1;
+    while (*pc++ & 0x80);
+    return pc;
   }
 }
 
