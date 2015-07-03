@@ -1,6 +1,10 @@
 #include <stdint.h>
 #include <string.h>
 
+#ifndef BUFFER_LENGTH
+#define BUFFER_LENGTH 4096
+#endif
+
 // #include "rpi-io.c"
 
 #if defined(SPARK)
@@ -608,7 +612,6 @@ uint8_t* eval(struct state* vm, uint8_t* pc, number* res) {
   return pc;
 }
 
-#define BUFFER_LENGTH 4096
 uint8_t line[BUFFER_LENGTH];
 int offset;
 
