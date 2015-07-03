@@ -14,20 +14,29 @@
 #define KCYN  "\x1B[36m"
 #define KWHT  "\x1B[37m"
 
-static void test_raw(uint8_t* code, int len, var answer) {
+struct state vm;
+
+static void test_raw(uint8_t* code, int len, number answer) {
   printf(KBLU "< ");
   for (int i = 0; i < len; i++) {
     printf("%02x ", code[i]);
   }
   printf(">" KNRM);
-  var result;
-  int used = eval(code, &result) - code;
+  number result;
+  int used = eval(&vm, code, &result) - code;
   printf(" %s(%d/%d)\n%s%ld%s\n", KWHT, used, len, KYEL, result, KNRM);
   assert(used == len);
   assert(result == answer);
 }
 
-static void test(char* code, var answer) {
+void write_number(number num) {
+  printf("%"PRId64, num);
+}
+void write_string(const char* str) {
+  puts(str);
+}
+
+static void test(char* code, number answer) {
   printf(KGRN "%s\n" KNRM, code);
   uint8_t* program = (uint8_t*)malloc(strlen(code) + 1);
   memcpy(program, code, strlen(code) + 1);
@@ -43,6 +52,9 @@ static void test(char* code, var answer) {
 }
 
 int main() {
+  vm.write_number = write_number;
+  vm.write_string = write_string;
+
   test("NOT 42", 0);
   test("OR 7 SET b NEG 2", 7);
   test("GET b", 0);

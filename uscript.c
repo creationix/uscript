@@ -5,12 +5,12 @@
 
 #if defined(SPARK)
   #include "application.h"
-  #define var int32_t
+  #define number int32_t
   #define OP_WIRING
   #define assert(x)
 #elif defined(ARDUINO)
   #include "Arduino.h"
-  #define var int32_t
+  #define number int32_t
   #define OP_WIRING
   #define assert(x)
 #else
@@ -21,34 +21,23 @@
   #include <stdlib.h>
   #include <stdio.h>
   #include <inttypes.h>
-  #define var int64_t
+  #define number int64_t
   #ifdef BCM2708_PERI_BASE
     #define OP_WIRING
   #endif
 #endif
 
-// From http://inglorion.net/software/deadbeef_rand/
-static uint32_t deadbeef_seed;
-static uint32_t deadbeef_beef = 0xdeadbeef;
-uint32_t deadbeef_rand() {
-  deadbeef_seed = (deadbeef_seed << 7) ^ ((deadbeef_seed >> 25) + deadbeef_beef);
-  deadbeef_beef = (deadbeef_beef << 7) ^ ((deadbeef_beef >> 25) + 0xdeadbeef);
-  return deadbeef_seed;
-}
-void deadbeef_srand(uint32_t x) {
-  deadbeef_seed = x;
-  deadbeef_beef = 0xdeadbeef;
-}
+typedef char (*read_char_fn)();
+typedef void (*write_string_fn)(const char* str);
+typedef void (*write_number_fn)(number num);
 
-extern char read_char();
-extern void write_string(const char* string);
-extern void write_val(var val);
-
-// global variables.
-static var vars[26];
-
-// global functions/lambdas/subroutines (heap allocated)
-static uint8_t* stubs[26];
+struct state {
+  read_char_fn read_char;
+  write_string_fn write_string;
+  write_number_fn write_number;
+  number vars[26];
+  uint8_t* stubs[26];
+};
 
 enum opcodes {
   /* variables */
@@ -109,6 +98,20 @@ static int name_to_op(const char* name, int len) {
   return 0;
 }
 
+
+// From http://inglorion.net/software/deadbeef_rand/
+static uint32_t deadbeef_seed;
+static uint32_t deadbeef_beef = 0xdeadbeef;
+uint32_t deadbeef_rand() {
+  deadbeef_seed = (deadbeef_seed << 7) ^ ((deadbeef_seed >> 25) + deadbeef_beef);
+  deadbeef_beef = (deadbeef_beef << 7) ^ ((deadbeef_beef >> 25) + 0xdeadbeef);
+  return deadbeef_seed;
+}
+void deadbeef_srand(uint32_t x) {
+  deadbeef_seed = x;
+  deadbeef_beef = 0xdeadbeef;
+}
+
 int compile(uint8_t* program) {
   uint8_t *cc = program,
           *pc = program;
@@ -120,7 +123,7 @@ int compile(uint8_t* program) {
     else if (*cc >= '0' && *cc <= '9') {
 
       // Parse the decimal ascii number
-      var val = 0;
+      number val = 0;
       do {
         val = val * 10 + *cc++ - '0';
       } while (*cc >= 0x30 && *cc < 0x40);
@@ -262,30 +265,28 @@ static uint8_t* skip(uint8_t* pc) {
   }
 
   // Otherwise it's a variable length encoded integer.
-  else {
-    if (!(*pc++ & 0x40)) return pc;
-    while (*pc++ & 0x80);
-    return pc;
-  }
+  if (!(*pc++ & 0x40)) return pc;
+  while (*pc++ & 0x80);
+  return pc;
 }
 
 #define binop(code, op) \
   case code: { \
-    var a, b; \
-    pc = eval(pc, &a); \
-    pc = eval(pc, &b); \
+    number a, b; \
+    pc = eval(vm, pc, &a); \
+    pc = eval(vm, pc, &b); \
     *res = a op b; \
     return pc; \
   }
 
 #define unop(code, op) \
   case code: { \
-    pc = eval(pc, res); \
+    pc = eval(vm, pc, res); \
     *res = op*res; \
     return pc; \
   }
 
-uint8_t* eval(uint8_t* pc, var* res) {
+uint8_t* eval(struct state* vm, uint8_t* pc, number* res) {
 
   // If the high bit is set, it's an opcode index.
   if (*pc & 0x80) switch ((enum opcodes)*pc++) {
@@ -295,38 +296,38 @@ uint8_t* eval(uint8_t* pc, var* res) {
 
     case OP_SET: {
       uint8_t idx = *pc++;
-      pc = eval(pc, res);
-      vars[idx] = *res;
+      pc = eval(vm, pc, res);
+      vm->vars[idx] = *res;
       return pc;
     }
     case OP_GET:
-      *res = vars[*pc];
+      *res = vm->vars[*pc];
       return pc + 1;
 
     case OP_INCR: {
-      var step;
+      number step;
       uint8_t idx = *pc++;
-      pc = eval(pc, &step);
-      *res = vars[idx] += step;
+      pc = eval(vm, pc, &step);
+      *res = vm->vars[idx] += step;
       return pc;
     }
 
     case OP_DECR: {
-      var step;
+      number step;
       uint8_t idx = *pc++;
-      pc = eval(pc, &step);
-      *res = vars[idx] -= step;
+      pc = eval(vm, pc, &step);
+      *res = vm->vars[idx] -= step;
       return pc;
     }
 
     case OP_IF: {
-      var cond;
+      number cond;
       char done = 0;
       *res = 0;
-      pc = eval(pc, &cond);
+      pc = eval(vm, pc, &cond);
       if (cond) {
         done = 1;
-        pc = eval(pc, res);
+        pc = eval(vm, pc, res);
       }
       else pc = skip(pc);
       while (*pc == OP_ELIF) {
@@ -335,10 +336,10 @@ uint8_t* eval(uint8_t* pc, var* res) {
           pc = skip(skip(pc));
         }
         else {
-          pc = eval(pc, &cond);
+          pc = eval(vm, pc, &cond);
           if (cond) {
             done = 1;
-            pc = eval(pc, res);
+            pc = eval(vm, pc, res);
           }
           else pc = skip(pc);
         }
@@ -346,43 +347,43 @@ uint8_t* eval(uint8_t* pc, var* res) {
       if (*pc == OP_ELSE) {
         pc++;
         if (done) pc = skip(pc);
-        else pc = eval(pc, res);
+        else pc = eval(vm, pc, res);
       }
       return pc;
     }
 
     case OP_MATCH: {
-      var val, cond;
+      number val, cond;
       char done = 0;
       *res = 0;
-      pc = eval(pc, &val);
+      pc = eval(vm, pc, &val);
       while (*pc == OP_WHEN) {
         pc++;
         if (done) {
           pc = skip(pc); // cond
           pc = skip(pc); // val
         }
-        pc = eval(pc, &cond);
+        pc = eval(vm, pc, &cond);
         if (cond == val) {
           done = 1;
-          pc = eval(pc, res);
+          pc = eval(vm, pc, res);
         }
         else pc = skip(pc);
       }
       if (*pc == OP_ELSE) {
         pc++;
         if (done) pc = skip(pc);
-        else pc = eval(pc, res);
+        else pc = eval(vm, pc, res);
       }
       return pc;
     }
 
     case OP_WHILE: {
       uint8_t* c = pc;
-      var cond;
+      number cond;
       *res = 0;
-      while (pc = eval(c, &cond), cond) {
-        eval(pc, res);
+      while (pc = eval(vm, c, &cond), cond) {
+        eval(vm, pc, res);
       }
       return skip(pc);
     }
@@ -390,39 +391,39 @@ uint8_t* eval(uint8_t* pc, var* res) {
     case OP_DO: {
       uint8_t count = *pc++;
       *res = 0;
-      while (count--) pc = eval(pc, res);
+      while (count--) pc = eval(vm, pc, res);
       return pc;
     }
 
     case OP_FOR: {
       uint8_t idx = *pc++;
-      var start, end;
-      pc = eval(pc, &start);
-      pc = eval(pc, &end);
+      number start, end;
+      pc = eval(vm, pc, &start);
+      pc = eval(vm, pc, &end);
       uint8_t* body = pc;
       *res = 0;
       while (start <= end) {
-        vars[idx] = start++;
-        pc = eval(body, res);
+        vm->vars[idx] = start++;
+        pc = eval(vm, body, res);
       }
       return pc;
     }
 
     unop(OP_NOT, !)
     case OP_AND:
-      pc = eval(pc, res);
-      if (*res) pc = eval(pc, res);
+      pc = eval(vm, pc, res);
+      if (*res) pc = eval(vm, pc, res);
       else pc = skip(pc);
       return pc;
     case OP_OR:
-      pc = eval(pc, res);
+      pc = eval(vm, pc, res);
       if (*res) pc = skip(pc);
-      else pc = eval(pc, res);
+      else pc = eval(vm, pc, res);
       return pc;
     case OP_XOR: {
-      var a, b;
-      pc = eval(pc, &a);
-      pc = eval(pc, &b);
+      number a, b;
+      pc = eval(vm, pc, &a);
+      pc = eval(vm, pc, &b);
       *res = a ? (b ? 0 : a) : (b ? b : 0);
       return pc;
     }
@@ -449,25 +450,25 @@ uint8_t* eval(uint8_t* pc, var* res) {
     binop(OP_MOD, %)
 
     case OP_ABS:
-      pc = eval(pc, res);
+      pc = eval(vm, pc, res);
       if (*res < 0) *res = -*res;
       return pc;
 
     case OP_PRINT:
-      pc = eval(pc, res);
-      write_val(*res);
-      write_string("\r\n");
+      pc = eval(vm, pc, res);
+      vm->write_number(*res);
+      vm->write_string("\r\n");
       return pc;
 
     case OP_RAND:
-      pc = eval(pc, res);
+      pc = eval(vm, pc, res);
       *res = deadbeef_rand() % *res;
       return pc;
 
     #ifndef ARDUINO
 
     case OP_DELAY: {
-      pc = eval(pc, res);
+      pc = eval(vm, pc, res);
       struct timeval t;
       t.tv_sec = *res / 1000;
       t.tv_usec = (*res % 1000) * 1000;
@@ -478,44 +479,44 @@ uint8_t* eval(uint8_t* pc, var* res) {
     #else
 
     case OP_DELAY:
-      pc = eval(pc, res);
+      pc = eval(vm, pc, res);
       delay(*res);
       return pc;
 
     case OP_PM: {
-      var pin;
-      pc = eval(pc, &pin);
-      pc = eval(pc, res);
+      number pin;
+      pc = eval(vm, pc, &pin);
+      pc = eval(vm, pc, res);
       pinMode(pin, *res);
       return pc;
     }
 
     case OP_DW: {
-      var pin;
-      pc = eval(pc, &pin);
-      pc = eval(pc, res);
+      number pin;
+      pc = eval(vm, pc, &pin);
+      pc = eval(vm, pc, res);
       digitalWrite(pin, *res);
       return pc;
     }
 
     case OP_AW: {
-      var pin;
-      pc = eval(pc, &pin);
-      pc = eval(pc, res);
+      number pin;
+      pc = eval(vm, pc, &pin);
+      pc = eval(vm, pc, res);
       analogWrite(pin, *res);
       return pc;
     }
 
     case OP_DR: {
-      var pin;
-      pc = eval(pc, &pin);
+      number pin;
+      pc = eval(vm, pc, &pin);
       *res = digitalRead(pin);
       return pc;
     }
 
     case OP_AR: {
-      var pin;
-      pc = eval(pc, &pin);
+      number pin;
+      pc = eval(vm, pc, &pin);
       *res = analogRead(pin);
       return pc;
     }
@@ -524,41 +525,41 @@ uint8_t* eval(uint8_t* pc, var* res) {
     #ifdef BCM2708_PERI_BASE
 
     case OP_PM: {
-      var pin;
-      pc = eval(pc, &pin);
-      pc = eval(pc, res);
+      number pin;
+      pc = eval(vm, pc, &pin);
+      pc = eval(vm, pc, res);
       INP_GPIO(pin);
       if (*res) OUT_GPIO(pin);
       return pc;
     }
 
     case OP_DW: {
-      var pin;
-      pc = eval(pc, &pin);
-      pc = eval(pc, res);
+      number pin;
+      pc = eval(vm, pc, &pin);
+      pc = eval(vm, pc, res);
       if (*res) GPIO_SET = 1 << pin;
       else GPIO_CLR = 1 << pin;
       return pc;
     }
 
     case OP_AW: {
-      var pin;
-      pc = eval(pc, &pin);
-      pc = eval(pc, res);
+      number pin;
+      pc = eval(vm, pc, &pin);
+      pc = eval(vm, pc, res);
       // TODO: pwm write somehow?
       return pc;
     }
 
     case OP_DR: {
-      var pin;
-      pc = eval(pc, &pin);
+      number pin;
+      pc = eval(vm, pc, &pin);
       *res = !!GET_GPIO(pin);
       return pc;
     }
 
     case OP_AR: {
-      var pin;
-      pc = eval(pc, &pin);
+      number pin;
+      pc = eval(vm, pc, &pin);
       // TODO: there are no analog inputs right?
       *res = 0;
       return pc;
@@ -570,41 +571,39 @@ uint8_t* eval(uint8_t* pc, var* res) {
       assert(*pc >=0 && *pc <= 26);
       *res = *pc++;
       uint8_t* end = skip(pc);
-      if (stubs[*res]) free(stubs[*res]);
-      stubs[*res] = (uint8_t*)malloc(end - pc);
-      memcpy(stubs[*res], pc, end - pc);
+      if (vm->stubs[*res]) free(vm->stubs[*res]);
+      vm->stubs[*res] = (uint8_t*)malloc(end - pc);
+      memcpy(vm->stubs[*res], pc, end - pc);
       return end;
     }
 
     case OP_RM:
       assert(*pc >=0 && *pc <= 26);
-      free(stubs[*res = *pc]);
-      stubs[*res] = 0;
+      free(vm->stubs[*res = *pc]);
+      vm->stubs[*res] = 0;
       return pc + 1;
 
     case OP_RUN:
       assert(*pc >=0 && *pc <= 26);
-      if (stubs[*pc]) eval(stubs[*pc], res);
+      if (vm->stubs[*pc]) eval(vm, vm->stubs[*pc], res);
       else *res = 0;
       return pc + 1;
 
     case OP_WAIT: {
       uint8_t* start = pc;
-      while (pc = eval(start, res), !*res);
+      while (pc = eval(vm, start, res), !*res);
       return pc;
     }
 
   }
 
   // Otherwise it's a variable length encoded integer.
-  else {
-    *res = *pc & 0x3f;
-    if (!(*pc++ & 0x40)) return pc;
-    int b = 6;
-    do {
-      *res |= (var)(*pc & 0x7f) << b;
-      b += 7;
-    } while (*pc++ & 0x80);
-    return pc;
-  }
+  *res = *pc & 0x3f;
+  if (!(*pc++ & 0x40)) return pc;
+  int b = 6;
+  do {
+    *res |= (number)(*pc & 0x7f) << b;
+    b += 7;
+  } while (*pc++ & 0x80);
+  return pc;
 }
