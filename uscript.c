@@ -192,6 +192,10 @@ static uint8_t* skip(uint8_t* pc) {
   // If the high bit is set, it's an opcode index.
   if (*pc & 0x80) switch ((enum opcodes)*pc++) {
 
+    case OP_ELIF: case OP_WHEN: case OP_ELSE:
+      // This is never valid
+      return NULL;
+
     // Need to read the length header to skip DO
     case OP_DO: {
       uint8_t count = *pc++;
@@ -211,9 +215,20 @@ static uint8_t* skip(uint8_t* pc) {
     case OP_FOR:
       return skip(skip(skip(pc + 1)));
 
+    case OP_IF:
+      pc = skip(skip(pc)); // cond/body
+      while (*pc == OP_ELIF) pc = skip(skip(pc + 1)); // elif/cond/body
+      if (*pc == OP_ELSE) pc = skip(pc + 1); // else/body
+      return pc;
+
+    case OP_MATCH:
+      pc = skip(pc); // value
+      while (*pc == OP_WHEN) pc = skip(skip(pc + 1)); // when/val/body
+      if (*pc == OP_ELSE) pc = skip(pc + 1); // else/body
+      return pc;
+
     // Opcodes that consume one expression
     case OP_NOT: case OP_BNOT: case OP_NEG:
-    case OP_MATCH: case OP_IF: case OP_ELSE:
     case OP_DELAY: case OP_RAND: case OP_PRINT:
     #ifdef OP_WIRING
     case OP_DR: case OP_AR:
@@ -222,7 +237,7 @@ static uint8_t* skip(uint8_t* pc) {
       return skip(pc);
 
     // Opcodes that consume two expressions
-    case OP_WHILE: case OP_ELIF: case OP_WHEN:
+    case OP_WHILE:
     case OP_AND: case OP_OR: case OP_XOR:
     case OP_BAND: case OP_BOR: case OP_BXOR: case OP_LSHIFT: case OP_RSHIFT:
     case OP_EQ: case OP_NEQ: case OP_GTE: case OP_LTE: case OP_GT: case OP_LT:
