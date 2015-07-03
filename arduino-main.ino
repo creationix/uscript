@@ -3,8 +3,14 @@
 
 #include "uscript.c"
 
-static void myprint(int32_t val) {
-  Serial.println(val);
+static char read_char() {
+  return Serial.read();
+}
+static void write_string(const char* string) {
+  return Serial.write(string);
+}
+static void write_val(var val) {
+  return Serial.write(val);
 }
 
 void setup() {

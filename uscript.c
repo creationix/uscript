@@ -1,29 +1,18 @@
 #include <stdint.h>
 #include <string.h>
 
-// #define ARDUINO
 // #include "rpi-io.c"
 
-
-// From http://inglorion.net/software/deadbeef_rand/
-static uint32_t deadbeef_seed;
-static uint32_t deadbeef_beef = 0xdeadbeef;
-uint32_t deadbeef_rand() {
-  deadbeef_seed = (deadbeef_seed << 7) ^ ((deadbeef_seed >> 25) + deadbeef_beef);
-  deadbeef_beef = (deadbeef_beef << 7) ^ ((deadbeef_beef >> 25) + 0xdeadbeef);
-  return deadbeef_seed;
-}
-void deadbeef_srand(uint32_t x) {
-  deadbeef_seed = x;
-  deadbeef_beef = 0xdeadbeef;
-}
-
-#ifdef ARDUINO
+#if defined(SPARK)
+  #include "application.h"
+  #define var int32_t
+  #define OP_WIRING
+  #define assert(x)
+#elif defined(ARDUINO)
   #include "Arduino.h"
   #define var int32_t
   #define OP_WIRING
   #define assert(x)
-
 #else
   #include <assert.h>
   #include <sys/select.h>
@@ -38,7 +27,22 @@ void deadbeef_srand(uint32_t x) {
   #endif
 #endif
 
-void (*print_fn)(var);
+// From http://inglorion.net/software/deadbeef_rand/
+static uint32_t deadbeef_seed;
+static uint32_t deadbeef_beef = 0xdeadbeef;
+uint32_t deadbeef_rand() {
+  deadbeef_seed = (deadbeef_seed << 7) ^ ((deadbeef_seed >> 25) + deadbeef_beef);
+  deadbeef_beef = (deadbeef_beef << 7) ^ ((deadbeef_beef >> 25) + 0xdeadbeef);
+  return deadbeef_seed;
+}
+void deadbeef_srand(uint32_t x) {
+  deadbeef_seed = x;
+  deadbeef_beef = 0xdeadbeef;
+}
+
+extern char read_char();
+extern void write_string(const char* string);
+extern void write_val(var val);
 
 // global variables.
 static var vars[26];
@@ -451,7 +455,8 @@ uint8_t* eval(uint8_t* pc, var* res) {
 
     case OP_PRINT:
       pc = eval(pc, res);
-      print_fn(*res);
+      write_val(*res);
+      write_string("\r\n");
       return pc;
 
     case OP_RAND:
