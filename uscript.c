@@ -48,7 +48,7 @@ enum opcodes {
   /* comparison */
   OP_EQ, OP_NEQ, OP_GTE, OP_LTE, OP_GT, OP_LT,
   /* math */
-  OP_NEG, OP_ADD, OP_SUB, OP_MUL, OP_DIV, OP_MOD,
+  OP_NEG, OP_ADD, OP_SUB, OP_MUL, OP_DIV, OP_MOD, OP_ABS,
   /* misc */
   OP_DELAY, OP_RAND, OP_PRINT,
   #ifdef OP_WIRING
@@ -66,7 +66,7 @@ static const char* op_names =
   "BNOT\0BAND\0BOR\0BXOR\0"
   "LSHIFT\0RSHIFT\0"
   "EQ\0NEQ\0GTE\0LTE\0GT\0LT\0"
-  "NEG\0ADD\0SUB\0MUL\0DIV\0MOD\0"
+  "NEG\0ADD\0SUB\0MUL\0DIV\0MOD\0ABS\0"
   "DELAY\0RAND\0PRINT\0"
   #ifdef OP_WIRING
   "PM\0DW\0AW\0DR\0AR\0"
@@ -228,7 +228,7 @@ static uint8_t* skip(uint8_t* pc) {
       return pc;
 
     // Opcodes that consume one expression
-    case OP_NOT: case OP_BNOT: case OP_NEG:
+    case OP_NOT: case OP_BNOT: case OP_NEG: case OP_ABS:
     case OP_DELAY: case OP_RAND: case OP_PRINT:
     #ifdef OP_WIRING
     case OP_DR: case OP_AR:
@@ -439,6 +439,11 @@ uint8_t* eval(uint8_t* pc, var* res) {
     binop(OP_MUL, *)
     binop(OP_DIV, /)
     binop(OP_MOD, %)
+
+    case OP_ABS:
+      pc = eval(pc, res);
+      if (*res < 0) *res = -*res;
+      return pc;
 
     case OP_PRINT:
       pc = eval(pc, res);
