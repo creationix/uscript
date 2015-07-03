@@ -27,13 +27,13 @@
   #endif
 #endif
 
-typedef char (*read_char_fn)();
 typedef void (*write_string_fn)(const char* str);
+typedef void (*write_char_fn)(char c);
 typedef void (*write_number_fn)(number num);
 
 struct state {
-  read_char_fn read_char;
   write_string_fn write_string;
+  write_char_fn write_char;
   write_number_fn write_number;
   number vars[26];
   uint8_t* stubs[26];
@@ -606,4 +606,47 @@ uint8_t* eval(struct state* vm, uint8_t* pc, number* res) {
     b += 7;
   } while (*pc++ & 0x80);
   return pc;
+}
+
+#define MAX_LEN 4096
+uint8_t line[MAX_LEN];
+int offset;
+
+void handle_input(struct state* vm, char c) {
+  if (offset < MAX_LEN && c >= 0x20 && c < 0x7f) {
+    line[offset++] = c;
+    vm->write_char(c);
+  }
+  else if (offset > 0 && (c == 127 || c == 8)) {
+    line[--offset] = 0;
+    vm->write_string("\x08 \x08");
+  }
+  else if (c == '\r' || c == '\n') {
+    vm->write_string("\r\n");
+    if (offset) {
+      line[offset++] = 0;
+      int len = compile(line);
+      if ((int) len < 0) {
+        int offset = 1 - (int)len;
+        while (offset--) vm->write_string(" ");
+        vm->write_string("^\r\nUnexpected input\r\n");
+      }
+      else {
+        int offset = 0;
+        while (offset < len) {
+          number result;
+          offset = eval(vm, line + offset, &result) - line;
+          vm->write_number(result);
+          vm->write_string("\r\n");
+        }
+      }
+
+    }
+    offset = 0;
+    vm->write_string("> ");
+  }
+}
+
+void start_state(struct state* vm) {
+  vm->write_string("Welcome to uscript.\r\n> ");
 }
