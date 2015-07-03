@@ -4,15 +4,15 @@
 // #define ARDUINO
 // #include "rpi-io.c"
 
+
+// From http://inglorion.net/software/deadbeef_rand/
 static uint32_t deadbeef_seed;
 static uint32_t deadbeef_beef = 0xdeadbeef;
-
 uint32_t deadbeef_rand() {
   deadbeef_seed = (deadbeef_seed << 7) ^ ((deadbeef_seed >> 25) + deadbeef_beef);
   deadbeef_beef = (deadbeef_beef << 7) ^ ((deadbeef_beef >> 25) + 0xdeadbeef);
   return deadbeef_seed;
 }
-
 void deadbeef_srand(uint32_t x) {
   deadbeef_seed = x;
   deadbeef_beef = 0xdeadbeef;
@@ -45,18 +45,11 @@ static var vars[26];
 // global functions/lambdas/subroutines (heap allocated)
 static uint8_t* stubs[26];
 
-// Active event listeners
-struct event {
-  struct event* next;
-  uint8_t code[]; // Contains condition and block as two expressions
-};
-static struct event* queue;
-
 enum opcodes {
   /* variables */
   OP_SET = 128, OP_GET, OP_INCR, OP_DECR,
   /* control flow */
-  OP_IF, OP_ELIF, OP_ELSE, OP_MATCH, OP_WHEN, OP_WHILE, OP_DO, OP_FOR,
+  OP_IF, OP_ELIF, OP_ELSE, OP_MATCH, OP_WHEN, OP_WHILE, OP_DO, OP_FOR, OP_WAIT,
   /* logic (short circuit and/or) */
   OP_NOT, OP_AND, OP_OR, OP_XOR,
   /* bitwise logic */
@@ -67,27 +60,26 @@ enum opcodes {
   OP_NEG, OP_ADD, OP_SUB, OP_MUL, OP_DIV, OP_MOD, OP_ABS,
   /* misc */
   OP_DELAY, OP_RAND, OP_PRINT,
+  /* stubs */
+  OP_DEF, OP_RM, OP_RUN
   #ifdef OP_WIRING
   /* io */
-  OP_PM, OP_DW, OP_AW, OP_DR, OP_AR,
+  ,OP_PM, OP_DW, OP_AW, OP_DR, OP_AR
   #endif
-  /* stubs */
-  OP_DEF, OP_RM, OP_RUN, OP_WATCH, OP_WAIT, /*OP_TIMEOUT,*/
 };
 
 static const char* op_names =
   "SET\0GET\0INCR\0DECR\0"
-  "IF\0ELIF\0ELSE\0MATCH\0WHEN\0WHILE\0DO\0FOR\0"
+  "IF\0ELIF\0ELSE\0MATCH\0WHEN\0WHILE\0DO\0FOR\0WAIT\0"
   "NOT\0AND\0OR\0XOR\0"
-  "BNOT\0BAND\0BOR\0BXOR\0"
-  "LSHIFT\0RSHIFT\0"
+  "BNOT\0BAND\0BOR\0BXOR\0LSHIFT\0RSHIFT\0"
   "EQ\0NEQ\0GTE\0LTE\0GT\0LT\0"
   "NEG\0ADD\0SUB\0MUL\0DIV\0MOD\0ABS\0"
   "DELAY\0RAND\0PRINT\0"
+  "DEF\0RM\0RUN\0"
   #ifdef OP_WIRING
   "PM\0DW\0AW\0DR\0AR\0"
   #endif
-  "DEF\0RM\0RUN\0WATCH\0WAIT\0"
   "\0"
 ;
 
@@ -261,7 +253,6 @@ static uint8_t* skip(uint8_t* pc) {
     #ifdef OP_WIRING
     case OP_PM: case OP_DW: case OP_AW:
     #endif
-    case OP_WATCH:
       return skip(skip(pc));
 
 
@@ -595,16 +586,6 @@ uint8_t* eval(uint8_t* pc, var* res) {
       else *res = 0;
       return pc + 1;
 
-    case OP_WATCH: {
-      uint8_t* end = skip(skip(pc));
-      struct event* evt = (struct event*)malloc(sizeof(*evt) + end - pc);
-      memcpy(evt->code, pc, end - pc);
-      evt->next = queue;
-      queue = evt;
-      *res = 0;
-      return end;
-    }
-
     case OP_WAIT: {
       uint8_t* start = pc;
       while (pc = eval(start, res), !*res);
@@ -626,27 +607,4 @@ uint8_t* eval(uint8_t* pc, var* res) {
     *res |= (*pc & 0x1f) << 27;
     return pc + 1;
   }
-}
-
-int process_events() {
-  struct event** parent = &queue;
-  struct event* evt;
-
-  int count = 0;
-  while ((evt = *parent)) {
-    var cond;
-    uint8_t* prog = eval(evt->code, &cond);
-    if (cond) {
-      count++;
-      var res;
-      *parent = evt->next;
-      eval(prog, &res);
-      free(evt);
-    }
-    else {
-      parent = &(evt->next);
-    }
-  }
-
-  return count;
 }

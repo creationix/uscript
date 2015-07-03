@@ -50,11 +50,8 @@ void loop() {
 
       }
       offset = 0;
-      process_events();
       Serial.write("> ");
     }
   }
-
-  process_events();
 
 }

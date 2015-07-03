@@ -47,6 +47,7 @@ contains 7 bits.  The least significant bits come first.
 - DO [num] [expression]* - create a block of multiple expressions
 - FOR [variable] [expression] [expression] [expression] - Iterate variable from
    first expression to second expression evaluating third expression every time.
+- WAIT [expression] - Block until an expression is true. Returns expression.
 
 ## Logic
 
@@ -81,20 +82,13 @@ contains 7 bits.  The least significant bits come first.
 - MUL [expression] [expression] - multiply
 - DIV [expression] [expression] - integer divide
 - MOD [expression] [expression] - modulus
+- ABS [expression] - absolute value
 
 ## Misc
 
+- DELAY [expression] - Block for given ms.
 - RANDOM [expression] - Return a number between 0 and value - 1.
-
-## Wireing
-
-Currently only works for microcontrollers, but soon raspberry pi too.
-
-- PM [expression] [expression] - pinMode
-- DW [expression] [expression] - digitalWrite
-- AW [expression] [expression] - analogWrite
-- DR [expression] - digitalRead
-- AR [expression] - analogRead
+- PRINT [expression] - Print result.
 
 ## Saved Expressions
 
@@ -106,14 +100,15 @@ The definitions are stored in EEPROM or some other persistent storage.
 - RM [variable] - delete a stored expression
 - RUN [variable] - run a stored expression
 
-## Wait/Watch
+## Wireing
 
-- WAIT [expression] - Block until an expression is true.
-- WATCH [expression] [expression] - In the background, watch for first
-    expression to be true.  When it is, run second expression once.
-- DELAY [expression] - Block until given ms have elapsed.
-- AFTER [expression] [expression] - In the background, wait ms, then run code.
-- AUTO [expression] - store an expression to run at device boot.
+Currently only works for microcontrollers, but soon raspberry pi too.
+
+- PM [expression] [expression] - pinMode
+- DW [expression] [expression] - digitalWrite
+- AW [expression] [expression] - analogWrite
+- DR [expression] - digitalRead
+- AR [expression] - analogRead
 
 ## Constraints
 
