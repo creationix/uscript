@@ -1,15 +1,31 @@
 #include <stdint.h>
 #include <string.h>
-#include <assert.h>
 
 // #define ARDUINO
 // #include "rpi-io.c"
+
+static uint32_t deadbeef_seed;
+static uint32_t deadbeef_beef = 0xdeadbeef;
+
+uint32_t deadbeef_rand() {
+  deadbeef_seed = (deadbeef_seed << 7) ^ ((deadbeef_seed >> 25) + deadbeef_beef);
+  deadbeef_beef = (deadbeef_beef << 7) ^ ((deadbeef_beef >> 25) + 0xdeadbeef);
+  return deadbeef_seed;
+}
+
+void deadbeef_srand(uint32_t x) {
+  deadbeef_seed = x;
+  deadbeef_beef = 0xdeadbeef;
+}
 
 #ifdef ARDUINO
   #include "Arduino.h"
   #define var int32_t
   #define OP_WIRING
+  #define assert(x)
+
 #else
+  #include <assert.h>
   #include <sys/select.h>
   #include <sys/time.h>
   #include <unistd.h>
@@ -450,6 +466,11 @@ uint8_t* eval(uint8_t* pc, var* res) {
       print_fn(*res);
       return pc;
 
+    case OP_RAND:
+      pc = eval(pc, res);
+      *res = deadbeef_rand() % *res;
+      return pc;
+
     #ifndef ARDUINO
 
     case OP_DELAY: {
@@ -461,21 +482,11 @@ uint8_t* eval(uint8_t* pc, var* res) {
       return pc;
     }
 
-    case OP_RAND:
-      pc = eval(pc, res);
-      *res = rand() % *res;
-      return pc;
-
     #else
 
     case OP_DELAY:
       pc = eval(pc, res);
       delay(*res);
-      return pc;
-
-    case OP_RAND:
-      pc = eval(pc, res);
-      *res = random() % *res;
       return pc;
 
     case OP_PM: {
