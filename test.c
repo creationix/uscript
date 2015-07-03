@@ -29,12 +29,6 @@ static void test_raw(uint8_t* code, int len, number answer) {
   assert(result == answer);
 }
 
-void write_number(number num) {
-  printf("%"PRId64, num);
-}
-void write_string(const char* str) {
-  puts(str);
-}
 
 static void test(char* code, number answer) {
   printf(KGRN "%s\n" KNRM, code);
@@ -52,8 +46,6 @@ static void test(char* code, number answer) {
 }
 
 int main() {
-  vm.write_number = write_number;
-  vm.write_string = write_string;
 
   test("NOT 42", 0);
   test("OR 7 SET b NEG 2", 7);
