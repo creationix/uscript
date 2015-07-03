@@ -31,6 +31,7 @@ void deadbeef_srand(uint32_t x) {
   #include <unistd.h>
   #include <stdlib.h>
   #include <stdio.h>
+  #include <inttypes.h>
   #define var int64_t
   #ifdef BCM2708_PERI_BASE
     #define OP_WIRING
@@ -123,6 +124,8 @@ int compile(uint8_t* program) {
       // Make sure it ended on a word boundary
       if (*cc && *cc != ' ' && *cc != '\n') return program - cc - 1;
 
+      // printf("INTEGER %"PRId64"\n", val);
+
       // Encode as a variable length binary integer.
       if (val < 0x40) {
         *pc++ = val & 0x3f;
@@ -130,17 +133,13 @@ int compile(uint8_t* program) {
       else {
         *pc++ = (val & 0x3f) | 0x40;
         val >>= 6;
-        while (val) {
-          if (val < 0x80) {
-            *pc++ = val & 0x7f;
-            break;
-          }
+        while (val >= 0x80) {
           *pc++ = (val & 0x7f) | 0x80;
           val >>= 7;
         }
+        *pc++ = val & 0x7f;
       }
 
-      // printf("INTEGER %d\n", val);
     }
 
     // Variable parsing
@@ -596,13 +595,11 @@ uint8_t* eval(uint8_t* pc, var* res) {
   else {
     *res = *pc & 0x3f;
     if (!(*pc++ & 0x40)) return pc;
-    *res |= (*pc & 0x7f) << 6;
-    if (!(*pc++ & 0x80)) return pc;
-    *res |= (*pc & 0x7f) << 13;
-    if (!(*pc++ & 0x80)) return pc;
-    *res |= (*pc & 0x7f) << 20;
-    if (!(*pc++ & 0x80)) return pc;
-    *res |= (*pc & 0x1f) << 27;
-    return pc + 1;
+    int b = 6;
+    do {
+      *res |= (var)(*pc & 0x7f) << b;
+      b += 7;
+    } while (*pc++ & 0x80);
+    return pc;
   }
 }
