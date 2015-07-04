@@ -36,11 +36,13 @@
 typedef void (*write_string_fn)(const char* str);
 typedef void (*write_char_fn)(char c);
 typedef void (*write_number_fn)(number num);
+typedef int (*idle_fn)();
 
 struct state {
   write_string_fn write_string;
   write_char_fn write_char;
   write_number_fn write_number;
+  idle_fn idle;
   number vars[26];
   uint8_t* stubs[26];
 };

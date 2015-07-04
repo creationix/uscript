@@ -24,7 +24,7 @@ static void test_raw(uint8_t* code, int len, number answer) {
   printf(">" KNRM);
   number result;
   int used = eval(&vm, code, &result) - code;
-  printf(" %s(%d/%d)\n%s%ld%s\n", KWHT, used, len, KYEL, result, KNRM);
+  printf(" %s(%d/%d)\n%s%"PRId64"%s\n", KWHT, used, len, KYEL, result, KNRM);
   assert(used == len);
   assert(result == answer);
 }
@@ -45,7 +45,13 @@ static void test(char* code, number answer) {
   free(program);
 }
 
+static int on_idle() {
+  return 0;
+}
+
+
 int main() {
+  vm.idle = on_idle;
 
   test("NOT 42", 0);
   test("OR 7 SET b NEG 2", 7);

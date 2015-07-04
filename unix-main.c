@@ -50,6 +50,11 @@ static void on_alloc(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf) 
   buf->base = malloc(suggested_size);
 }
 
+static int on_idle() {
+  uv_run(&loop, UV_RUN_NOWAIT);
+  return 0;
+}
+
 int main() {
   #ifdef BCM2708_PERI_BASE
     setup_io();
@@ -58,6 +63,7 @@ int main() {
   vm.write_string = write_string;
   vm.write_char = write_char;
   vm.write_number = write_number;
+  vm.idle = on_idle;
 
   uv_loop_init(&loop);
   uv_tty_init(&loop, &in, 0, 1);

@@ -343,6 +343,7 @@ uint8_t* eval(struct state* vm, uint8_t* pc, number* res) {
       number cond;
       *res = 0;
       while (pc = eval(vm, c, &cond), cond) {
+        if (vm->idle && vm->idle()) break;
         eval(vm, pc, res);
       }
       return skip(pc);
@@ -363,6 +364,7 @@ uint8_t* eval(struct state* vm, uint8_t* pc, number* res) {
       uint8_t* body = pc;
       *res = 0;
       while (start <= end) {
+        if (vm->idle && vm->idle()) break;
         vm->vars[idx] = start++;
         pc = eval(vm, body, res);
       }
@@ -551,7 +553,9 @@ uint8_t* eval(struct state* vm, uint8_t* pc, number* res) {
 
     case OP_WAIT: {
       uint8_t* start = pc;
-      while (pc = eval(vm, start, res), !*res);
+      while (pc = eval(vm, start, res), !*res) {
+        if (vm->idle && vm->idle()) break;
+      }
       return pc;
     }
 
