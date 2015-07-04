@@ -4,7 +4,7 @@
 void write_string(const char* str) {
   Serial.print(str);
 }
-void write_number(number num) {
+void write_number(int32_t num) {
   Serial.print(num);
 }
 void write_char(char c) {

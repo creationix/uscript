@@ -4,18 +4,18 @@
 #include <stdint.h>
 #include <string.h>
 
-// #include "rpi-io.c"
-
 #if defined(SPARK)
   #define REPL_BUFFER 512
   #include "application.h"
-  #define number int32_t
+  typedef int32_t number;
   #define OP_WIRING
   #define assert(x)
 #elif defined(ARDUINO)
   #define REPL_BUFFER 512
-  #include "Arduino.h"
-  #define number int32_t
+  #if ARDUINO >= 100
+    #include "Arduino.h"
+  #endif
+  typedef int32_t number;
   #define OP_WIRING
   #define assert(x)
 #else
@@ -27,7 +27,7 @@
   #include <stdlib.h>
   #include <stdio.h>
   #include <inttypes.h>
-  #define number int64_t
+  typedef int64_t number;
   #ifdef BCM2708_PERI_BASE
     #define OP_WIRING
   #endif

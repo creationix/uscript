@@ -4,6 +4,8 @@
 #include <inttypes.h>
 #include "uv.h"
 
+// #include "rpi-io.c"
+
 #include "uscript.c"
 
 static struct state vm;
