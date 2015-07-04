@@ -1,8 +1,5 @@
 
-#define BUFFER_LENGTH 512
-
-
-#include "uscript.c"
+#include "uscript.h"
 
 void write_string(const char* str) {
   Serial.print(str);
