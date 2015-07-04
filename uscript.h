@@ -7,19 +7,19 @@
 // #include "rpi-io.c"
 
 #if defined(SPARK)
-  #define BUFFER_LENGTH 512
+  #define REPL_BUFFER 512
   #include "application.h"
   #define number int32_t
   #define OP_WIRING
   #define assert(x)
 #elif defined(ARDUINO)
-  #define BUFFER_LENGTH 512
+  #define REPL_BUFFER 512
   #include "Arduino.h"
   #define number int32_t
   #define OP_WIRING
   #define assert(x)
 #else
-  #define BUFFER_LENGTH 4096
+  #define REPL_BUFFER 4096
   #include <assert.h>
   #include <sys/select.h>
   #include <sys/time.h>

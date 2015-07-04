@@ -569,11 +569,11 @@ uint8_t* eval(struct state* vm, uint8_t* pc, number* res) {
   return pc;
 }
 
-uint8_t line[BUFFER_LENGTH];
+uint8_t line[REPL_BUFFER];
 int offset;
 
 void handle_input(struct state* vm, char c) {
-  if (offset < BUFFER_LENGTH && c >= 0x20 && c < 0x7f) {
+  if (offset < REPL_BUFFER && c >= 0x20 && c < 0x7f) {
     line[offset++] = c;
     vm->write_char(c);
   }
