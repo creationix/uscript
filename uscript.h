@@ -45,6 +45,12 @@ struct state {
   uint8_t* stubs[26];
 };
 
+const char* op_to_name(int op);
+int name_to_op(const char* name, int len);
+
+uint32_t deadbeef_rand();
+void deadbeef_srand(uint32_t x);
+
 int compile(uint8_t* program);
 uint8_t* skip(uint8_t* pc);
 uint8_t* eval(struct state* vm, uint8_t* pc, number* res);

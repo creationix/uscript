@@ -38,14 +38,14 @@ static const char* op_names =
   "\0"
 ;
 
-const char* op_to_name(enum opcodes op) {
+const char* op_to_name(int op) {
   int count = op - 128;
   const char* name = op_names;
   while (count--) while (*name++);
   return name;
 }
 
-static int name_to_op(const char* name, int len) {
+int name_to_op(const char* name, int len) {
   int op = 128;
   const char* list = op_names;
   while (*list) {
@@ -58,7 +58,6 @@ static int name_to_op(const char* name, int len) {
   }
   return 0;
 }
-
 
 // From http://inglorion.net/software/deadbeef_rand/
 static uint32_t deadbeef_seed;
