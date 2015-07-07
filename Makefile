@@ -9,7 +9,10 @@ run: uscript
 	./uscript
 
 test:
-	tcc -Wall -Werror -run test.c
+	clang -Wall -Werror -std=c99 test.c
+	./a.out
+	rm a.out
+	#tcc -Wall -Werror -run test.c
 
 clean:
 	rm -f uscript
