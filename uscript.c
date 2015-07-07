@@ -364,7 +364,6 @@ uint8_t* eval(struct state* vm, uint8_t* pc, number* res) {
       uint8_t* body = pc;
       *res = 0;
       while (start <= end) {
-        if (vm->idle && vm->idle()) break;
         vm->vars[idx] = start++;
         pc = eval(vm, body, res);
       }

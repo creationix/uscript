@@ -32,7 +32,6 @@ static const uint8_t* op_names = (uint8_t*)
   "SET\0GET\0"
   "DEF\0END\0"
   "SWAP\0"
-  "IF\0THEN\0ELIF\0ELSE\0WHILE\0DO\0"
   "NOT\0AND\0OR\0XOR\0"
   "BNOT\0BAND\0BOR\0BXOR\0LSHIFT\0RSHIFT\0"
   "EQ\0NEQ\0GTE\0LTE\0GT\0LT\0"
@@ -198,7 +197,6 @@ case OP: { \
 
 #define binop(OP, op) \
 case OP: { \
-  printf("OP: %s\n", #OP); \
   number a, b; \
   check(pop(vm, &b)); \
   check(pop(vm, &a)); \
