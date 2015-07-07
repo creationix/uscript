@@ -10,10 +10,12 @@ typedef int64_t number;
 enum opcodes {
   /* local variables */
   OP_SET = 128, OP_GET,
+  /* jumps */
+  OP_LABEL, OP_JUMP, OP_IF,
   /* function definition */
   OP_DEF, OP_END,
   /* stack operations */
-  OP_SWAP,
+  OP_SWAP, OP_DUP, OP_DROP,
   /* logic */
   OP_NOT, OP_AND, OP_OR, OP_XOR,
   /* bitwise logic */
@@ -30,8 +32,9 @@ enum opcodes {
 
 static const uint8_t* op_names = (uint8_t*)
   "SET\0GET\0"
+  "LABEL\0JUMP\0IF\0"
   "DEF\0END\0"
-  "SWAP\0"
+  "SWAP\0DUP\0DROP\0"
   "NOT\0AND\0OR\0XOR\0"
   "BNOT\0BAND\0BOR\0BXOR\0LSHIFT\0RSHIFT\0"
   "EQ\0NEQ\0GTE\0LTE\0GT\0LT\0"
@@ -61,6 +64,38 @@ uint8_t name_to_op(const uint8_t* name, int len) {
   }
   return 0;
 }
+
+char* strings;
+size_t strings_size;
+uint8_t strings_count;
+
+// Convert string to numerical index
+uint8_t intern(const char* string, size_t len) {
+  if (!strings) {
+    strings_size = len + 1;
+    strings = malloc(strings_size );
+    strings_count = 1;
+    memcpy(strings, string, len);
+    strings[len] = 0;
+    return 0;
+  }
+  size_t offset = 0;
+  uint8_t index = 0;
+  while (index < strings_count) {
+    int i;
+    for (i = 0; strings[offset + i] == string[i];) {
+      if (++i == len && !strings[offset + i]) return index;
+    }
+    while (strings[offset++]);
+    index++;
+  }
+  strings = realloc(strings, strings_size + len + 1);
+  memcpy(strings + strings_size, string, len);
+  strings[strings_size + len] = 0;
+  strings_size += len + 1;
+  return strings_count++;
+}
+
 
 int compile(uint8_t* program) {
   uint8_t *cc = program,
@@ -101,27 +136,12 @@ int compile(uint8_t* program) {
 
     // Variable parsing
     else if (*cc >= 'a' && *cc <= 'z') {
-
-      #ifdef ARDUINO
-        if (*cc == 'a' && *(cc + 1) >= '0' && *(cc + 1) <= '9') {
-          cc++;
-          *pc++ = *cc++ - '0' + A0;
-          if (*cc && *cc != ' ' && *cc != '\n') return program - cc - 1;
-          continue;
-        }
-      #endif
-
-      // Decode letters a-z as numbers 0-25
-      uint8_t index = *cc++ - 'a';
-
-      // Make sure it ended on a word boundary
-      // Variables must be single digit.
-      if (*cc && *cc != ' ' && *cc != '\n') return program - cc;
-
+      uint8_t* start = cc++;
+      while (*cc >= 'a' && *cc <= 'z') cc++;
+      uint8_t index = intern((char*)start, cc - start);
       // Encode as simple integer.
       *pc++ = index;
-
-      // printf("VARIABLE %c\n", index + 'a');
+      // printf("string found '%.*s'(%d) -> %d\n", (int)(cc - start), (char*)start, (int)(cc - start), index);
     }
 
     // Opcode parsing
@@ -213,11 +233,26 @@ const char* eval(VM* vm, uint8_t* pc, size_t len) {
     case OP_GET: return "TODO: Implement OP_GET";
     case OP_DEF: return "TODO: Implement OP_DEF";
     case OP_END: return "TODO: Implement OP_END";
+    case OP_LABEL: return "TODO: Implement OP_LABEL";
+    case OP_JUMP: return "TODO: Implement OP_JUMP";
+    case OP_IF: return "TODO: Implement OP_IF";
     case OP_SWAP: {
       if (vm->top < 2) return "Not enough items in stack to swap";
       number temp = vm->stack[vm->top - 1];
       vm->stack[vm->top - 1] = vm->stack[vm->top - 2];
       vm->stack[vm->top - 2] = temp;
+      continue;
+    }
+    case OP_DUP: {
+      if (vm->top < 1) return "Nothing on stack to dup";
+      if (vm->top >= vm->len) return "No room on stack to dup";
+      vm->stack[vm->top] = vm->stack[vm->top - 1];
+      vm->top++;
+      continue;
+    }
+    case OP_DROP: {
+      if (vm->top < 1) return "Not enough items in stack to drop";
+      vm->top--;
       continue;
     }
     unop(OP_NOT, !)
@@ -311,8 +346,34 @@ void test(const char* code, number result) {
   printf("%"PRId64"\n", vm->stack[0]);
 }
 
+void test_intern(const char* string, uint8_t expected) {
+  uint8_t actual = intern(string, strlen(string));
+  printf("%d %s\n", actual, string);
+  if (actual != expected) {
+    printf("Error: expected %d\n", expected);
+    exit(-1);
+  }
+}
 
 int main() {
+  test_intern("hello", 0);
+  test_intern("hello", 0);
+  test_intern("goodbye", 1);
+  test_intern("goodbye", 1);
+  test_intern("monkey", 2);
+  test_intern("giraffe", 3);
+  test_intern("hippo", 4);
+  test_intern("hello", 0);
+  test_intern("goodbye", 1);
+  test_intern("monkey", 2);
+  test_intern("giraffe", 3);
+  test_intern("a", 5);
+  test_intern("aaa", 6);
+  test_intern("aa", 7);
+  test_intern("a", 5);
+  test_intern("aaa", 6);
+  test_intern("aa", 7);
+
   test("1 2 ADD", 3);
   test("1 2 SUB", -1);
   test("1 2 SWAP SUB", 1);
@@ -341,5 +402,8 @@ int main() {
   test("100000000000000000", 100000000000000000);
   test("1000000000000000000", 1000000000000000000);
   test("1000000000 NEG", -1000000000);
+  test("1 2 3 4 5 6 7 8 9 10 ADD ADD ADD ADD ADD ADD ADD ADD ADD", 55);
+  test("1 2 ADD 3 ADD 4 ADD 5 ADD 6 ADD 7 ADD 8 ADD 9 ADD 10 ADD", 55);
+  test("DEF square DUP MUL END 3 square", 9);
   return 0;
 }
