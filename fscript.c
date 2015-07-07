@@ -11,9 +11,7 @@ enum opcodes {
   /* local variables */
   OP_SET = 128, OP_GET,
   /* jumps */
-  OP_LABEL, OP_JUMP, OP_IF,
-  /* function definition */
-  OP_DEF, OP_END,
+  OP_BACK, OP_IJUMP,
   /* stack operations */
   OP_SWAP, OP_DUP, OP_DROP,
   /* logic */
@@ -32,8 +30,7 @@ enum opcodes {
 
 static const uint8_t* op_names = (uint8_t*)
   "SET\0GET\0"
-  "LABEL\0JUMP\0IF\0"
-  "DEF\0END\0"
+  "BACK\0IJUMP\0"
   "SWAP\0DUP\0DROP\0"
   "NOT\0AND\0OR\0XOR\0"
   "BNOT\0BAND\0BOR\0BXOR\0LSHIFT\0RSHIFT\0"
@@ -227,15 +224,37 @@ case OP: { \
 const char* eval(VM* vm, uint8_t* pc, size_t len) {
   uint8_t* end = pc + len;
   while (pc < end) {
+    // dump(vm);
     // If the high bit is set, it's an opcode index.
     if (*pc & 0x80) switch ((enum opcodes)*pc++) {
-    case OP_SET: return "TODO: Implement OP_SET";
-    case OP_GET: return "TODO: Implement OP_GET";
-    case OP_DEF: return "TODO: Implement OP_DEF";
-    case OP_END: return "TODO: Implement OP_END";
-    case OP_LABEL: return "TODO: Implement OP_LABEL";
-    case OP_JUMP: return "TODO: Implement OP_JUMP";
-    case OP_IF: return "TODO: Implement OP_IF";
+    case OP_SET: {
+      number i, v;
+      check(pop(vm, &i));
+      check(pop(vm, &v));
+      if (vm->top < i) return "Stack underflow";
+      vm->stack[vm->top - i] = v;
+      continue;
+    }
+    case OP_GET: {
+      if (vm->top < 1) return "Stack underflow";
+      number i = vm->stack[vm->top - 1] + 1;
+      if (vm->top < i) return "Stack underflow";
+      vm->stack[vm->top - 1] = vm->stack[vm->top - i];
+      continue;
+    }
+    case OP_BACK: {
+      number i;
+      check(pop(vm, &i));
+      pc -= i;
+      continue;
+    }
+    case OP_IJUMP: {
+      number c, d;
+      check(pop(vm, &d));
+      check(pop(vm, &c));
+      if (c) pc += d;
+      continue;
+    }
     case OP_SWAP: {
       if (vm->top < 2) return "Not enough items in stack to swap";
       number temp = vm->stack[vm->top - 1];
@@ -356,54 +375,57 @@ void test_intern(const char* string, uint8_t expected) {
 }
 
 int main() {
-  test_intern("hello", 0);
-  test_intern("hello", 0);
-  test_intern("goodbye", 1);
-  test_intern("goodbye", 1);
-  test_intern("monkey", 2);
-  test_intern("giraffe", 3);
-  test_intern("hippo", 4);
-  test_intern("hello", 0);
-  test_intern("goodbye", 1);
-  test_intern("monkey", 2);
-  test_intern("giraffe", 3);
-  test_intern("a", 5);
-  test_intern("aaa", 6);
-  test_intern("aa", 7);
-  test_intern("a", 5);
-  test_intern("aaa", 6);
-  test_intern("aa", 7);
-
-  test("1 2 ADD", 3);
-  test("1 2 SUB", -1);
-  test("1 2 SWAP SUB", 1);
-  test("1 2 ADD 3 MUL", 9);
-  test("10 3 DIV", 3);
-  test("10 3 MOD", 1);
-  test("10 NEG", -10);
-  test("10 20 SUB ABS", 10);
-  test("1", 1);
-  test("10", 10);
-  test("100", 100);
-  test("1000", 1000);
-  test("10000", 10000);
-  test("100000", 100000);
-  test("1000000", 1000000);
-  test("10000000", 10000000);
-  test("100000000", 100000000);
-  test("1000000000", 1000000000);
-  test("10000000000", 10000000000);
-  test("100000000000", 100000000000);
-  test("1000000000000", 1000000000000);
-  test("10000000000000", 10000000000000);
-  test("100000000000000", 100000000000000);
-  test("1000000000000000", 1000000000000000);
-  test("10000000000000000", 10000000000000000);
-  test("100000000000000000", 100000000000000000);
-  test("1000000000000000000", 1000000000000000000);
-  test("1000000000 NEG", -1000000000);
-  test("1 2 3 4 5 6 7 8 9 10 ADD ADD ADD ADD ADD ADD ADD ADD ADD", 55);
-  test("1 2 ADD 3 ADD 4 ADD 5 ADD 6 ADD 7 ADD 8 ADD 9 ADD 10 ADD", 55);
-  test("DEF square DUP MUL END 3 square", 9);
+  test("1000000000 0 2 GET ADD SWAP 1 SUB DUP NOT 3 IJUMP SWAP 13 BACK DROP", 500000000500000000);
+  //
+  //
+  // test_intern("hello", 0);
+  // test_intern("hello", 0);
+  // test_intern("goodbye", 1);
+  // test_intern("goodbye", 1);
+  // test_intern("monkey", 2);
+  // test_intern("giraffe", 3);
+  // test_intern("hippo", 4);
+  // test_intern("hello", 0);
+  // test_intern("goodbye", 1);
+  // test_intern("monkey", 2);
+  // test_intern("giraffe", 3);
+  // test_intern("a", 5);
+  // test_intern("aaa", 6);
+  // test_intern("aa", 7);
+  // test_intern("a", 5);
+  // test_intern("aaa", 6);
+  // test_intern("aa", 7);
+  //
+  // test("1 2 ADD", 3);
+  // test("1 2 SUB", -1);
+  // test("1 2 SWAP SUB", 1);
+  // test("1 2 ADD 3 MUL", 9);
+  // test("10 3 DIV", 3);
+  // test("10 3 MOD", 1);
+  // test("10 NEG", -10);
+  // test("10 20 SUB ABS", 10);
+  // test("1", 1);
+  // test("10", 10);
+  // test("100", 100);
+  // test("1000", 1000);
+  // test("10000", 10000);
+  // test("100000", 100000);
+  // test("1000000", 1000000);
+  // test("10000000", 10000000);
+  // test("100000000", 100000000);
+  // test("1000000000", 1000000000);
+  // test("10000000000", 10000000000);
+  // test("100000000000", 100000000000);
+  // test("1000000000000", 1000000000000);
+  // test("10000000000000", 10000000000000);
+  // test("100000000000000", 100000000000000);
+  // test("1000000000000000", 1000000000000000);
+  // test("10000000000000000", 10000000000000000);
+  // test("100000000000000000", 100000000000000000);
+  // test("1000000000000000000", 1000000000000000000);
+  // test("1000000000 NEG", -1000000000);
+  // test("1 2 3 4 5 6 7 8 9 10 ADD ADD ADD ADD ADD ADD ADD ADD ADD", 55);
+  // test("1 2 ADD 3 ADD 4 ADD 5 ADD 6 ADD 7 ADD 8 ADD 9 ADD 10 ADD", 55);
+  // test("DEF square DUP MUL END 3 square", 9);
   return 0;
 }
