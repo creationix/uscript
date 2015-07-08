@@ -5,6 +5,7 @@
 #define NUM_STUBS 64
 #define STACK_SIZE 64
 #define REPL_BUFFER 4096
+#define EEPROM_SIZE 4096
 
 #if defined(SPARK)
   #include "application.h"
@@ -65,7 +66,7 @@ enum opcodes {
   /* misc */
   OP_DELAY, OP_RAND, OP_PRINT,
   /* stubs */
-  OP_DEF, OP_RM, OP_RUN
+  OP_DEF, OP_RM, OP_RUN, OP_SAVE, OP_LIST,
   #ifdef OP_WIRING
   /* io */
   ,OP_PM, OP_DW, OP_AW, OP_DR, OP_AR
@@ -81,7 +82,7 @@ static const char* op_names =
   "EQ\0NEQ\0GTE\0LTE\0GT\0LT\0"
   "NEG\0ADD\0SUB\0MUL\0DIV\0MOD\0ABS\0"
   "DELAY\0RAND\0PRINT\0"
-  "DEF\0RM\0RUN\0"
+  "DEF\0RM\0RUN\0SAVE\0LIST\0"
   #ifdef OP_WIRING
   "PM\0DW\0AW\0DR\0AR\0"
   #endif
@@ -212,6 +213,28 @@ int compile(uint8_t* program) {
   return pc - program;
 }
 
+void dump(uint8_t* pc, int len) {
+  uint8_t* end = pc + len;
+  while (pc < end) {
+    write_char(' ');
+    // If the high bit is set, it's an opcode index.
+    if (*pc & 0x80) {
+      write_string(op_to_name(*pc++));
+      continue;
+    }
+    // Otherwise it's a variable length encoded integer.
+    number val = *pc & 0x3f;
+    if (*pc++ & 0x40) {
+      int b = 6;
+      do {
+        val |= (number)(*pc & 0x7f) << b;
+        b += 7;
+      } while (*pc++ & 0x80);
+    }
+    write_number(val);
+  }
+}
+
 uint8_t* skip(uint8_t* pc) {
   // If the high bit is set, it's an opcode index.
   if (*pc & 0x80) switch ((enum opcodes)*pc++) {
@@ -226,6 +249,9 @@ uint8_t* skip(uint8_t* pc) {
       while (count--) pc = skip(pc);
       return pc;
     }
+
+    // Opcodes with no arguments
+    case OP_SAVE: case OP_LIST: return pc;
 
     // Opcodes that consume one opcode
     case OP_GET: case OP_RM: case OP_RUN: case OP_READ: case OP_REMOVE:
@@ -647,6 +673,26 @@ uint8_t* eval(uint8_t* pc, number* res) {
       return pc;
     }
 
+    case OP_SAVE: {
+      write_string("TODO: save to EEPROM\r\n");
+      return pc;
+    }
+
+    case OP_LIST: {
+      int i;
+      *res = 0;
+      for (i = 0; i < NUM_STUBS; i++) {
+        if (!stubs[i]) continue;
+        write_char(i + 'a');
+        write_string(":");
+        int len = skip(stubs[i]) - stubs[i];
+        dump(stubs[i], len);
+        write_string("\r\n");
+        *res += len;
+      }
+      return pc;
+    }
+
   }
 
   // Otherwise it's a variable length encoded integer.
@@ -701,6 +747,7 @@ void handle_input(char c) {
 void start() {
   #ifdef ARDUINO
     pinMode(0, 0);
+    EEPROM.begin(EEPROM_SIZE)
   #endif
   write_string("Welcome to uscript.\r\n> ");
 }

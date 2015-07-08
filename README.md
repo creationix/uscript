@@ -106,6 +106,8 @@ The definitions are stored in EEPROM or some other persistent storage.
 - DEF [variable] [expression] - store an expression
 - RM [variable] - delete a stored expression
 - RUN [variable] - run a stored expression
+- SAVE - Save all expressions to EEPROM.
+- LIST - List all expressions.
 
 ## Wireing
 
