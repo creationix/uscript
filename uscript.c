@@ -252,7 +252,7 @@ uint8_t* skip(uint8_t* pc) {
     }
 
     // Opcodes with no arguments
-    #ifdef WIRING
+    #ifdef OP_WIRING
     case OP_SAVE:
     #endif
     case OP_LIST: return pc;
@@ -677,9 +677,10 @@ uint8_t* eval(uint8_t* pc, number* res) {
       return pc;
     }
 
-    #ifdef WIRING
+    #ifdef OP_WIRING
 
     case OP_SAVE: {
+      write_string("OP_SAVE\r\n");
       int i;
       *res = 0;
       int o = 0;
@@ -687,6 +688,9 @@ uint8_t* eval(uint8_t* pc, number* res) {
       EEPROM.write(o++, 'u');
       for (i = 0; i < NUM_STUBS; i++) {
         if (!stubs[i]) continue;
+        write_string("Saving ");
+        write_char(i + 'a');
+        write_string("...\r\n");
         EEPROM.write(o++, i);
         int len = skip(stubs[i]) - stubs[i];
         EEPROM.write(o++, len >> 8);
@@ -698,6 +702,7 @@ uint8_t* eval(uint8_t* pc, number* res) {
       }
       EEPROM.write(o++, 'u');
       EEPROM.end();
+      *res = o;
       return pc;
     }
 
@@ -705,15 +710,15 @@ uint8_t* eval(uint8_t* pc, number* res) {
 
     case OP_LIST: {
       int i;
-      *res = 0;
+      *res = 2;
       for (i = 0; i < NUM_STUBS; i++) {
         if (!stubs[i]) continue;
+        write_string("DEF ");
         write_char(i + 'a');
-        write_string(":");
         int len = skip(stubs[i]) - stubs[i];
         dump(stubs[i], len);
         write_string("\r\n");
-        *res += len;
+        *res += len + 3;
       }
       return pc;
     }
@@ -770,6 +775,7 @@ void handle_input(char c) {
 }
 
 void start() {
+  write_string("\r\nWelcome to uscript.\r\n");
   #ifdef ARDUINO
     pinMode(0, 0);
     EEPROM.begin(EEPROM_SIZE);
@@ -777,6 +783,9 @@ void start() {
     if (EEPROM.read(o++) == 'u') {
       while (EEPROM.read(o) != 'u') {
         int key = EEPROM.read(o++);
+        write_string("Loading ");
+        write_char(key + 'a');
+        write_string("...\r\n");
         int len = EEPROM.read(o++) << 8;
         len |= EEPROM.read(o++);
         uint8_t* stub = (uint8_t*)malloc(len);
@@ -790,12 +799,9 @@ void start() {
     EEPROM.end();
   #endif
   if (stubs[0]) {
-    write_string("\r\nRunning auto script...\r\n");
+    write_string("Running auto script...\r\n");
     number out;
     eval(stubs[0], &out);
-    write_string("> ");
   }
-  else {
-    write_string("\r\nWelcome to uscript.\r\n> ");
-  }
+  write_string("> ");
 }
