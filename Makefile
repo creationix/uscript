@@ -1,4 +1,4 @@
-uscript: unix-main.c uscript.c uscript.h rpi-io.c
+uscript: unix-main.c uscript.c rpi-io.c
 	clang -Wall -Werror -std=c99 -luv -o uscript unix-main.c
 
 flash: unix-main.c arduino-main/arduino-main.ino

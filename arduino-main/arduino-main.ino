@@ -1,26 +1,23 @@
 
 #include "uscript.h"
-
-void write_string(const char* str) {
+static void on_write_string(const char* str) {
   Serial.print(str);
 }
-void write_number(int32_t num) {
+static void on_write_number(int32_t num) {
   Serial.print(num);
 }
-void write_char(char c) {
+static void on_write_char(char c) {
   Serial.write(c);
 }
 
-static struct state vm;
-
 void setup() {
-  vm.write_string = write_string;
-  vm.write_number = write_number;
-  vm.write_char = write_char;
+  write_string = on_write_string;
+  write_number = on_write_number;
+  write_char = on_write_char;
   Serial.begin(9600);
-  start_state(&vm);
+  start();
 }
 
 void loop() {
-  while (Serial.available() > 0) handle_input(&vm, Serial.read());
+  while (Serial.available() > 0) handle_input(Serial.read());
 }

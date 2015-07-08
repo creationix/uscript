@@ -8,26 +8,24 @@
 
 #include "uscript.c"
 
-static struct state vm;
 static uv_loop_t loop;
 static uv_tty_t in;
 static uv_tty_t out;
 
-void write_string(const char* str) {
+static void on_write_string(const char* str) {
   uv_buf_t buf = { .base = (char*)str, .len = strlen(str) };
   uv_try_write((uv_stream_t*)&out, &buf, 1);
 }
-void write_number(number num) {
+static void on_write_number(number num) {
   char str[15];
   sprintf(str, "%"PRId64, num);
   return write_string(str);
 }
-void write_char(char c) {
+static void on_write_char(char c) {
   char s[] = {c};
   uv_buf_t buf = { .base = s, .len = 1 };
   uv_try_write((uv_stream_t*)&out, &buf, 1);
 }
-
 static void on_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf) {
   if (nread == 0) return;
   if (nread < 0) {
@@ -41,7 +39,7 @@ static void on_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf) {
 
   int i;
   for (i = 0; i < nread; i++) {
-    handle_input(&vm, buf->base[i]);
+    handle_input(buf->base[i]);
   }
 }
 
@@ -50,20 +48,14 @@ static void on_alloc(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf) 
   buf->base = malloc(suggested_size);
 }
 
-static int on_idle() {
-  uv_run(&loop, UV_RUN_NOWAIT);
-  return 0;
-}
-
 int main() {
   #ifdef BCM2708_PERI_BASE
     setup_io();
   #endif
 
-  vm.write_string = write_string;
-  vm.write_char = write_char;
-  vm.write_number = write_number;
-  vm.idle = on_idle;
+  write_string = on_write_string;
+  write_char = on_write_char;
+  write_number = on_write_number;
 
   uv_loop_init(&loop);
   uv_tty_init(&loop, &in, 0, 1);
@@ -74,7 +66,7 @@ int main() {
 
   uv_read_start((uv_stream_t*)&in, on_alloc, on_read);
 
-  start_state(&vm);
+  start();
 
   uv_run(&loop, UV_RUN_DEFAULT);
   write_string("\r\n");

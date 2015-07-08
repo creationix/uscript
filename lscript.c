@@ -102,7 +102,7 @@ const char* eval(int64_t* slots, int num, uint32_t* codes, int len, int64_t* num
     }
   }
   for (i = 0; i < num; i++) {
-    printf("%d: %ld\n", i, slots[i]);
+    printf("%d: %"PRId64"\n", i, slots[i]);
   }
   return NULL;
 }
@@ -117,7 +117,7 @@ int main() {
     AD(ISEQN, 0, 0),
     AD(JMP, 0, -4),
   };
-  int64_t nums[] = { 1000000000 };
+  int64_t nums[] = { 10000000 };
   const char* err = eval(slots, 2, code, 6, nums);
   if (err) {
     fprintf(stderr, "Error: %s\n", err);

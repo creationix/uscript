@@ -1,4 +1,58 @@
-#include "uscript.h"
+#include <stdint.h>
+#include <string.h>
+
+#if defined(SPARK)
+  #define REPL_BUFFER 512
+  #include "application.h"
+  typedef int32_t number;
+  #define NUM_VARS 64
+  #define NUM_STUBS 64
+  #define STACK_SIZE 64
+  #define OP_WIRING
+  #define assert(x)
+#elif defined(ARDUINO)
+  #define REPL_BUFFER 512
+  #if ARDUINO >= 100
+    #include "Arduino.h"
+  #endif
+  typedef int32_t number;
+  #define NUM_VARS 26
+  #define NUM_STUBS 26
+  #define STACK_SIZE 32
+  #define OP_WIRING
+  int check_count = 0;
+  #define CHECKER (check_count = (check_count + 1) % 10) == 0 && !digitalRead(0)
+  #define assert(x)
+#else
+  #define REPL_BUFFER 4096
+  #include <assert.h>
+  #include <sys/select.h>
+  #include <sys/time.h>
+  #include <unistd.h>
+  #include <stdlib.h>
+  #include <stdio.h>
+  #include <inttypes.h>
+  typedef int64_t number;
+  #define NUM_VARS 64
+  #define NUM_STUBS 64
+  #define STACK_SIZE 128
+  #ifdef BCM2708_PERI_BASE
+    #define OP_WIRING
+  #endif
+#endif
+
+typedef void (*write_string_fn)(const char* str);
+typedef void (*write_char_fn)(char c);
+typedef void (*write_number_fn)(number num);
+typedef int (*idle_fn)();
+
+write_string_fn write_string;
+write_char_fn write_char;
+write_number_fn write_number;
+idle_fn idle;
+number vars[NUM_VARS];
+number stack[STACK_SIZE];
+uint8_t* stubs[NUM_STUBS];
 
 enum opcodes {
   /* variables */
@@ -233,20 +287,20 @@ uint8_t* skip(uint8_t* pc) {
 #define binop(code, op) \
   case code: { \
     number a, b; \
-    pc = eval(vm, pc, &a); \
-    pc = eval(vm, pc, &b); \
+    pc = eval(pc, &a); \
+    pc = eval(pc, &b); \
     *res = a op b; \
     return pc; \
   }
 
 #define unop(code, op) \
   case code: { \
-    pc = eval(vm, pc, res); \
+    pc = eval(pc, res); \
     *res = op*res; \
     return pc; \
   }
 
-uint8_t* eval(struct state* vm, uint8_t* pc, number* res) {
+uint8_t* eval(uint8_t* pc, number* res) {
 
   // If the high bit is set, it's an opcode index.
   if (*pc & 0x80) switch ((enum opcodes)*pc++) {
@@ -256,27 +310,27 @@ uint8_t* eval(struct state* vm, uint8_t* pc, number* res) {
 
     case OP_SET: {
       uint8_t idx = *pc++;
-      pc = eval(vm, pc, res);
-      vm->vars[idx] = *res;
+      pc = eval(pc, res);
+      vars[idx] = *res;
       return pc;
     }
     case OP_GET:
-      *res = vm->vars[*pc];
+      *res = vars[*pc];
       return pc + 1;
 
     case OP_INCR: {
       number step;
       uint8_t idx = *pc++;
-      pc = eval(vm, pc, &step);
-      *res = vm->vars[idx] += step;
+      pc = eval(pc, &step);
+      *res = vars[idx] += step;
       return pc;
     }
 
     case OP_DECR: {
       number step;
       uint8_t idx = *pc++;
-      pc = eval(vm, pc, &step);
-      *res = vm->vars[idx] -= step;
+      pc = eval(pc, &step);
+      *res = vars[idx] -= step;
       return pc;
     }
 
@@ -284,10 +338,10 @@ uint8_t* eval(struct state* vm, uint8_t* pc, number* res) {
       number cond;
       char done = 0;
       *res = 0;
-      pc = eval(vm, pc, &cond);
+      pc = eval(pc, &cond);
       if (cond) {
         done = 1;
-        pc = eval(vm, pc, res);
+        pc = eval(pc, res);
       }
       else pc = skip(pc);
       while (*pc == OP_ELIF) {
@@ -296,10 +350,10 @@ uint8_t* eval(struct state* vm, uint8_t* pc, number* res) {
           pc = skip(skip(pc));
         }
         else {
-          pc = eval(vm, pc, &cond);
+          pc = eval(pc, &cond);
           if (cond) {
             done = 1;
-            pc = eval(vm, pc, res);
+            pc = eval(pc, res);
           }
           else pc = skip(pc);
         }
@@ -307,7 +361,7 @@ uint8_t* eval(struct state* vm, uint8_t* pc, number* res) {
       if (*pc == OP_ELSE) {
         pc++;
         if (done) pc = skip(pc);
-        else pc = eval(vm, pc, res);
+        else pc = eval(pc, res);
       }
       return pc;
     }
@@ -316,24 +370,24 @@ uint8_t* eval(struct state* vm, uint8_t* pc, number* res) {
       number val, cond;
       char done = 0;
       *res = 0;
-      pc = eval(vm, pc, &val);
+      pc = eval(pc, &val);
       while (*pc == OP_WHEN) {
         pc++;
         if (done) {
           pc = skip(pc); // cond
           pc = skip(pc); // val
         }
-        pc = eval(vm, pc, &cond);
+        pc = eval(pc, &cond);
         if (cond == val) {
           done = 1;
-          pc = eval(vm, pc, res);
+          pc = eval(pc, res);
         }
         else pc = skip(pc);
       }
       if (*pc == OP_ELSE) {
         pc++;
         if (done) pc = skip(pc);
-        else pc = eval(vm, pc, res);
+        else pc = eval(pc, res);
       }
       return pc;
     }
@@ -342,9 +396,11 @@ uint8_t* eval(struct state* vm, uint8_t* pc, number* res) {
       uint8_t* c = pc;
       number cond;
       *res = 0;
-      while (pc = eval(vm, c, &cond), cond) {
-        if (vm->idle && vm->idle()) break;
-        eval(vm, pc, res);
+      while (pc = eval(c, &cond), cond) {
+        eval(pc, res);
+        #ifdef CHECKER
+          if (CHECKER) break;
+        #endif
       }
       return skip(pc);
     }
@@ -352,39 +408,42 @@ uint8_t* eval(struct state* vm, uint8_t* pc, number* res) {
     case OP_DO: {
       uint8_t count = *pc++;
       *res = 0;
-      while (count--) pc = eval(vm, pc, res);
+      while (count--) pc = eval(pc, res);
       return pc;
     }
 
     case OP_FOR: {
       uint8_t idx = *pc++;
       number start, end;
-      pc = eval(vm, pc, &start);
-      pc = eval(vm, pc, &end);
+      pc = eval(pc, &start);
+      pc = eval(pc, &end);
       uint8_t* body = pc;
       *res = 0;
       while (start <= end) {
-        vm->vars[idx] = start++;
-        pc = eval(vm, body, res);
+        vars[idx] = start++;
+        pc = eval(body, res);
+        #ifdef CHECKER
+          if (CHECKER) break;
+        #endif
       }
       return pc;
     }
 
     unop(OP_NOT, !)
     case OP_AND:
-      pc = eval(vm, pc, res);
-      if (*res) pc = eval(vm, pc, res);
+      pc = eval(pc, res);
+      if (*res) pc = eval(pc, res);
       else pc = skip(pc);
       return pc;
     case OP_OR:
-      pc = eval(vm, pc, res);
+      pc = eval(pc, res);
       if (*res) pc = skip(pc);
-      else pc = eval(vm, pc, res);
+      else pc = eval(pc, res);
       return pc;
     case OP_XOR: {
       number a, b;
-      pc = eval(vm, pc, &a);
-      pc = eval(vm, pc, &b);
+      pc = eval(pc, &a);
+      pc = eval(pc, &b);
       *res = a ? (b ? 0 : a) : (b ? b : 0);
       return pc;
     }
@@ -411,25 +470,25 @@ uint8_t* eval(struct state* vm, uint8_t* pc, number* res) {
     binop(OP_MOD, %)
 
     case OP_ABS:
-      pc = eval(vm, pc, res);
+      pc = eval(pc, res);
       if (*res < 0) *res = -*res;
       return pc;
 
     case OP_PRINT:
-      pc = eval(vm, pc, res);
-      vm->write_number(*res);
-      vm->write_string("\r\n");
+      pc = eval(pc, res);
+      write_number(*res);
+      write_string("\r\n");
       return pc;
 
     case OP_RAND:
-      pc = eval(vm, pc, res);
+      pc = eval(pc, res);
       *res = deadbeef_rand() % *res;
       return pc;
 
     #ifndef ARDUINO
 
     case OP_DELAY: {
-      pc = eval(vm, pc, res);
+      pc = eval(pc, res);
       struct timeval t;
       t.tv_sec = *res / 1000;
       t.tv_usec = (*res % 1000) * 1000;
@@ -440,44 +499,44 @@ uint8_t* eval(struct state* vm, uint8_t* pc, number* res) {
     #else
 
     case OP_DELAY:
-      pc = eval(vm, pc, res);
+      pc = eval(pc, res);
       delay(*res);
       return pc;
 
     case OP_PM: {
       number pin;
-      pc = eval(vm, pc, &pin);
-      pc = eval(vm, pc, res);
+      pc = eval(pc, &pin);
+      pc = eval(pc, res);
       pinMode(pin, *res);
       return pc;
     }
 
     case OP_DW: {
       number pin;
-      pc = eval(vm, pc, &pin);
-      pc = eval(vm, pc, res);
+      pc = eval(pc, &pin);
+      pc = eval(pc, res);
       digitalWrite(pin, *res);
       return pc;
     }
 
     case OP_AW: {
       number pin;
-      pc = eval(vm, pc, &pin);
-      pc = eval(vm, pc, res);
+      pc = eval(pc, &pin);
+      pc = eval(pc, res);
       analogWrite(pin, *res);
       return pc;
     }
 
     case OP_DR: {
       number pin;
-      pc = eval(vm, pc, &pin);
+      pc = eval(pc, &pin);
       *res = digitalRead(pin);
       return pc;
     }
 
     case OP_AR: {
       number pin;
-      pc = eval(vm, pc, &pin);
+      pc = eval(pc, &pin);
       *res = analogRead(pin);
       return pc;
     }
@@ -487,8 +546,8 @@ uint8_t* eval(struct state* vm, uint8_t* pc, number* res) {
 
     case OP_PM: {
       number pin;
-      pc = eval(vm, pc, &pin);
-      pc = eval(vm, pc, res);
+      pc = eval(pc, &pin);
+      pc = eval(pc, res);
       INP_GPIO(pin);
       if (*res) OUT_GPIO(pin);
       return pc;
@@ -496,8 +555,8 @@ uint8_t* eval(struct state* vm, uint8_t* pc, number* res) {
 
     case OP_DW: {
       number pin;
-      pc = eval(vm, pc, &pin);
-      pc = eval(vm, pc, res);
+      pc = eval(pc, &pin);
+      pc = eval(pc, res);
       if (*res) GPIO_SET = 1 << pin;
       else GPIO_CLR = 1 << pin;
       return pc;
@@ -505,22 +564,22 @@ uint8_t* eval(struct state* vm, uint8_t* pc, number* res) {
 
     case OP_AW: {
       number pin;
-      pc = eval(vm, pc, &pin);
-      pc = eval(vm, pc, res);
+      pc = eval(pc, &pin);
+      pc = eval(pc, res);
       // TODO: pwm write somehow?
       return pc;
     }
 
     case OP_DR: {
       number pin;
-      pc = eval(vm, pc, &pin);
+      pc = eval(pc, &pin);
       *res = !!GET_GPIO(pin);
       return pc;
     }
 
     case OP_AR: {
       number pin;
-      pc = eval(vm, pc, &pin);
+      pc = eval(pc, &pin);
       // TODO: there are no analog inputs right?
       *res = 0;
       return pc;
@@ -532,28 +591,30 @@ uint8_t* eval(struct state* vm, uint8_t* pc, number* res) {
       assert(*pc >=0 && *pc <= 26);
       *res = *pc++;
       uint8_t* end = skip(pc);
-      if (vm->stubs[*res]) free(vm->stubs[*res]);
-      vm->stubs[*res] = (uint8_t*)malloc(end - pc);
-      memcpy(vm->stubs[*res], pc, end - pc);
+      if (stubs[*res]) free(stubs[*res]);
+      stubs[*res] = (uint8_t*)malloc(end - pc);
+      memcpy(stubs[*res], pc, end - pc);
       return end;
     }
 
     case OP_RM:
       assert(*pc >=0 && *pc <= 26);
-      free(vm->stubs[*res = *pc]);
-      vm->stubs[*res] = 0;
+      free(stubs[*res = *pc]);
+      stubs[*res] = 0;
       return pc + 1;
 
     case OP_RUN:
       assert(*pc >=0 && *pc <= 26);
-      if (vm->stubs[*pc]) eval(vm, vm->stubs[*pc], res);
+      if (stubs[*pc]) eval(stubs[*pc], res);
       else *res = 0;
       return pc + 1;
 
     case OP_WAIT: {
       uint8_t* start = pc;
-      while (pc = eval(vm, start, res), !*res) {
-        if (vm->idle && vm->idle()) break;
+      while (pc = eval(start, res), !*res) {
+        #ifdef CHECKER
+          if (CHECKER) break;
+        #endif
       }
       return pc;
     }
@@ -574,41 +635,41 @@ uint8_t* eval(struct state* vm, uint8_t* pc, number* res) {
 uint8_t line[REPL_BUFFER];
 int offset;
 
-void handle_input(struct state* vm, char c) {
+void handle_input(char c) {
   if (offset < REPL_BUFFER && c >= 0x20 && c < 0x7f) {
     line[offset++] = c;
-    vm->write_char(c);
+    write_char(c);
   }
   else if (offset > 0 && (c == 127 || c == 8)) {
     line[--offset] = 0;
-    vm->write_string("\x08 \x08");
+    write_string("\x08 \x08");
   }
   else if (c == '\r' || c == '\n') {
-    vm->write_string("\r\n");
+    write_string("\r\n");
     if (offset) {
       line[offset++] = 0;
       int len = compile(line);
       if ((int) len < 0) {
         int offset = 1 - (int)len;
-        while (offset--) vm->write_string(" ");
-        vm->write_string("^\r\nUnexpected input\r\n");
+        while (offset--) write_string(" ");
+        write_string("^\r\nUnexpected input\r\n");
       }
       else {
         int offset = 0;
         while (offset < len) {
           number result;
-          offset = eval(vm, line + offset, &result) - line;
-          vm->write_number(result);
-          vm->write_string("\r\n");
+          offset = eval(line + offset, &result) - line;
+          write_number(result);
+          write_string("\r\n");
         }
       }
 
     }
     offset = 0;
-    vm->write_string("> ");
+    write_string("> ");
   }
 }
 
-void start_state(struct state* vm) {
-  vm->write_string("Welcome to uscript.\r\n> ");
+void start() {
+  write_string("Welcome to uscript.\r\n> ");
 }

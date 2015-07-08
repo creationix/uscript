@@ -175,103 +175,85 @@ typedef struct {
   number stack[];
 } VM;
 
-VM* new_vm(size_t len) {
-  VM *vm = malloc(sizeof(*vm) + sizeof(number) * len);
-  vm->len = len;
-  vm->top = 0;
-  return vm;
-}
-
-const char* push(VM* vm, number in) {
-  if (vm->top >= vm->len) return "stack overflow";
-  vm->stack[vm->top++] = in;
-  return NULL;
-}
-
-const char* pop(VM* vm, number* out) {
-  if (vm->top <= 0) return "stack underflow";
-  *out = vm->stack[--vm->top];
-  return NULL;
-}
-
-void dump(VM* vm) {
-  printf("\nvm=%p top=%ld\n", vm, vm->top);
-  for (int i = 0; i < vm->top; i++) {
-    printf("%d: %"PRId64"\n", i, vm->stack[i]);
+void dump(int64_t* stack, int top) {
+  printf("stack=%p (%d)\n", stack, top);
+  while (top) {
+    printf("%d: %"PRId64"\n", top, stack[top - 1]);
+    top--;
   }
-  printf("\n");
 }
 
-#define check(code) { const char* e = code; if (e) return e; }
+#define pop(var) if (*top <= 0) return "stack underflow"; var = stack[--(*top)]
+#define push(val) if (*top >= len) return "stack overflow"; stack[(*top)++] = val
 
 #define unop(OP, op) \
 case OP: { \
   number a; \
-  check(pop(vm, &a)); \
-  push(vm, op a); \
+  pop(a); \
+  push(op a); \
   continue; \
 }
 
 #define binop(OP, op) \
 case OP: { \
   number a, b; \
-  check(pop(vm, &b)); \
-  check(pop(vm, &a)); \
-  push(vm, a op b); \
+  pop(b); \
+  pop(a); \
+  push(a op b); \
   continue; \
 }
 
-const char* eval(VM* vm, uint8_t* pc, size_t len) {
-  uint8_t* end = pc + len;
+const char* eval(int64_t* stack, int len, int *top, uint8_t* pc, size_t count) {
+  uint8_t* end = pc + count;
   while (pc < end) {
-    // dump(vm);
+    // dump(stack, *top);
     // If the high bit is set, it's an opcode index.
     if (*pc & 0x80) switch ((enum opcodes)*pc++) {
     case OP_SET: {
       number i, v;
-      check(pop(vm, &i));
-      check(pop(vm, &v));
-      if (vm->top < i) return "Stack underflow";
-      vm->stack[vm->top - i] = v;
+      pop(i);
+      pop(v);
+      if (*top < i) return "Stack underflow";
+      stack[*top - i] = v;
       continue;
     }
     case OP_GET: {
-      if (vm->top < 1) return "Stack underflow";
-      number i = vm->stack[vm->top - 1] + 1;
-      if (vm->top < i) return "Stack underflow";
-      vm->stack[vm->top - 1] = vm->stack[vm->top - i];
+      if (*top < 1) return "Stack underflow";
+      number i = stack[*top - 1] + 1;
+      if (*top < i) return "Stack underflow";
+      stack[*top - 1] = stack[*top - i];
       continue;
     }
     case OP_BACK: {
       number i;
-      check(pop(vm, &i));
+      pop(i);
       pc -= i;
       continue;
     }
     case OP_IJUMP: {
       number c, d;
-      check(pop(vm, &d));
-      check(pop(vm, &c));
+      pop(d);
+      pop(c);
       if (c) pc += d;
       continue;
     }
     case OP_SWAP: {
-      if (vm->top < 2) return "Not enough items in stack to swap";
-      number temp = vm->stack[vm->top - 1];
-      vm->stack[vm->top - 1] = vm->stack[vm->top - 2];
-      vm->stack[vm->top - 2] = temp;
+      if (*top < 2) return "Not enough items in stack to swap";
+      number temp = stack[*top - 1];
+      stack[*top - 1] = stack[*top - 2];
+      stack[*top - 2] = temp;
       continue;
     }
     case OP_DUP: {
-      if (vm->top < 1) return "Nothing on stack to dup";
-      if (vm->top >= vm->len) return "No room on stack to dup";
-      vm->stack[vm->top] = vm->stack[vm->top - 1];
-      vm->top++;
+      if (*top < 1) return "Nothing on stack to dup";
+      if (*top >= len) return "No room on stack to dup";
+      stack[*top] = stack[*top - 1];
+      (*top)++;
       continue;
     }
     case OP_DROP: {
-      if (vm->top < 1) return "Not enough items in stack to drop";
-      vm->top--;
+      if (*top < 1) return "Not enough items in stack to drop";
+      (*top)--;
       continue;
     }
     unop(OP_NOT, !)
@@ -279,9 +261,9 @@ const char* eval(VM* vm, uint8_t* pc, size_t len) {
     binop(OP_OR, ||)
     case OP_XOR: {
       number a, b;
-      check(pop(vm, &b));
-      check(pop(vm, &a));
-      push(vm, (a && !b) || (!a && b));
+      pop(b);
+      pop(a);
+      push((a && !b) || (!a && b));
       continue;
     }
     unop(OP_BNOT, ~)
@@ -304,8 +286,8 @@ const char* eval(VM* vm, uint8_t* pc, size_t len) {
     binop(OP_MOD, %)
     case OP_ABS: {
       number a;
-      check(pop(vm, &a));
-      push(vm, a < 0 ? -a : a);
+      pop(a);
+      push(a < 0 ? -a : a);
       continue;
     }
     }
@@ -313,7 +295,7 @@ const char* eval(VM* vm, uint8_t* pc, size_t len) {
       // Otherwise it's a variable length encoded integer.
       number n = *pc & 0x3f;
       if (!(*pc++ & 0x40)) {
-        check(push(vm, n));
+        push(n);
         continue;
       }
       int b = 6;
@@ -322,7 +304,7 @@ const char* eval(VM* vm, uint8_t* pc, size_t len) {
         n |= (number)(*pc & 0x7f) << b;
         b += 7;
       } while (*pc++ & 0x80);
-      check(push(vm, n));
+      push(n);
     }
   }
   return NULL;
@@ -340,29 +322,30 @@ void test(const char* code, number result) {
     printf("Error: Unexpected input at %d: '%s'\n", offset, code + offset);
     exit(-1);
   }
-  VM* vm = new_vm(10);
-  const char* e = eval(vm, program, len);
+  int64_t stack[10];
+  int top = 0;
+  const char* e = eval(stack, 10, &top, program, len);
   if (e) {
     printf("Error: %s\n", e);
-    dump(vm);
+    dump(stack, top);
     exit(-1);
   }
-  if (vm->top < 1) {
+  if (top < 1) {
     printf("Error: Not enough items on stack.");
-    dump(vm);
+    dump(stack, top);
     exit(-1);
   }
-  if (vm->top > 1) {
+  if (top > 1) {
     printf("Error: Too many items on stack.");
-    dump(vm);
+    dump(stack, top);
     exit(-1);
   }
-  if (vm->stack[0] != result) {
+  if (stack[0] != result) {
     printf("Error: Wrong result, expected %"PRId64"\n", result);
-    dump(vm);
+    dump(stack, top);
     exit(-1);
   }
-  printf("%"PRId64"\n", vm->stack[0]);
+  printf("%"PRId64"\n", stack[0]);
 }
 
 void test_intern(const char* string, uint8_t expected) {
@@ -375,7 +358,7 @@ void test_intern(const char* string, uint8_t expected) {
 }
 
 int main() {
-  test("1000000000 0 2 GET ADD SWAP 1 SUB DUP NOT 3 IJUMP SWAP 13 BACK DROP", 500000000500000000);
+  test("10000000 0 2 GET ADD SWAP 1 SUB DUP NOT 3 IJUMP SWAP 13 BACK DROP", 50000005000000);
   //
   //
   // test_intern("hello", 0);
