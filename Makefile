@@ -3,7 +3,7 @@ uscript: unix-main.c uscript.c rpi-io.c
 
 flash: unix-main.c arduino-main/arduino-main.ino
 	/opt/arduino-1.6.5/arduino --preserve-temp-files --upload arduino-main/arduino-main.ino
-	screen /dev/ttyACM0 9600
+	screen /dev/ttyUSB0 9600
 
 run: uscript
 	./uscript
