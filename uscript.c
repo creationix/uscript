@@ -66,10 +66,11 @@ enum opcodes {
   /* misc */
   OP_DELAY, OP_RAND, OP_PRINT,
   /* stubs */
-  OP_DEF, OP_RM, OP_RUN, OP_SAVE, OP_LIST,
+  OP_DEF, OP_RM, OP_RUN, OP_LIST,
   #ifdef OP_WIRING
+  OP_SAVE,
   /* io */
-  ,OP_PM, OP_DW, OP_AW, OP_DR, OP_AR
+  OP_PM, OP_DW, OP_AW, OP_DR, OP_AR
   #endif
 };
 
@@ -82,9 +83,9 @@ static const char* op_names =
   "EQ\0NEQ\0GTE\0LTE\0GT\0LT\0"
   "NEG\0ADD\0SUB\0MUL\0DIV\0MOD\0ABS\0"
   "DELAY\0RAND\0PRINT\0"
-  "DEF\0RM\0RUN\0SAVE\0LIST\0"
+  "DEF\0RM\0RUN\0LIST\0"
   #ifdef OP_WIRING
-  "PM\0DW\0AW\0DR\0AR\0"
+  "SAVE\0PM\0DW\0AW\0DR\0AR\0"
   #endif
   "\0"
 ;
@@ -251,7 +252,10 @@ uint8_t* skip(uint8_t* pc) {
     }
 
     // Opcodes with no arguments
-    case OP_SAVE: case OP_LIST: return pc;
+    #ifdef WIRING
+    case OP_SAVE:
+    #endif
+    case OP_LIST: return pc;
 
     // Opcodes that consume one opcode
     case OP_GET: case OP_RM: case OP_RUN: case OP_READ: case OP_REMOVE:
@@ -673,10 +677,31 @@ uint8_t* eval(uint8_t* pc, number* res) {
       return pc;
     }
 
+    #ifdef WIRING
+
     case OP_SAVE: {
-      write_string("TODO: save to EEPROM\r\n");
+      int i;
+      *res = 0;
+      int o = 0;
+      EEPROM.begin(EEPROM_SIZE);
+      EEPROM.write(o++, 'u');
+      for (i = 0; i < NUM_STUBS; i++) {
+        if (!stubs[i]) continue;
+        EEPROM.write(o++, i);
+        int len = skip(stubs[i]) - stubs[i];
+        EEPROM.write(o++, len >> 8);
+        EEPROM.write(o++, len & 0xff);
+        int j;
+        for (j = 0; j < len; j++) {
+          EEPROM.write(o++, stubs[i][j]);
+        }
+      }
+      EEPROM.write(o++, 'u');
+      EEPROM.end();
       return pc;
     }
+
+    #endif
 
     case OP_LIST: {
       int i;
@@ -747,7 +772,30 @@ void handle_input(char c) {
 void start() {
   #ifdef ARDUINO
     pinMode(0, 0);
-    EEPROM.begin(EEPROM_SIZE)
+    EEPROM.begin(EEPROM_SIZE);
+    int o = 0;
+    if (EEPROM.read(o++) == 'u') {
+      while (EEPROM.read(o) != 'u') {
+        int key = EEPROM.read(o++);
+        int len = EEPROM.read(o++) << 8;
+        len |= EEPROM.read(o++);
+        uint8_t* stub = (uint8_t*)malloc(len);
+        stubs[key] = stub;
+        int j;
+        for (j = 0; j < len; j++) {
+          stub[j] = EEPROM.read(o++);
+        }
+      }
+    }
+    EEPROM.end();
   #endif
-  write_string("Welcome to uscript.\r\n> ");
+  if (stubs[0]) {
+    write_string("\r\nRunning auto script...\r\n");
+    number out;
+    eval(stubs[0], &out);
+    write_string("> ");
+  }
+  else {
+    write_string("\r\nWelcome to uscript.\r\n> ");
+  }
 }

@@ -1,3 +1,4 @@
+#include <EEPROM.h>
 
 #include "uscript.h"
 static void on_write_string(const char* str) {
