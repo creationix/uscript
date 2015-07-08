@@ -20,8 +20,7 @@
   #define NUM_STUBS 26
   #define STACK_SIZE 32
   #define OP_WIRING
-  int check_count = 0;
-  #define CHECKER (check_count = (check_count + 1) % 10) == 0 && !digitalRead(0)
+  #define CHECKER yield(),!digitalRead(0)
   #define assert(x)
 #else
   #define REPL_BUFFER 4096
@@ -671,5 +670,8 @@ void handle_input(char c) {
 }
 
 void start() {
+  #ifdef ARDUINO
+    pinMode(0, 0);
+  #endif
   write_string("Welcome to uscript.\r\n> ");
 }
