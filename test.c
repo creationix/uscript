@@ -43,6 +43,15 @@ static void test(char* code, number answer) {
 }
 
 int main() {
+  test("INSERT 0 10", 10);
+  test("INSERT 0 20", 20);
+  test("ADD READ 0 READ 1", 30);
+  test("WRITE 0 30", 30);
+  test("ADD READ 0 READ 1", 40);
+  test("WRITE 1 40", 40);
+  test("ADD READ 0 READ 1", 70);
+  test("REMOVE 0", 30);
+  test("READ 0", 40);
   test("NOT 42", 0);
   test("OR 7 SET b NEG 2", 7);
   test("GET b", 0);

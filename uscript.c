@@ -1,29 +1,25 @@
 #include <stdint.h>
 #include <string.h>
 
+#define NUM_VARS 64
+#define NUM_STUBS 64
+#define STACK_SIZE 64
+#define REPL_BUFFER 4096
+
 #if defined(SPARK)
-  #define REPL_BUFFER 512
   #include "application.h"
   typedef int32_t number;
-  #define NUM_VARS 64
-  #define NUM_STUBS 64
-  #define STACK_SIZE 64
   #define OP_WIRING
   #define assert(x)
 #elif defined(ARDUINO)
-  #define REPL_BUFFER 512
   #if ARDUINO >= 100
     #include "Arduino.h"
   #endif
   typedef int32_t number;
-  #define NUM_VARS 26
-  #define NUM_STUBS 26
-  #define STACK_SIZE 32
   #define OP_WIRING
   #define CHECKER yield(),!digitalRead(0)
   #define assert(x)
 #else
-  #define REPL_BUFFER 4096
   #include <assert.h>
   #include <sys/select.h>
   #include <sys/time.h>
@@ -32,9 +28,6 @@
   #include <stdio.h>
   #include <inttypes.h>
   typedef int64_t number;
-  #define NUM_VARS 64
-  #define NUM_STUBS 64
-  #define STACK_SIZE 128
   #ifdef BCM2708_PERI_BASE
     #define OP_WIRING
   #endif
@@ -51,11 +44,14 @@ write_number_fn write_number;
 idle_fn idle;
 number vars[NUM_VARS];
 number stack[STACK_SIZE];
+int stack_top;
 uint8_t* stubs[NUM_STUBS];
 
 enum opcodes {
   /* variables */
   OP_SET = 128, OP_GET, OP_INCR, OP_DECR,
+  /* stack manipulation */
+  OP_READ, OP_WRITE, OP_INSERT, OP_REMOVE,
   /* control flow */
   OP_IF, OP_ELIF, OP_ELSE, OP_MATCH, OP_WHEN, OP_WHILE, OP_DO, OP_FOR, OP_WAIT,
   /* logic (short circuit and/or) */
@@ -78,6 +74,7 @@ enum opcodes {
 
 static const char* op_names =
   "SET\0GET\0INCR\0DECR\0"
+  "READ\0WRITE\0INSERT\0REMOVE\0"
   "IF\0ELIF\0ELSE\0MATCH\0WHEN\0WHILE\0DO\0FOR\0WAIT\0"
   "NOT\0AND\0OR\0XOR\0"
   "BNOT\0BAND\0BOR\0BXOR\0LSHIFT\0RSHIFT\0"
@@ -231,11 +228,11 @@ uint8_t* skip(uint8_t* pc) {
     }
 
     // Opcodes that consume one opcode
-    case OP_GET: case OP_RM: case OP_RUN:
+    case OP_GET: case OP_RM: case OP_RUN: case OP_READ: case OP_REMOVE:
       return pc + 1;
 
     // Opcodes that consume one opcode and one expression
-    case OP_SET: case OP_INCR: case OP_DECR: case OP_DEF:
+    case OP_SET: case OP_INCR: case OP_DECR: case OP_DEF: case OP_WRITE: case OP_INSERT:
       return skip(pc + 1);
 
     // Opcodes that consume one opcode and three expressions
@@ -330,6 +327,38 @@ uint8_t* eval(uint8_t* pc, number* res) {
       uint8_t idx = *pc++;
       pc = eval(pc, &step);
       *res = vars[idx] -= step;
+      return pc;
+    }
+
+    case OP_READ:
+      *res = stack[stack_top - *pc++ - 1];
+      return pc;
+
+    case OP_WRITE: {
+      uint8_t idx = *pc++;
+      pc = eval(pc, res);
+      stack[stack_top - idx - 1] = *res;
+      return pc;
+    }
+
+    case OP_REMOVE: {
+      uint8_t idx = *pc++;
+      *res = stack[stack_top - idx - 1];
+      while (idx--) {
+        stack[stack_top - idx] = stack[stack_top - idx + 1];
+      }
+      stack_top--;
+      return pc;
+    }
+    case OP_INSERT: {
+      uint8_t idx = *pc++;
+      uint8_t base = stack_top - idx;
+      pc = eval(pc, res);
+      while (idx--) {
+        stack[base + idx + 1] = stack[base + idx];
+      }
+      stack[base] = *res;
+      stack_top++;
       return pc;
     }
 

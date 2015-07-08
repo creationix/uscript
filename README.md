@@ -39,6 +39,13 @@ contains 7 bits.  The least significant bits come first.
 - INCR [variable] [expression] - increment variable by expression
 - DECR [variable] [expression] - decrement variable by expression
 
+## Stack
+
+ - READ [num] - read a value on the stack without removing it. (0 is top)
+ - WRITE [num] [expression] - replace a value on the stack
+ - INSERT [num] [expression] - insert a new value on the stack (0 is push)
+ - REMOVE [num] - remove an item from the stack (0 is pop)
+
 ## Control Flow
 
 - IF [expression] [expression] ELIF [expression] [expression] ELSE [expression]
