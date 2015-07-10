@@ -21,6 +21,7 @@ var docs = {
   get: ["", "Look up value in slot"],
   mod: ["mod", "Get the modulus (remainder)", 1],
   abs: ["|", "Find the absolute value of a value", 2],
+  "do": [""],
 }
 
 function render(ast, depth) {
@@ -32,7 +33,7 @@ function render(ast, depth) {
   }
   var node, i;
   var mode
-  if (ast[0] === "do") {
+  if (ast[0] === false) {
     node = document.createDocumentFragment();
     i = 2;
   }
