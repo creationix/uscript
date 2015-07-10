@@ -39,9 +39,8 @@ div.if > .node:not(:first-child),
 div.elif > .node:not(:first-child),
 div.else > .node,
 div.while > .node:not(:first-child) {
-  /*display:block;*/
-  /*width: auto;*/
-  /*margin-left: 25px;*/
+  display:block;
+  margin-left: 25px;
 }
 
 /* http://meyerweb.com/eric/tools/css/reset/
