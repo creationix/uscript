@@ -7,11 +7,11 @@ body {
 for (var h = 0; h < 16; h++) {
   console.log(chroma.lch(53.24, 104.55, h * 24).hex());
 }*/
-.d0 { background-color: #ff0084; }
-.d1 { background-color: #ff003e; }
-.d2 { background-color: #f33100; }
-.d3 { background-color: #c66600; }
-.d4 { background-color: #8c8200; }
+.d0 { background-color: #ff003e; }
+.d1 { background-color: #f33100; }
+.d2 { background-color: #c66600; }
+.d3 { background-color: #957500; }
+.d4 { background-color: #6c8200; }
 .d5 { background-color: #399200; }
 .d6 { background-color: #009b00; }
 .d7 { background-color: #009f56; }
@@ -39,8 +39,8 @@ div.if > .node:not(:first-child),
 div.elif > .node:not(:first-child),
 div.else > .node,
 div.while > .node:not(:first-child) {
-  display:block;
-  margin-left: 25px;
+/*  display:block;
+  margin-left: 25px;*/
 }
 
 /* http://meyerweb.com/eric/tools/css/reset/
