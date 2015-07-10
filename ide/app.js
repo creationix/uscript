@@ -32,12 +32,13 @@ function render(ast, depth) {
     return node;
   }
   var node, i;
-  var mode
-  if (ast[0] === false) {
-    node = document.createDocumentFragment();
+  var mode;
+  if (ast[0] === "do") {
     i = 2;
   }
   else {
+    i = 1;
+  }
     node = document.createElement("div");
     var type = ast[0];
     node.setAttribute("class", "node " + type + " d" + ((depth + 1)%16));
@@ -49,7 +50,6 @@ function render(ast, depth) {
       node.setAttribute("title", doc[1]);
     }
     node.appendChild(label);
-    i = 1;
     if (type === "get" || type === "set" || type == "def" || type == "run") {
       i = 2;
       var child = document.createElement("div");
@@ -58,7 +58,6 @@ function render(ast, depth) {
       node.appendChild(child);
     }
     depth = (depth + 2) % 16;
-  }
   for (var l = ast.length; i < l; i++) {
     node.appendChild(render(ast[i], depth));
   }
