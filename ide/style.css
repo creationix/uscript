@@ -1,0 +1,94 @@
+body {
+  background-color: #999;
+  color: #000;
+}
+
+/*Calculated using chrome.js
+for (var h = 0; h < 16; h++) {
+  console.log(chroma.lch(53.24, 104.55, h * 24).hex());
+}*/
+.d0 { background-color: #ff0084; }
+.d1 { background-color: #ff003e; }
+.d2 { background-color: #f33100; }
+.d3 { background-color: #c66600; }
+.d4 { background-color: #8c8200; }
+.d5 { background-color: #399200; }
+.d6 { background-color: #009b00; }
+.d7 { background-color: #009f56; }
+.d8 { background-color: #00a2a3; }
+.d9 { background-color: #00a2e9; }
+.d10 { background-color: #009eff; }
+.d11 { background-color: #0092ff; }
+.d12 { background-color: #0079ff; }
+.d13 { background-color: #a74dff; }
+.d14 { background-color: #f200ca; }
+.d15 { background-color: #ff0084; }
+
+.node {
+  color: #fff;
+  text-shadow: 1px 1px 3px rgba(0,0,0,0.5);
+  font-family: sans-serif;
+  box-shadow: inset 1px 1px 6px rgba(0,0,0,0.6), 0px 0px 4px rgba(255,255,255,0.4);
+  display: inline-block;
+  padding: 3px 5px;
+  margin: 5px 3px;
+  border-radius: 10px;
+}
+div.def > .node:not(:first-child),
+div.if > .node:not(:first-child),
+div.elif > .node:not(:first-child),
+div.else > .node,
+div.while > .node:not(:first-child) {
+  /*display:block;*/
+  /*width: auto;*/
+  /*margin-left: 25px;*/
+}
+
+/* http://meyerweb.com/eric/tools/css/reset/
+   v2.0 | 20110126
+   License: none (public domain)
+*/
+
+html, body, div, span, applet, object, iframe,
+h1, h2, h3, h4, h5, h6, p, blockquote, pre,
+a, abbr, acronym, address, big, cite, code,
+del, dfn, em, img, ins, kbd, q, s, samp,
+small, strike, strong, sub, sup, tt, var,
+b, u, i, center,
+dl, dt, dd, ol, ul, li,
+fieldset, form, label, legend,
+table, caption, tbody, tfoot, thead, tr, th, td,
+article, aside, canvas, details, embed,
+figure, figcaption, footer, header, hgroup,
+menu, nav, output, ruby, section, summary,
+time, mark, audio, video {
+	margin: 0;
+	padding: 0;
+	border: 0;
+	font-size: 100%;
+	font: inherit;
+	vertical-align: baseline;
+}
+/* HTML5 display-role reset for older browsers */
+article, aside, details, figcaption, figure,
+footer, header, hgroup, menu, nav, section {
+	display: block;
+}
+body {
+	line-height: 1;
+}
+ol, ul {
+	list-style: none;
+}
+blockquote, q {
+	quotes: none;
+}
+blockquote:before, blockquote:after,
+q:before, q:after {
+	content: '';
+	content: none;
+}
+table {
+	border-collapse: collapse;
+	border-spacing: 0;
+}
