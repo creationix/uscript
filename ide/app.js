@@ -20,7 +20,7 @@ var docs = {
   set: ["◀", "Store a value in a memory slot", 1],
   get: ["", "Look up value in slot"],
   mod: ["mod", "Get the modulus (remainder)", 1],
-  abs: ["|", "Find the absolute value of a value", 2],
+  abs: ["abs", "Find the absolute value of a value"],
   "do": [""],
 }
 
@@ -107,9 +107,9 @@ window.onload = function () {
   //   DELAY 3
   add(["def", 11, ["do", 4,
     ["if", ["dr", 5],
-      ["set", 7, ["mod", ["add", ["get", 7], 1]], 3072]],
+      ["set", 7, ["mod", ["add", ["get", 7], 1], 3072]]],
     ["if", ["dr", 4],
-      ["set", 11, ["mod", ["add", ["get", 11], 1]], 1024]],
+      ["set", 11, ["mod", ["add", ["get", 11], 1], 1024]]],
     ["run", 15],
     ["delay", 3]
   ]]);
