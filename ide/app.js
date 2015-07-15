@@ -78,6 +78,21 @@ function add(def) {
 
 window.onload = function () {
 
+  var connection = new WebSocket('ws://192.168.1.102/');
+  connection.binaryType = 'arraybuffer';
+
+  connection.onopen = function () {
+    console.log("open");
+  };
+
+  connection.onerror = function (err) {
+    console.error("Websocket error:", err);
+  };
+
+  connection.onmessage = function (evt) {
+    console.log("Server: " + evt.data);
+  };
+
   // DEF 0 DO 8
   //   PM 12 1
   //   PM 13 1
