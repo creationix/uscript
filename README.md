@@ -109,7 +109,7 @@ The definitions are stored in EEPROM or some other persistent storage.
 - SAVE - Save all expressions to EEPROM.
 - LIST - List all expressions.
 
-## Wireing
+## Wiring
 
 Currently only works for microcontrollers, but soon raspberry pi too.
 
@@ -118,6 +118,7 @@ Currently only works for microcontrollers, but soon raspberry pi too.
 - AW [expression] [expression] - analogWrite
 - DR [expression] - digitalRead
 - AR [expression] - analogRead
+- TONE [pin] [freq] [duration] - play tone on pin at freq for duration
 
 ## Constraints
 

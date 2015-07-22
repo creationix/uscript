@@ -70,7 +70,8 @@ enum opcodes {
   #ifdef OP_WIRING
   OP_SAVE,
   /* io */
-  OP_PM, OP_DW, OP_AW, OP_DR, OP_AR
+  OP_PM, OP_DW, OP_AW, OP_DR, OP_AR,
+  OP_TONE
   #endif
 };
 
@@ -85,7 +86,7 @@ static const char* op_names =
   "DELAY\0RAND\0PRINT\0"
   "DEF\0RM\0RUN\0LIST\0"
   #ifdef OP_WIRING
-  "SAVE\0PM\0DW\0AW\0DR\0AR\0"
+  "SAVE\0PM\0DW\0AW\0DR\0AR\0TONE\0"
   #endif
   "\0"
 ;
@@ -300,6 +301,13 @@ uint8_t* skip(uint8_t* pc) {
     case OP_PM: case OP_DW: case OP_AW:
     #endif
       return skip(skip(pc));
+
+    // Opcoded that consume three expressions
+    #ifdef OP_WIRING
+    case OP_TONE:
+      return skip(skip(skip(pc)));
+    #endif
+
 
 
   }
@@ -596,6 +604,23 @@ uint8_t* eval(uint8_t* pc, number* res) {
       number pin;
       pc = eval(pc, &pin);
       *res = analogRead(pin);
+      return pc;
+    }
+
+    case OP_TONE: {
+      number pin, dur;
+      pc = eval(pc, &pin);
+      pc = eval(pc, res);
+      pc = eval(pc, &dur);
+      int p = 1000000 / *res;
+      int d = p >> 1;
+      dur *= 1000;
+      while ((dur -= p) > 0) {
+        digitalWrite(pin, 1);
+        delayMicroseconds(p);
+        digitalWrite(pin, 0);
+        delayMicroseconds(p);
+      }
       return pc;
     }
 
