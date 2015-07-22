@@ -6,6 +6,7 @@
 #include <EEPROM.h>
 #include "uscript.h"
 
+
 ESP8266WiFiMulti WiFiMulti;
 WebSocketsServer webSocket = WebSocketsServer(80);
 
@@ -60,10 +61,18 @@ static void on_write_char(char c) {
 }
 
 void setup() {
+  Serial.begin(9600);
+
+  Serial.print("\r\nConnecting to access point");
   WiFiMulti.addAP("creationix", "noderocks");
   while(WiFiMulti.run() != WL_CONNECTED) {
+    Serial.print(".");
     delay(100);
   }
+
+  Serial.print("\r\nLocal IP: ");
+  Serial.println(WiFi.localIP());
+
 
   webSocket.begin();
   webSocket.onEvent(webSocketEvent);
@@ -72,7 +81,6 @@ void setup() {
   write_string = on_write_string;
   write_number = on_write_number;
   write_char = on_write_char;
-  Serial.begin(9600);
   start();
 }
 
