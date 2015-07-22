@@ -10,6 +10,7 @@
 ESP8266WiFiMulti WiFiMulti;
 WebSocketsServer webSocket = WebSocketsServer(80);
 
+String buffer;
 
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) {
 
@@ -21,27 +22,30 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
       IPAddress ip = webSocket.remoteIP(num);
       Serial.printf("[%u] Connected from %d.%d.%d.%d url: %s\r\n", num, ip[0], ip[1], ip[2], ip[3], payload);
       int i;
-      webSocket.sendTXT(num, "defs", 4);
+      webSocket.sendBIN(num, (uint8_t*)"defs", 4);
       for (i = 0; i < NUM_STUBS; i++) {
         if (!stubs[i]) continue;
         uint8_t name = i + 'a';
-        webSocket.sendTXT(num, &name, 1);
+        webSocket.sendBIN(num, &name, 1);
         int len = skip(stubs[i]) - stubs[i];
         webSocket.sendBIN(num, stubs[i], len);
       }
-      webSocket.sendTXT(num, "end", 3);
+      webSocket.sendBIN(num, (uint8_t*)"end", 3);
       break;
     }
     case WStype_TEXT:
+      if (!(length && payload)) return;
       Serial.printf("[%u] get Text: %s\r\n", num, payload);
       length = compile(payload);
       // Fall-through on purpose
     case WStype_BIN:
+      if (!(length && payload)) return;
       Serial.printf("[%u] get binary length: %u\r\n", num, length);
-      hexdump(payload, length);
       number out;
+      buffer = String();
       eval(payload, &out);
-      webSocket.sendTXT(num, String(out));
+      buffer = buffer + out;
+      webSocket.sendTXT(num, buffer);
       break;
   }
 }
@@ -49,15 +53,15 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
 
 static void on_write_string(const char* str) {
   Serial.print(str);
-  webSocket.broadcastTXT(str, strlen(str));
+  buffer = buffer + str;
 }
 static void on_write_number(int32_t num) {
   Serial.print(num);
-  webSocket.broadcastTXT(String(num));
+  buffer = buffer + num;
 }
 static void on_write_char(char c) {
   Serial.write(c);
-  webSocket.broadcastTXT(&c, 1);
+  buffer = buffer + c;
 }
 
 void setup() {

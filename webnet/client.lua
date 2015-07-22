@@ -20,7 +20,7 @@ end
 
 coroutine.wrap(function ()
   print("Connecting to websocket server: " .. host)
-  local rawRead, rawWrite = connect({
+  local rawRead, rawWrite = assert(connect {
     host = host,
     port = 80,
   })
@@ -38,15 +38,25 @@ coroutine.wrap(function ()
   updateDecoder(websocketCodec.decode)
   updateEncoder(websocketCodec.encode)
 
-  split(function ()
-    for event in read do
-      p(event)
+  for event in read do
+    p(event)
+    if event.payload == "end" then break end
+  end
+
+  for line in getLine do
+    if line and #line > 0 then
+      write {
+        opcode = 1,
+        payload = line
+      }
+      local event = read()
+      if event and event.opcode == 1 then
+        print(event.payload)
+      else
+        p(event)
+      end
     end
-  end, function ()
-    for line in getLine do
-      write(line)
-    end
-    write()
-  end)
+  end
+  write()
 
 end)()
