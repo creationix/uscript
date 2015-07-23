@@ -1,5 +1,6 @@
 -- Replace with host to mcu
 local host = "192.168.1.129"
+local host = "192.168.1.138"
 
 local connect = require('coro-net').connect
 local httpCodec = require('http-codec')
@@ -7,6 +8,7 @@ local websocketCodec = require('websocket-codec')
 local wrapper = require('coro-wrapper')
 local readWrap, writeWrap = wrapper.reader, wrapper.writer
 local readLine = require('readline').readLine
+local History = require('readline').History
 local split = require('coro-split')
 
 local options = require('pretty-print')
@@ -23,6 +25,7 @@ coroutine.wrap(function ()
   local rawRead, rawWrite = assert(connect {
     host = host,
     port = 80,
+    history = History.new(),
   })
   local read, updateDecoder = readWrap(rawRead, httpCodec.decoder())
   local write, updateEncoder = writeWrap(rawWrite, httpCodec.encoder())

@@ -52,16 +52,16 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
 
 
 static void on_write_string(const char* str) {
-  Serial.print(str);
-  buffer = buffer + str;
+  if (buffer) buffer = buffer + str;
+  else Serial.print(str);
 }
 static void on_write_number(int32_t num) {
-  Serial.print(num);
-  buffer = buffer + num;
+  if (buffer) buffer = buffer + num;
+  else Serial.print(num);
 }
 static void on_write_char(char c) {
-  Serial.write(c);
-  buffer = buffer + c;
+  if (buffer) buffer = buffer + c;
+  else Serial.write(c);
 }
 
 void setup() {
@@ -77,10 +77,8 @@ void setup() {
   Serial.print("\r\nLocal IP: ");
   Serial.println(WiFi.localIP());
 
-
   webSocket.begin();
   webSocket.onEvent(webSocketEvent);
-
 
   write_string = on_write_string;
   write_number = on_write_number;
