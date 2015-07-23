@@ -67,8 +67,10 @@ enum opcodes {
   OP_DELAY, OP_RAND, OP_PRINT,
   /* stubs */
   OP_DEF, OP_RM, OP_RUN, OP_LIST,
-  #ifdef OP_WIRING
+  #ifdef ARDUINO
   OP_SAVE,
+  #endif
+  #ifdef OP_WIRING
   /* io */
   OP_PM, OP_DW, OP_AW, OP_DR, OP_AR,
   OP_TONE
@@ -253,7 +255,7 @@ uint8_t* skip(uint8_t* pc) {
     }
 
     // Opcodes with no arguments
-    #ifdef OP_WIRING
+    #ifdef OP_ARDUINO
     case OP_SAVE:
     #endif
     case OP_LIST: return pc;
@@ -668,6 +670,27 @@ uint8_t* eval(uint8_t* pc, number* res) {
       return pc;
     }
 
+    case OP_TONE: {
+      number pin, dur;
+      pc = eval(pc, &pin);
+      pc = eval(pc, res);
+      pc = eval(pc, &dur);
+
+      struct timeval t;
+      t.tv_sec = 0;
+
+      int p = 1000000 / *res;
+      dur *= 1000;
+      t.tv_usec = p >> 1;
+      while ((dur -= p) > 0) {
+        GPIO_SET = 1 << pin;
+        select(0, NULL, NULL, NULL, &t);
+        GPIO_CLR = 1 << pin;
+        select(0, NULL, NULL, NULL, &t);
+      }
+      return pc;
+    }
+
     #endif
 
     case OP_DEF: {
@@ -702,8 +725,8 @@ uint8_t* eval(uint8_t* pc, number* res) {
       return pc;
     }
 
-    #ifdef OP_WIRING
 
+    #ifdef ARDUINO
     case OP_SAVE: {
       write_string("OP_SAVE\r\n");
       int i;
