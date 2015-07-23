@@ -65,7 +65,17 @@ static void on_write_char(char c) {
 }
 
 void setup() {
+
   Serial.begin(9600);
+
+  webSocket.begin();
+  webSocket.onEvent(webSocketEvent);
+
+  write_string = on_write_string;
+  write_number = on_write_number;
+  write_char = on_write_char;
+  start();
+
 
   Serial.print("\r\nConnecting to access point");
   WiFiMulti.addAP("creationix", "noderocks");
@@ -77,13 +87,6 @@ void setup() {
   Serial.print("\r\nLocal IP: ");
   Serial.println(WiFi.localIP());
 
-  webSocket.begin();
-  webSocket.onEvent(webSocketEvent);
-
-  write_string = on_write_string;
-  write_number = on_write_number;
-  write_char = on_write_char;
-  start();
 }
 
 void loop() {

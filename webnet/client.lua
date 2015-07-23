@@ -1,6 +1,6 @@
 -- Replace with host to mcu
 local host = "192.168.1.129"
-local host = "192.168.1.138"
+--local host = "192.168.1.138"
 
 local connect = require('coro-net').connect
 local httpCodec = require('http-codec')
