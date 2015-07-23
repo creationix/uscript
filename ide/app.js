@@ -22,7 +22,7 @@ var docs = {
   mod: ["mod", "Get the modulus (remainder)", 1],
   abs: ["abs", "Find the absolute value of a value"],
   "do": [""],
-}
+};
 
 function render(ast, depth) {
   if (typeof ast === "number") {
