@@ -245,6 +245,7 @@ void dump(uint8_t* pc, int len) {
 }
 
 uint8_t* skip(uint8_t* pc) {
+  if (!pc) return NULL;
   // If the high bit is set, it's an opcode index.
   if (*pc & 0x80) switch ((enum opcodes)*pc++) {
 
@@ -259,43 +260,25 @@ uint8_t* skip(uint8_t* pc) {
       return pc;
     }
 
-    // Opcodes with no arguments
-    #ifdef OP_ARDUINO
-    case OP_SAVE:
-    #endif
-    case OP_LIST: return pc;
-
-    // Opcodes that consume one opcode
-    case OP_GET: case OP_RM: case OP_RUN: case OP_READ: case OP_REMOVE:
-      return pc + 1;
-
-    // Opcodes that consume one opcode and one expression
-    case OP_RESIZE: case OP_PEEK:
-    case OP_SET: case OP_INCR: case OP_DECR: case OP_DEF: case OP_WRITE: case OP_INSERT:
-      return skip(pc + 1);
-
-    // Opcodes that consume one opcode and two expressions
-    case OP_POKE:
-    #ifdef OP_WIRING
-    case OP_NEOPIX:
-    #endif
-      return skip(skip(pc + 1));
-
-    // Opcodes that consume one opcode and three expressions
-    case OP_FOR:
-      return skip(skip(skip(pc + 1)));
-
+    // Special handling for if/elif/else chains
     case OP_IF:
       pc = skip(skip(pc)); // cond/body
       while (*pc == OP_ELIF) pc = skip(skip(pc + 1)); // elif/cond/body
       if (*pc == OP_ELSE) pc = skip(pc + 1); // else/body
       return pc;
 
+    // Special handling for match/when/else chains
     case OP_MATCH:
       pc = skip(pc); // value
       while (*pc == OP_WHEN) pc = skip(skip(pc + 1)); // when/val/body
       if (*pc == OP_ELSE) pc = skip(pc + 1); // else/body
       return pc;
+
+    // Opcodes with no arguments
+    #ifdef OP_ARDUINO
+    case OP_SAVE:
+    #endif
+    case OP_LIST: return pc;
 
     // Opcodes that consume one expression
     case OP_NOT: case OP_BNOT: case OP_NEG: case OP_ABS:
@@ -304,9 +287,12 @@ uint8_t* skip(uint8_t* pc) {
     case OP_DR: case OP_AR:
     #endif
     case OP_WAIT:
+    case OP_GET: case OP_RM: case OP_RUN: case OP_READ: case OP_REMOVE:
       return skip(pc);
 
-    // Opcodes that consume two expressions
+    // Opcodes that consume one two expressions
+    case OP_RESIZE: case OP_PEEK:
+    case OP_SET: case OP_INCR: case OP_DECR: case OP_DEF: case OP_WRITE: case OP_INSERT:
     case OP_WHILE:
     case OP_AND: case OP_OR: case OP_XOR:
     case OP_BAND: case OP_BOR: case OP_BXOR: case OP_LSHIFT: case OP_RSHIFT:
@@ -317,11 +303,18 @@ uint8_t* skip(uint8_t* pc) {
     #endif
       return skip(skip(pc));
 
-    // Opcoded that consume three expressions
+    // Opcodes that consume three expressions
+    case OP_POKE:
     #ifdef OP_WIRING
     case OP_TONE:
-      return skip(skip(skip(pc)));
+    case OP_NEOPIX:
     #endif
+      return skip(skip(skip(pc)));
+
+    // Opcodes that consume four expressions
+    case OP_FOR:
+      return skip(skip(skip(skip(pc))));
+
   }
 
   // Otherwise it's a variable length encoded integer.
@@ -347,6 +340,7 @@ uint8_t* skip(uint8_t* pc) {
   }
 
 uint8_t* eval(uint8_t* pc, number* res) {
+  if (!pc) return NULL;
 
   // If the high bit is set, it's an opcode index.
   if (*pc & 0x80) switch ((enum opcodes)*pc++) {
@@ -355,44 +349,53 @@ uint8_t* eval(uint8_t* pc, number* res) {
       return 0;
 
     case OP_SET: {
-      uint8_t idx = *pc++;
+      number idx;
+      pc = eval(pc, &idx);
       pc = eval(pc, res);
       vars[idx] = *res;
       return pc;
     }
-    case OP_GET:
-      *res = vars[*pc];
-      return pc + 1;
+    case OP_GET: {
+      number idx;
+      pc = eval(pc, &idx);
+      *res = vars[idx];
+      return pc;
+    }
 
     case OP_INCR: {
-      number step;
-      uint8_t idx = *pc++;
+      number idx, step;
+      pc = eval(pc, &idx);
       pc = eval(pc, &step);
       *res = vars[idx] += step;
       return pc;
     }
 
     case OP_DECR: {
-      number step;
-      uint8_t idx = *pc++;
+      number idx, step;
+      pc = eval(pc, &idx);
       pc = eval(pc, &step);
       *res = vars[idx] -= step;
       return pc;
     }
 
-    case OP_READ:
-      *res = stack[stack_top - *pc++ - 1];
+    case OP_READ: {
+      number idx;
+      pc = eval(pc, &idx);
+      *res = stack[stack_top - idx - 1];
       return pc;
+    }
 
     case OP_WRITE: {
-      uint8_t idx = *pc++;
+      number idx;
+      pc = eval(pc, &idx);
       pc = eval(pc, res);
       stack[stack_top - idx - 1] = *res;
       return pc;
     }
 
     case OP_REMOVE: {
-      uint8_t idx = *pc++;
+      number idx;
+      pc = eval(pc, &idx);
       *res = stack[stack_top - idx - 1];
       while (idx--) {
         stack[stack_top - idx] = stack[stack_top - idx + 1];
@@ -401,7 +404,8 @@ uint8_t* eval(uint8_t* pc, number* res) {
       return pc;
     }
     case OP_INSERT: {
-      uint8_t idx = *pc++;
+      number idx;
+      pc = eval(pc, &idx);
       uint8_t base = stack_top - idx;
       pc = eval(pc, res);
       while (idx--) {
@@ -413,7 +417,8 @@ uint8_t* eval(uint8_t* pc, number* res) {
     }
 
     case OP_RESIZE: {
-      uint8_t idx = *pc++;
+      number idx;
+      pc = eval(pc, &idx);
       pc = eval(pc, res);
       if (arrays[idx]) free(arrays[idx]);
       if (*res) arrays[idx] = (number*)malloc(sizeof(number) * *res);
@@ -422,14 +427,16 @@ uint8_t* eval(uint8_t* pc, number* res) {
     }
 
     case OP_PEEK: {
-      uint8_t idx = *pc++;
+      number idx;
+      pc = eval(pc, &idx);
       pc = eval(pc, res);
       *res = arrays[idx][*res];
       return pc;
     }
 
     case OP_POKE: {
-      uint8_t idx = *pc++;
+      number idx;
+      pc = eval(pc, &idx);
       number offset;
       pc = eval(pc, &offset);
       pc = eval(pc, res);
@@ -516,7 +523,8 @@ uint8_t* eval(uint8_t* pc, number* res) {
     }
 
     case OP_FOR: {
-      uint8_t idx = *pc++;
+      number idx;
+      pc = eval(pc, &idx);
       number start, end;
       pc = eval(pc, &start);
       pc = eval(pc, &end);
@@ -729,8 +737,8 @@ uint8_t* eval(uint8_t* pc, number* res) {
     #endif
 
     case OP_DEF: {
-      assert(*pc >=0 && *pc <= 26);
-      *res = *pc++;
+      pc = eval(pc, res);
+      assert(*res >=0 && *res <= 26);
       uint8_t* end = skip(pc);
       if (stubs[*res]) free(stubs[*res]);
       stubs[*res] = (uint8_t*)malloc(end - pc);
@@ -739,16 +747,18 @@ uint8_t* eval(uint8_t* pc, number* res) {
     }
 
     case OP_RM:
-      assert(*pc >=0 && *pc <= 26);
-      free(stubs[*res = *pc]);
+      pc = eval(pc, res);
+      assert(*res >=0 && *res <= 26);
+      free(stubs[*res]);
       stubs[*res] = 0;
-      return pc + 1;
+      return pc;
 
     case OP_RUN:
-      assert(*pc >=0 && *pc <= 26);
-      if (stubs[*pc]) eval(stubs[*pc], res);
+      pc = eval(pc, res);
+      assert(*res >=0 && *res <= 26);
+      if (stubs[*res]) eval(stubs[*res], res);
       else *res = 0;
-      return pc + 1;
+      return pc;
 
     case OP_WAIT: {
       uint8_t* start = pc;
