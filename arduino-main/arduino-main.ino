@@ -11,6 +11,7 @@ ESP8266WiFiMulti WiFiMulti;
 WebSocketsServer webSocket = WebSocketsServer(80);
 
 String buffer;
+int useBuffer;
 
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) {
 
@@ -43,7 +44,9 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
       Serial.printf("[%u] get binary length: %u\r\n", num, length);
       number out;
       buffer = String();
+      useBuffer = 1;
       eval(payload, &out);
+      useBuffer = 0;
       buffer = buffer + out;
       webSocket.sendTXT(num, buffer);
       break;
@@ -52,15 +55,15 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
 
 
 static void on_write_string(const char* str) {
-  if (buffer) buffer = buffer + str;
+  if (useBuffer) buffer = buffer + str;
   else Serial.print(str);
 }
 static void on_write_number(int32_t num) {
-  if (buffer) buffer = buffer + num;
+  if (useBuffer) buffer = buffer + num;
   else Serial.print(num);
 }
 static void on_write_char(char c) {
-  if (buffer) buffer = buffer + c;
+  if (useBuffer) buffer = buffer + c;
   else Serial.write(c);
 }
 
