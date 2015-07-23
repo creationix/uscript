@@ -275,7 +275,7 @@ uint8_t* skip(uint8_t* pc) {
       return pc;
 
     // Opcodes with no arguments
-    #ifdef OP_ARDUINO
+    #ifdef ARDUINO
     case OP_SAVE:
     #endif
     case OP_LIST: return pc;
@@ -662,11 +662,54 @@ uint8_t* eval(uint8_t* pc, number* res) {
       dur *= 1000;
       while ((dur -= p) > 0) {
         digitalWrite(pin, 1);
-        delayMicroseconds(p);
+        delayMicroseconds(d);
         digitalWrite(pin, 0);
-        delayMicroseconds(p);
+        delayMicroseconds(d);
       }
       return pc;
+    }
+
+    case OP_NEOPIX: {
+      number pin, slot, len;
+      pc = eval(pc, &pin);
+      pc = eval(pc, &slot);
+      pc = eval(pc, &len);
+
+      uint32_t speed = ESP.getFlashChipSpeed();
+      uint32_t t0h  = speed * 1000 / 2857;  // 0.35us (spec=0.35 +- 0.15)
+      uint32_t t1h  = speed * 1000 / 1428;  // 0.70us (spec=0.70 +- 0.15)
+      uint32_t ttot = speed * 1000 /  625;  // 1.60us (MUST be >= 1.25)
+      uint32_t start_time = 0;
+
+      number* data = arrays[slot];
+      Serial.printf("speed: %d t0h: %d t1h: %d ttot: %d\r\n", speed, t0h, t1h, ttot);
+
+      for (number i = 0; i < len; i++) {
+        Serial.printf("%d: %06x\r\n", i, data[i]);
+      }
+      // Loop through array a pixel at a time
+      uint32_t start, end;
+      start = ESP.getCycleCount();
+      for (number i = 0; i < len; i++) {
+        // Loop through bits from most significant to least
+        for (uint32_t mask = 0x8000000; mask; mask >>= 1) {
+          uint32_t c;
+          // Set time for 1 or 0 bit
+          uint32_t t = data[i] & mask ? t1h : t0h;
+          // Wait for the previous bit to finish
+          // while (((c = ESP.getCycleCount()) - start_time) < ttot);
+          // Set pin high
+          digitalWrite(pin, 1);
+          // Save the start time
+          start_time = c;
+          // Wait for high time to finish
+          // while ((ESP.getCycleCount() - start_time) < t);
+          // Set pin low
+          digitalWrite(pin, 0);
+        }
+      }
+      end = ESP.getCycleCount();
+      printf("start: %d end: %d delta: %d\r\n", start, end, end - start);
     }
 
     #endif

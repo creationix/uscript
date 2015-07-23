@@ -80,15 +80,15 @@ void setup() {
   start();
 
 
-  Serial.print("\r\nConnecting to access point");
-  WiFiMulti.addAP("creationix", "noderocks");
-  while(WiFiMulti.run() != WL_CONNECTED) {
-    Serial.print(".");
-    delay(100);
-  }
-
-  Serial.print("\r\nLocal IP: ");
-  Serial.println(WiFi.localIP());
+  // Serial.print("\r\nConnecting to access point");
+  // WiFiMulti.addAP("creationix", "noderocks");
+  // while(WiFiMulti.run() != WL_CONNECTED) {
+  //   Serial.print(".");
+  //   delay(100);
+  // }
+  //
+  // Serial.print("\r\nLocal IP: ");
+  // Serial.println(WiFi.localIP());
 
 }
 
