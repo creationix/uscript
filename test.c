@@ -43,6 +43,11 @@ static void test(char* code, number answer) {
 }
 
 int main() {
+  test("RESIZE 0 5", 5);
+  test("POKE 0 0 10", 10);
+  test("PEEK 0 0", 10);
+  test("POKE 0 1 20", 20);
+  test("PEEK 0 1", 20);
   test("INSERT 0 10", 10);
   test("INSERT 0 20", 20);
   test("ADD READ 0 READ 1", 30);

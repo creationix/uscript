@@ -46,6 +46,12 @@ contains 7 bits.  The least significant bits come first.
  - INSERT [num] [expression] - insert a new value on the stack (0 is push)
  - REMOVE [num] - remove an item from the stack (0 is pop)
 
+## Array Manipulation
+
+ - RESIZE [variable] [size] - Resize a global array (use 0 to dealloc)
+ - POKE [variable] [offset] [value] - Set a value in the array
+ - PEEK [variable] [offset] - Read a value from the array
+
 ## Control Flow
 
 - IF [expression] [expression] ELIF [expression] [expression] ELSE [expression]
@@ -119,6 +125,7 @@ Currently only works for microcontrollers, but soon raspberry pi too.
 - DR [expression] - digitalRead
 - AR [expression] - analogRead
 - TONE [pin] [freq] [duration] - play tone on pin at freq for duration
+- NEOPIX [pin] [array] [count] - Update neopixels (ws2812/ws2811)
 
 ## Constraints
 

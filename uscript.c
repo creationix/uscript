@@ -3,6 +3,7 @@
 
 #define NUM_VARS 64
 #define NUM_STUBS 64
+#define NUM_ARRAYS 64
 #define STACK_SIZE 64
 #define REPL_BUFFER 4096
 #define EEPROM_SIZE 4096
@@ -47,12 +48,15 @@ number vars[NUM_VARS];
 number stack[STACK_SIZE];
 int stack_top;
 uint8_t* stubs[NUM_STUBS];
+number* arrays[NUM_ARRAYS];
 
 enum opcodes {
   /* variables */
   OP_SET = 128, OP_GET, OP_INCR, OP_DECR,
   /* stack manipulation */
   OP_READ, OP_WRITE, OP_INSERT, OP_REMOVE,
+  /* array manipulation */
+  OP_RESIZE, OP_POKE, OP_PEEK,
   /* control flow */
   OP_IF, OP_ELIF, OP_ELSE, OP_MATCH, OP_WHEN, OP_WHILE, OP_DO, OP_FOR, OP_WAIT,
   /* logic (short circuit and/or) */
@@ -73,13 +77,14 @@ enum opcodes {
   #ifdef OP_WIRING
   /* io */
   OP_PM, OP_DW, OP_AW, OP_DR, OP_AR,
-  OP_TONE
+  OP_TONE, OP_NEOPIX,
   #endif
 };
 
 static const char* op_names =
   "SET\0GET\0INCR\0DECR\0"
   "READ\0WRITE\0INSERT\0REMOVE\0"
+  "RESIZE\0POKE\0PEEK\0"
   "IF\0ELIF\0ELSE\0MATCH\0WHEN\0WHILE\0DO\0FOR\0WAIT\0"
   "NOT\0AND\0OR\0XOR\0"
   "BNOT\0BAND\0BOR\0BXOR\0LSHIFT\0RSHIFT\0"
@@ -88,7 +93,7 @@ static const char* op_names =
   "DELAY\0RAND\0PRINT\0"
   "DEF\0RM\0RUN\0LIST\0"
   #ifdef OP_WIRING
-  "SAVE\0PM\0DW\0AW\0DR\0AR\0TONE\0"
+  "SAVE\0PM\0DW\0AW\0DR\0AR\0TONE\0NEOPIX\0"
   #endif
   "\0"
 ;
@@ -265,8 +270,16 @@ uint8_t* skip(uint8_t* pc) {
       return pc + 1;
 
     // Opcodes that consume one opcode and one expression
+    case OP_RESIZE: case OP_PEEK:
     case OP_SET: case OP_INCR: case OP_DECR: case OP_DEF: case OP_WRITE: case OP_INSERT:
       return skip(pc + 1);
+
+    // Opcodes that consume one opcode and two expressions
+    case OP_POKE:
+    #ifdef OP_WIRING
+    case OP_NEOPIX:
+    #endif
+      return skip(skip(pc + 1));
 
     // Opcodes that consume one opcode and three expressions
     case OP_FOR:
@@ -309,9 +322,6 @@ uint8_t* skip(uint8_t* pc) {
     case OP_TONE:
       return skip(skip(skip(pc)));
     #endif
-
-
-
   }
 
   // Otherwise it's a variable length encoded integer.
@@ -399,6 +409,31 @@ uint8_t* eval(uint8_t* pc, number* res) {
       }
       stack[base] = *res;
       stack_top++;
+      return pc;
+    }
+
+    case OP_RESIZE: {
+      uint8_t idx = *pc++;
+      pc = eval(pc, res);
+      if (arrays[idx]) free(arrays[idx]);
+      if (*res) arrays[idx] = (number*)malloc(sizeof(number) * *res);
+      if (!arrays[idx]) *res = 0;
+      return pc;
+    }
+
+    case OP_PEEK: {
+      uint8_t idx = *pc++;
+      pc = eval(pc, res);
+      *res = arrays[idx][*res];
+      return pc;
+    }
+
+    case OP_POKE: {
+      uint8_t idx = *pc++;
+      number offset;
+      pc = eval(pc, &offset);
+      pc = eval(pc, res);
+      arrays[idx][offset] = *res;
       return pc;
     }
 
@@ -728,7 +763,6 @@ uint8_t* eval(uint8_t* pc, number* res) {
 
     #ifdef ARDUINO
     case OP_SAVE: {
-      write_string("OP_SAVE\r\n");
       int i;
       *res = 0;
       int o = 0;
