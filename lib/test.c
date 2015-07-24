@@ -29,7 +29,8 @@ static unsigned char* Times42(struct uState* S, unsigned char* pc, number* res) 
 static struct uState S;
 
 static struct user_func funcs[] = {
-  {"Times-42", Times42}
+  {"Times-42", Times42},
+  {NULL}
 };
 
 static void test_raw(uint8_t* code, int len, number answer) {
@@ -65,7 +66,8 @@ int main() {
   S.malloc = malloc;
   S.free = free;
   S.funcs = funcs;
-  S.num_funcs = 1;
+  S.num_funcs = 0;
+  while (funcs[S.num_funcs++].name);
 
   test("Times-42 10", 420);
   test("DO 3 SET i 10 AND 0 Times-42 SET i 20 GET i", 10);
