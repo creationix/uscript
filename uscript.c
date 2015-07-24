@@ -17,14 +17,7 @@
   #if ARDUINO >= 100
     #include "Arduino.h"
   #endif
-  
-  #include <eagle_soc.h>
-  inline uint32_t _getCycleCount()
-  {
-    uint32_t ccount;
-    __asm__ __volatile__("rsr %0,ccount":"=a" (ccount));
-    return ccount;
-  }
+  #include "NeoPixelesp8266.c"
   typedef int32_t number;
   #define OP_WIRING
   #define CHECKER yield(),!digitalRead(0)
@@ -684,40 +677,16 @@ uint8_t* eval(uint8_t* pc, number* res) {
       pc = eval(pc, &len);
       *res = len;
 
-      const uint32_t pinRegister = _BV(pin);
-      // uint32_t speed = ESP.getFlashChipSpeed();
-      // uint32_t t0h  = F_CPU / 2500000;
-      // uint32_t t1h  = F_CPU / 1250000;
-      // uint32_t ttot = F_CPU /  800000;
-      uint32_t t0h  = F_CPU / 2000000;
-      uint32_t t1h  = F_CPU /  833333;
-      uint32_t ttot = F_CPU /  400000;
-      // uint32_t t0h  = 14;  // 0.35us (spec=0.35 +- 0.15)
-      // uint32_t t1h  = 28;  // 0.70us (spec=0.70 +- 0.15)
-      // uint32_t ttot = 64;  // 1.60us (MUST be >= 1.25)
-      uint32_t start_time = ESP.getCycleCount() - ttot;
-
-      number* data = arrays[slot];
-      // Loop through array a pixel at a time
-      for (number i = 0; i < 32; i++) {
-        uint32_t pixel = data[i];
-        // Loop through bits from most significant to least
-        for (uint32_t mask = 0x8000000; mask; mask >>= 1) {
-          uint32_t c;
-          // Set time for 1 or 0 bit
-          uint32_t t = t1h;//(pixel & mask) ? t1h : t0h;
-          // Wait for the previous bit to finish
-          while (((c = ESP.getCycleCount()) - start_time) < ttot);
-          // Set pin high
-          GPIO_REG_WRITE(GPIO_OUT_W1TS_ADDRESS, pinRegister);
-          // Save the start time
-          start_time = c;
-          // Wait for high time to finish
-          while ((ESP.getCycleCount() - start_time) < t);
-          // Set pin low
-          GPIO_REG_WRITE(GPIO_OUT_W1TC_ADDRESS, pinRegister);
-        }
+      uint8_t pixels[3 * 64];
+      int j = 0;
+      for (int i = 0; i < len; i++) {
+        uint32_t pixel = arrays[slot][i];
+        pixels[j++] = (pixel >> 8) & 0xff;
+        pixels[j++] = (pixel >> 16) & 0xff;
+        pixels[j++] = pixel & 0xff;
       }
+      send_pixels_800(pixels, pixels + j, pin);
+
       return pc;
     }
 
