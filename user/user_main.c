@@ -6,6 +6,21 @@
 
 #include "../lib/uscript.c"
 
+// To use these externs, the following needs to be added to /ld/eagle.app.v6.ld
+//
+// PROVIDE(PIN_OUT = 0x60000300);
+// PROVIDE(PIN_OUT_SET = 0x60000304);
+// PROVIDE(PIN_OUT_CLEAR = 0x60000308);
+//
+// PROVIDE(PIN_DIR = 0x6000030C);
+// PROVIDE(PIN_DIR_OUTPUT = 0x60000310);
+// PROVIDE(PIN_DIR_INPUT = 0x60000314);
+//
+// PROVIDE(PIN_IN = 0x60000318);
+
+// These allow simple direct GPIO access to pins 0-15 without using the API
+// See http://www.esp8266.com/wiki/doku.php?id=esp8266_gpio_registers
+
 extern volatile uint32_t PIN_OUT;
 extern volatile uint32_t PIN_OUT_SET;
 extern volatile uint32_t PIN_OUT_CLEAR;
@@ -88,12 +103,31 @@ static unsigned char* ICACHE_FLASH_ATTR DigitalRead(struct uState* S, unsigned c
   return pc;
 }
 
+static unsigned char* ICACHE_FLASH_ATTR Tone(struct uState* S, unsigned char* pc, number* res) {
+  if (!res) return skip(S, skip(S, skip(S, pc)));
+  number pin, frequency, duration;
+  pc = eval(S, eval(S, eval(S, pc, &pin), &frequency), &duration);
+
+  int p = 1000000 / frequency;
+  int us = p >> 1;
+  duration *= 1000;
+  while ((duration -= p) > 0) {
+    pinWrite(pin, 1);
+    os_delay_us(us);
+    pinWrite(pin, 0);
+    os_delay_us(us);
+  }
+  *res = frequency;
+  return pc;
+}
+
 static struct uState S;
 
 static struct user_func funcs[] = {
-  {"PM", PinMode},
-  {"DW", DigitalWrite},
-  {"DR", DigitalRead},
+  {"PM", PinMode},      // (pin, mode)
+  {"DW", DigitalWrite}, // (pin, value)
+  {"DR", DigitalRead},  // (pin)
+  {"TONE", Tone},       // (pin, frequency, duration)
   {NULL},
 };
 
@@ -104,7 +138,14 @@ static void user_procTask(os_event_t *events);
 
 static volatile os_timer_t some_timer;
 
-uint8_t* prog = (uint8_t*)"DO 2 IF NOT GET i DO 2 SET i 1 PM 2 1 DW 2 NOT DR 2";
+uint8_t* prog = (uint8_t*)
+  "DO 3"
+  "  IF NOT GET i DO 3"
+  "    SET i 1"
+  "    PM 2 1"
+  "    PM 4 1"
+  "  DW 2 NOT DR 2"
+  "  TONE 4 440 50";
 
 void some_timerfunc(void *arg)
 {
