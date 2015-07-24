@@ -127,6 +127,10 @@ static void on_write_char(char c) {
 
 void setup() {
 
+  S.funcs = funcs;
+  S.num_funcs = 0;
+  while (funcs[S.num_funcs++].name);
+
   Serial.begin(9600);
 
   webSocket.begin();
