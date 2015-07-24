@@ -4,7 +4,7 @@
 #include "os_type.h"
 #include "user_config.h"
 
-#include "uscript.c"
+#include "../lib/uscript.c"
 
 #define user_procTaskPrio        0
 #define user_procTaskQueueLen    1
