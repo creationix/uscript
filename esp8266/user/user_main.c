@@ -4,7 +4,7 @@
 #include "os_type.h"
 #include "user_config.h"
 
-#include "../../lib/uscript.c"
+#include "uscript.c"
 
 // To use these externs, the following needs to be added to /ld/eagle.app.v6.ld
 //
