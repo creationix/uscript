@@ -1,7 +1,11 @@
 // #!/usr/bin/tcc -run -Wall -Werror
 
-#include "uscript.c"
+#include "user/uscript.c"
 #include <stdio.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+#include <inttypes.h>
 #include <assert.h>
 
 #define KNRM  "\x1B[0m"
@@ -13,25 +17,37 @@
 #define KCYN  "\x1B[36m"
 #define KWHT  "\x1B[37m"
 
-static void test_raw(uint8_t* code, int len, number answer) {
+static unsigned char* Times42(struct uState* S, unsigned char* pc, int* res) {
+  if (!res) return skip(S, pc);
+  pc = eval(S, pc, res);
+  *res *= 42;
+  return pc;
+}
+
+static struct uState S;
+
+static struct user_func funcs[] = {
+  {"Times-42", Times42}
+};
+
+static void test_raw(uint8_t* code, int len, int answer) {
   printf(KBLU "< ");
   for (int i = 0; i < len; i++) {
     printf("%02x ", code[i]);
   }
   printf(">" KNRM);
-  number result;
-  int used = eval(code, &result) - code;
-  printf(" %s(%d/%d)\n%s%"PRId64"%s\n", KWHT, used, len, KYEL, result, KNRM);
+  int result;
+  int used = eval(&S, code, &result) - code;
+  printf(" %s(%d/%d)\n%s%d%s\n", KWHT, used, len, KYEL, result, KNRM);
   assert(used == len);
   assert(result == answer);
 }
 
-
-static void test(char* code, number answer) {
+static void test(char* code, int answer) {
   printf(KGRN "%s\n" KNRM, code);
   uint8_t* program = (uint8_t*)malloc(strlen(code) + 1);
   memcpy(program, code, strlen(code) + 1);
-  int len = compile(program);
+  int len = compile(&S, program);
   if ((int) len < 0) {
     int offset = 1 - (int)len;
     printf("Unexpected input at %d: '%s'\n", offset, program + offset);
@@ -43,13 +59,21 @@ static void test(char* code, number answer) {
 }
 
 int main() {
+
+  S.malloc = malloc;
+  S.free = free;
+  S.funcs = funcs;
+  S.num_funcs = 1;
+
+  test("Times-42 10", 420);
+  test("DO 3 SET i 10 AND 0 Times-42 SET i 20 GET i", 10);
+  test("DO 3 SET i 10 AND 1 Times-42 SET i 20 GET i", 20);
   test("SET ADD 1 2 4", 4);
   test("GET SUB 4 1", 4);
-  test("RESIZE 0 5", 5);
-  test("POKE 0 0 10", 10);
-  test("PEEK 0 0", 10);
-  test("POKE 0 1 20", 20);
-  test("PEEK 0 1", 20);
+  test("POKE 0 10", 10);
+  test("PEEK 0", 10);
+  test("POKE 1 20", 20);
+  test("PEEK 1", 20);
   test("INSERT 0 10", 10);
   test("INSERT 0 20", 20);
   test("ADD READ 0 READ 1", 30);
@@ -91,15 +115,15 @@ int main() {
   test("10000000", 10000000);
   test("100000000", 100000000);
   test("1000000000", 1000000000);
-  test("10000000000", 10000000000);
-  test("100000000000", 100000000000);
-  test("1000000000000", 1000000000000);
-  test("10000000000000", 10000000000000);
-  test("100000000000000", 100000000000000);
-  test("1000000000000000", 1000000000000000);
-  test("10000000000000000", 10000000000000000);
-  test("100000000000000000", 100000000000000000);
-  test("1000000000000000000", 1000000000000000000);
+  // test("10000000000", 10000000000);
+  // test("100000000000", 100000000000);
+  // test("1000000000000", 1000000000000);
+  // test("10000000000000", 10000000000000);
+  // test("100000000000000", 100000000000000);
+  // test("1000000000000000", 1000000000000000);
+  // test("10000000000000000", 10000000000000000);
+  // test("100000000000000000", 100000000000000000);
+  // test("1000000000000000000", 1000000000000000000);
   test("NEG 1000000000", -1000000000);
   test("IF 1 9", 9);
   test("IF 0 9", 0);
@@ -137,14 +161,16 @@ int main() {
     "  FOR i 1 GET m\n"
     "    INCR s GET i", 18);
 
-  test("SET i 100000000000000000", 100000000000000000);
-  test("WAIT NOT DECR i 10000000000000", 1);
+  test("SET i 1000000000", 1000000000);
+  test("WAIT NOT DECR i 1000000", 1);
   test("DO 2 SET m 100 RUN s", 5050);
   test("DO 2 SET m 1000 RUN s", 500500);
   test("DO 2 SET m 10000 RUN s", 50005000);
-  test("DO 2 SET m 100000 RUN s", 5000050000);
-  test("DO 2 SET m 1000000 RUN s", 500000500000);
-  test("DO 2 SET m 10000000 RUN s", 50000005000000);
-  test("DO 2 SET m 100000000 RUN s", 5000000050000000);
-  test("DO 2 SET m 1000000000 RUN s", 500000000500000000);
+  // test("DO 2 SET m 100000 RUN s", 5000050000);
+  // test("DO 2 SET m 1000000 RUN s", 500000500000);
+  // test("DO 2 SET m 10000000 RUN s", 50000005000000);
+  // test("DO 2 SET m 100000000 RUN s", 5000000050000000);
+  // test("DO 2 SET m 1000000000 RUN s", 500000000500000000);
+
+  return 0;
 }
