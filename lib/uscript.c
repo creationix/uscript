@@ -463,7 +463,7 @@ unsigned char* eval(struct uState* S, unsigned char* pc, number* res) {
       if (*res >= 0 && *res < SIZE_STUBS) {
         if (S->stubs[*res]) S->free(S->stubs[*res]);
         int len = end - pc;
-        S->stubs[*res] = S->malloc(len);
+        S->stubs[*res] = (unsigned char*)S->malloc(len);
         int i;
         for (i = 0; i < len; i++) {
           S->stubs[*res][i] = pc[i];
