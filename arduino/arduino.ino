@@ -140,9 +140,9 @@ void setup() {
     if (EEPROM.read(o++) == 'u') {
       while (EEPROM.read(o) != 'u') {
         int key = EEPROM.read(o++);
-        Serial.write("Loading ");
+        Serial.print("Loading ");
         Serial.write(key + 'a');
-        Serial.write("...\r\n");
+        Serial.print("...\r\n");
         int len = EEPROM.read(o++) << 8;
         len |= EEPROM.read(o++);
         uint8_t* stub = (uint8_t*)malloc(len);
@@ -184,31 +184,31 @@ void handle_input(char c) {
   }
   else if (offset > 0 && (c == 127 || c == 8)) {
     line[--offset] = 0;
-    Serial.write("\x08 \x08");
+    Serial.print("\x08 \x08");
   }
   else if (c == '\r' || c == '\n') {
-    Serial.write("\r\n");
+    Serial.print("\r\n");
     if (offset) {
       line[offset++] = 0;
       int len = compile(&S, line);
       if ((int) len < 0) {
         int offset = 1 - (int)len;
-        while (offset--) Serial.write(" ");
-        Serial.write("^\r\nUnexpected input\r\n");
+        while (offset--) Serial.print(" ");
+        Serial.print("^\r\nUnexpected input\r\n");
       }
       else {
         int offset = 0;
         while (offset < len) {
           number result;
           offset = eval(&S, line + offset, &result) - line;
-          Serial.write(result);
-          Serial.write("\r\n");
+          Serial.print(result);
+          Serial.print("\r\n");
         }
       }
 
     }
     offset = 0;
-    Serial.write("> ");
+    Serial.print("> ");
   }
 }
 
