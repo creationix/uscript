@@ -12,20 +12,25 @@
 #ifndef SIZE_STUBS
   #define SIZE_STUBS 64 // Fixed int of pointers for dynamic subroutines.
 #endif
+#if defined(NUMBER_TYPE)
+  typedef NUMBER_TYPE number;
+#else
+  typedef int number;
+#endif
 
 struct uState;
 
 struct user_func {
   const char* name;
   // Signature for user functions
-  unsigned char* (*fn)(struct uState* S, unsigned char* pc, int* res);
+  unsigned char* (*fn)(struct uState* S, unsigned char* pc, number* res);
 };
 
 struct uState {
   void* (*malloc) (unsigned long size);
   void (*free) (void* ptr);
-  int vars[SIZE_VARS];
-  int stack[SIZE_STACK];
+  number vars[SIZE_VARS];
+  number stack[SIZE_STACK];
   int stack_top;
   unsigned char data[SIZE_DATA];
   unsigned char* stubs[SIZE_STUBS];
@@ -118,7 +123,7 @@ int compile(struct uState* S, unsigned char* program) {
     else if (*cc >= '0' && *cc <= '9') {
 
       // Parse the decimal ascii int
-      int val = 0;
+      number val = 0;
       do {
         val = val * 10 + *cc++ - '0';
       } while (*cc >= 0x30 && *cc < 0x40);
@@ -258,7 +263,7 @@ unsigned char* skip(struct uState* S, unsigned char* pc) {
 
 #define binop(code, op) \
   case code: { \
-    int a, b; \
+    number a, b; \
     pc = eval(S, pc, &a); \
     pc = eval(S, pc, &b); \
     *res = a op b; \
@@ -272,7 +277,7 @@ unsigned char* skip(struct uState* S, unsigned char* pc) {
     return pc; \
   }
 
-unsigned char* eval(struct uState* S, unsigned char* pc, int* res) {
+unsigned char* eval(struct uState* S, unsigned char* pc, number* res) {
   if (!pc) return 0;
 
   // Route user functions to their handlers.
@@ -287,21 +292,21 @@ unsigned char* eval(struct uState* S, unsigned char* pc, int* res) {
       return 0;
 
     case OP_SET: {
-      int idx;
+      number idx;
       pc = eval(S, pc, &idx);
       pc = eval(S, pc, res);
       S->vars[idx] = *res;
       return pc;
     }
     case OP_GET: {
-      int idx;
+      number idx;
       pc = eval(S, pc, &idx);
       *res = S->vars[idx];
       return pc;
     }
 
     case OP_INCR: {
-      int idx, step;
+      number idx, step;
       pc = eval(S, pc, &idx);
       pc = eval(S, pc, &step);
       *res = S->vars[idx] += step;
@@ -309,7 +314,7 @@ unsigned char* eval(struct uState* S, unsigned char* pc, int* res) {
     }
 
     case OP_DECR: {
-      int idx, step;
+      number idx, step;
       pc = eval(S, pc, &idx);
       pc = eval(S, pc, &step);
       *res = S->vars[idx] -= step;
@@ -317,14 +322,14 @@ unsigned char* eval(struct uState* S, unsigned char* pc, int* res) {
     }
 
     case OP_READ: {
-      int idx;
+      number idx;
       pc = eval(S, pc, &idx);
       *res = S->stack[S->stack_top - idx - 1];
       return pc;
     }
 
     case OP_WRITE: {
-      int idx;
+      number idx;
       pc = eval(S, pc, &idx);
       pc = eval(S, pc, res);
       S->stack[S->stack_top - idx - 1] = *res;
@@ -332,7 +337,7 @@ unsigned char* eval(struct uState* S, unsigned char* pc, int* res) {
     }
 
     case OP_REMOVE: {
-      int idx;
+      number idx;
       pc = eval(S, pc, &idx);
       *res = S->stack[S->stack_top - idx - 1];
       while (idx--) {
@@ -342,7 +347,7 @@ unsigned char* eval(struct uState* S, unsigned char* pc, int* res) {
       return pc;
     }
     case OP_INSERT: {
-      int idx;
+      number idx;
       pc = eval(S, pc, &idx);
       unsigned char base = S->stack_top - idx;
       pc = eval(S, pc, res);
@@ -362,7 +367,7 @@ unsigned char* eval(struct uState* S, unsigned char* pc, int* res) {
       return pc;
 
     case OP_POKE: {
-      int offset;
+      number offset;
       pc = eval(S, pc, &offset);
       pc = eval(S, pc, res);
       if (offset >= 0 && offset < SIZE_DATA) {
@@ -372,7 +377,7 @@ unsigned char* eval(struct uState* S, unsigned char* pc, int* res) {
     }
 
     case OP_IF: {
-      int cond;
+      number cond;
       char done = 0;
       *res = 0;
       pc = eval(S, pc, &cond);
@@ -404,7 +409,7 @@ unsigned char* eval(struct uState* S, unsigned char* pc, int* res) {
     }
 
     case OP_MATCH: {
-      int val, cond;
+      number val, cond;
       char done = 0;
       *res = 0;
       pc = eval(S, pc, &val);
@@ -431,7 +436,7 @@ unsigned char* eval(struct uState* S, unsigned char* pc, int* res) {
 
     case OP_WHILE: {
       unsigned char* c = pc;
-      int cond;
+      number cond;
       *res = 0;
       while (pc = eval(S, c, &cond), cond) {
         eval(S, pc, res);
@@ -450,9 +455,9 @@ unsigned char* eval(struct uState* S, unsigned char* pc, int* res) {
     }
 
     case OP_FOR: {
-      int idx;
+      number idx;
       pc = eval(S, pc, &idx);
-      int start, end;
+      number start, end;
       pc = eval(S, pc, &start);
       pc = eval(S, pc, &end);
       unsigned char* body = pc;
@@ -479,7 +484,7 @@ unsigned char* eval(struct uState* S, unsigned char* pc, int* res) {
       else pc = eval(S, pc, res);
       return pc;
     case OP_XOR: {
-      int a, b;
+      number a, b;
       pc = eval(S, pc, &a);
       pc = eval(S, pc, &b);
       *res = a ? (b ? 0 : a) : (b ? b : 0);
@@ -562,7 +567,7 @@ unsigned char* eval(struct uState* S, unsigned char* pc, int* res) {
   if (!(*pc++ & 0x40)) return pc;
   int b = 6;
   do {
-    *res |= (int)(*pc & 0x7f) << b;
+    *res |= (number)(*pc & 0x7f) << b;
     b += 7;
   } while (*pc++ & 0x80);
   return pc;

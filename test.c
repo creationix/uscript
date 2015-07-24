@@ -1,12 +1,14 @@
 // #!/usr/bin/tcc -run -Wall -Werror
 
-#include "user/uscript.c"
-#include <stdio.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <inttypes.h>
 #include <assert.h>
+
+#define NUMBER_TYPE int64_t
+#include "user/uscript.c"
 
 #define KNRM  "\x1B[0m"
 #define KRED  "\x1B[31m"
@@ -17,7 +19,7 @@
 #define KCYN  "\x1B[36m"
 #define KWHT  "\x1B[37m"
 
-static unsigned char* Times42(struct uState* S, unsigned char* pc, int* res) {
+static unsigned char* Times42(struct uState* S, unsigned char* pc, number* res) {
   if (!res) return skip(S, pc);
   pc = eval(S, pc, res);
   *res *= 42;
@@ -30,20 +32,20 @@ static struct user_func funcs[] = {
   {"Times-42", Times42}
 };
 
-static void test_raw(uint8_t* code, int len, int answer) {
+static void test_raw(uint8_t* code, int len, number answer) {
   printf(KBLU "< ");
   for (int i = 0; i < len; i++) {
     printf("%02x ", code[i]);
   }
   printf(">" KNRM);
-  int result;
+  number result;
   int used = eval(&S, code, &result) - code;
-  printf(" %s(%d/%d)\n%s%d%s\n", KWHT, used, len, KYEL, result, KNRM);
+  printf(" %s(%d/%d)\n%s%ld%s\n", KWHT, used, len, KYEL, result, KNRM);
   assert(used == len);
   assert(result == answer);
 }
 
-static void test(char* code, int answer) {
+static void test(char* code, number answer) {
   printf(KGRN "%s\n" KNRM, code);
   uint8_t* program = (uint8_t*)malloc(strlen(code) + 1);
   memcpy(program, code, strlen(code) + 1);
@@ -115,15 +117,15 @@ int main() {
   test("10000000", 10000000);
   test("100000000", 100000000);
   test("1000000000", 1000000000);
-  // test("10000000000", 10000000000);
-  // test("100000000000", 100000000000);
-  // test("1000000000000", 1000000000000);
-  // test("10000000000000", 10000000000000);
-  // test("100000000000000", 100000000000000);
-  // test("1000000000000000", 1000000000000000);
-  // test("10000000000000000", 10000000000000000);
-  // test("100000000000000000", 100000000000000000);
-  // test("1000000000000000000", 1000000000000000000);
+  test("10000000000", 10000000000);
+  test("100000000000", 100000000000);
+  test("1000000000000", 1000000000000);
+  test("10000000000000", 10000000000000);
+  test("100000000000000", 100000000000000);
+  test("1000000000000000", 1000000000000000);
+  test("10000000000000000", 10000000000000000);
+  test("100000000000000000", 100000000000000000);
+  test("1000000000000000000", 1000000000000000000);
   test("NEG 1000000000", -1000000000);
   test("IF 1 9", 9);
   test("IF 0 9", 0);
@@ -161,15 +163,15 @@ int main() {
     "  FOR i 1 GET m\n"
     "    INCR s GET i", 18);
 
-  test("SET i 1000000000", 1000000000);
-  test("WAIT NOT DECR i 1000000", 1);
+  test("SET i 1000000000000000000", 1000000000000000000);
+  test("WAIT NOT DECR i 100000000000000", 1);
   test("DO 2 SET m 100 RUN s", 5050);
   test("DO 2 SET m 1000 RUN s", 500500);
   test("DO 2 SET m 10000 RUN s", 50005000);
-  // test("DO 2 SET m 100000 RUN s", 5000050000);
-  // test("DO 2 SET m 1000000 RUN s", 500000500000);
-  // test("DO 2 SET m 10000000 RUN s", 50000005000000);
-  // test("DO 2 SET m 100000000 RUN s", 5000000050000000);
+  test("DO 2 SET m 100000 RUN s", 5000050000);
+  test("DO 2 SET m 1000000 RUN s", 500000500000);
+  test("DO 2 SET m 10000000 RUN s", 50000005000000);
+  test("DO 2 SET m 100000000 RUN s", 5000000050000000);
   // test("DO 2 SET m 1000000000 RUN s", 500000000500000000);
 
   return 0;
