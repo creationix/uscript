@@ -8,7 +8,7 @@
 #define EEPROM_SIZE 4096
 #include "uscript.c"
 
-static unsigned char* ICACHE_FLASH_ATTR PinMode(struct uState* S, unsigned char* pc, number* res) {
+static uint8_t* ICACHE_FLASH_ATTR PinMode(struct uState* S, uint8_t* pc, number* res) {
   if (!res) return skip(S, skip(S, pc));
   number pin, mode;
   pc = eval(S, eval(S, pc, &pin), &mode);
@@ -17,7 +17,7 @@ static unsigned char* ICACHE_FLASH_ATTR PinMode(struct uState* S, unsigned char*
   return pc;
 }
 
-static unsigned char* ICACHE_FLASH_ATTR DigitalWrite(struct uState* S, unsigned char* pc, number* res) {
+static uint8_t* ICACHE_FLASH_ATTR DigitalWrite(struct uState* S, uint8_t* pc, number* res) {
   if (!res) return skip(S, skip(S, pc));
   number pin, val;
   pc = eval(S, eval(S, pc, &pin), &val);
@@ -26,7 +26,7 @@ static unsigned char* ICACHE_FLASH_ATTR DigitalWrite(struct uState* S, unsigned 
   return pc;
 }
 
-static unsigned char* ICACHE_FLASH_ATTR DigitalRead(struct uState* S, unsigned char* pc, number* res) {
+static uint8_t* ICACHE_FLASH_ATTR DigitalRead(struct uState* S, uint8_t* pc, number* res) {
   if (!res) return skip(S, pc);
   number pin;
   pc = eval(S, pc, &pin);
@@ -34,7 +34,7 @@ static unsigned char* ICACHE_FLASH_ATTR DigitalRead(struct uState* S, unsigned c
   return pc;
 }
 
-static unsigned char* ICACHE_FLASH_ATTR AnalogWrite(struct uState* S, unsigned char* pc, number* res) {
+static uint8_t* ICACHE_FLASH_ATTR AnalogWrite(struct uState* S, uint8_t* pc, number* res) {
   if (!res) return skip(S, skip(S, pc));
   number pin, val;
   pc = eval(S, eval(S, pc, &pin), &val);
@@ -43,7 +43,7 @@ static unsigned char* ICACHE_FLASH_ATTR AnalogWrite(struct uState* S, unsigned c
   return pc;
 }
 
-static unsigned char* ICACHE_FLASH_ATTR AnalogRead(struct uState* S, unsigned char* pc, number* res) {
+static uint8_t* ICACHE_FLASH_ATTR AnalogRead(struct uState* S, uint8_t* pc, number* res) {
   if (!res) return skip(S, pc);
   number pin;
   pc = eval(S, pc, &pin);
@@ -51,7 +51,7 @@ static unsigned char* ICACHE_FLASH_ATTR AnalogRead(struct uState* S, unsigned ch
   return pc;
 }
 
-static unsigned char* ICACHE_FLASH_ATTR Tone(struct uState* S, unsigned char* pc, number* res) {
+static uint8_t* ICACHE_FLASH_ATTR Tone(struct uState* S, uint8_t* pc, number* res) {
   if (!res) return skip(S, skip(S, skip(S, pc)));
   number pin, frequency, duration;
   pc = eval(S, eval(S, eval(S, pc, &pin), &frequency), &duration);
@@ -69,14 +69,14 @@ static unsigned char* ICACHE_FLASH_ATTR Tone(struct uState* S, unsigned char* pc
   return pc;
 }
 
-static unsigned char* ICACHE_FLASH_ATTR Delay(struct uState* S, unsigned char* pc, number* res) {
+static uint8_t* ICACHE_FLASH_ATTR Delay(struct uState* S, uint8_t* pc, number* res) {
   if (!res) return skip(S, pc);
   pc = eval(S, pc, res);
   delay(*res);
   return pc;
 }
 
-static unsigned char* ICACHE_FLASH_ATTR Print(struct uState* S, unsigned char* pc, number* res) {
+static uint8_t* ICACHE_FLASH_ATTR Print(struct uState* S, uint8_t* pc, number* res) {
   if (!res) return skip(S, pc);
   pc = eval(S, pc, res);
   Serial.print(*res);
@@ -84,40 +84,13 @@ static unsigned char* ICACHE_FLASH_ATTR Print(struct uState* S, unsigned char* p
   return pc;
 }
 
-// From http://inglorion.net/software/deadbeef_rand/
-static uint32_t deadbeef_seed;
-static uint32_t deadbeef_beef = 0xdeadbeef;
-uint32_t deadbeef_rand() {
-  deadbeef_seed = (deadbeef_seed << 7) ^ ((deadbeef_seed >> 25) + deadbeef_beef);
-  deadbeef_beef = (deadbeef_beef << 7) ^ ((deadbeef_beef >> 25) + 0xdeadbeef);
-  return deadbeef_seed;
-}
-void deadbeef_srand(uint32_t x) {
-  deadbeef_seed = x;
-  deadbeef_beef = 0xdeadbeef;
-}
-
-static unsigned char* ICACHE_FLASH_ATTR Rand(struct uState* S, unsigned char* pc, number* res) {
-  if (!res) return skip(S, pc);
-  pc = eval(S, pc, res);
-  *res = deadbeef_rand() % *res;
-  return pc;
-}
-
-static unsigned char* ICACHE_FLASH_ATTR Srand(struct uState* S, unsigned char* pc, number* res) {
-  if (!res) return skip(S, pc);
-  pc = eval(S, pc, res);
-  deadbeef_srand(*res);
-  return pc;
-}
-
-
-static unsigned char* ICACHE_FLASH_ATTR Save(struct uState* S, unsigned char* pc, number* res) {
+static uint8_t* ICACHE_FLASH_ATTR Save(struct uState* S, uint8_t* pc, number* res) {
   if (!res) return pc;
+  printf("TODO: save to EEPROM\n");
   return pc;
 }
 
-void dump(struct uState* S, uint8_t* pc, int len) {
+static void ICACHE_FLASH_ATTR dump(struct uState* S, uint8_t* pc, int len) {
   uint8_t* end = pc + len;
   while (pc < end) {
     Serial.write(' ');
@@ -139,7 +112,7 @@ void dump(struct uState* S, uint8_t* pc, int len) {
   }
 }
 
-static unsigned char* ICACHE_FLASH_ATTR List(struct uState* S, unsigned char* pc, number* res) {
+static uint8_t* ICACHE_FLASH_ATTR List(struct uState* S, uint8_t* pc, number* res) {
   if (!res) return pc;
   int i;
   *res = 2;
@@ -165,8 +138,6 @@ static struct user_func funcs[] = {
   {"AR", AnalogRead},  // (pin)
   {"TONE", Tone},       // (pin, frequency, duration)
   {"DELAY", Delay},     // (ms)
-  {"RAND", Rand},       // (mod)
-  {"SRAND", Srand},     // (seed)
   {"PRINT", Print},     // (num)
   {"LIST", List},       //
   {"SAVE", Save},       //
@@ -237,6 +208,8 @@ static void on_write_char(char c) {
 
 void setup() {
 
+  S.malloc = malloc;
+  S.free = free;
   S.funcs = funcs;
   S.num_funcs = 0;
   while (funcs[S.num_funcs].name) S.num_funcs++;

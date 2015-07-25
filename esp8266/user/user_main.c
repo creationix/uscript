@@ -164,6 +164,8 @@ user_procTask(os_event_t *events)
 void ICACHE_FLASH_ATTR
 user_init()
 {
+    S.malloc = malloc;
+    S.free = free;
     S.funcs = funcs;
     S.num_funcs = 0;
     while (funcs[S.num_funcs].name) S.num_funcs++;

@@ -28,33 +28,6 @@ static unsigned char* Print(struct uState* S, unsigned char* pc, number* res) {
   return pc;
 }
 
-// From http://inglorion.net/software/deadbeef_rand/
-static uint32_t deadbeef_seed;
-static uint32_t deadbeef_beef = 0xdeadbeef;
-static uint32_t deadbeef_rand() {
-  deadbeef_seed = (deadbeef_seed << 7) ^ ((deadbeef_seed >> 25) + deadbeef_beef);
-  deadbeef_beef = (deadbeef_beef << 7) ^ ((deadbeef_beef >> 25) + 0xdeadbeef);
-  return deadbeef_seed;
-}
-static void deadbeef_srand(uint32_t x) {
-  deadbeef_seed = x;
-  deadbeef_beef = 0xdeadbeef;
-}
-
-static unsigned char* Rand(struct uState* S, unsigned char* pc, number* res) {
-  if (!res) return skip(S, pc);
-  pc = eval(S, pc, res);
-  *res = deadbeef_rand() % *res;
-  return pc;
-}
-
-static unsigned char* Srand(struct uState* S, unsigned char* pc, number* res) {
-  if (!res) return skip(S, pc);
-  pc = eval(S, pc, res);
-  deadbeef_srand(*res);
-  return pc;
-}
-
 static unsigned char* Delay(struct uState* S, unsigned char* pc, number* res) {
   if (!res) return skip(S, pc);
   pc = eval(S, pc, res);
@@ -65,9 +38,39 @@ static unsigned char* Delay(struct uState* S, unsigned char* pc, number* res) {
   return pc;
 }
 
+void dump(struct uState* S, uint8_t* pc, int len) {
+  uint8_t* end = pc + len;
+  while (pc < end) {
+    // If the high bit is set, it's an opcode index.
+    if (*pc & 0x80) {
+      printf(" %s", op_to_name(S, *pc++));
+      continue;
+    }
+    // Otherwise it's a variable length encoded integer.
+    number val = *pc & 0x3f;
+    if (*pc++ & 0x40) {
+      int b = 6;
+      do {
+        val |= (number)(*pc & 0x7f) << b;
+        b += 7;
+      } while (*pc++ & 0x80);
+    }
+    printf(" %"PRId64, val);
+  }
+}
+
 static unsigned char* List(struct uState* S, unsigned char* pc, number* res) {
   if (!res) return pc;
-  printf("TODO: list to stdout\n");
+  int i;
+  *res = 2;
+  for (i = 0; i < SIZE_STUBS; i++) {
+    if (!S->stubs[i]) continue;
+    printf("DEF %c", i + 'a');
+    int len = skip(S, S->stubs[i]) - S->stubs[i];
+    dump(S, S->stubs[i], len);
+    printf("\n");
+    *res += len + 3;
+  }
   return pc;
 }
 
@@ -81,8 +84,6 @@ static struct uState S;
 
 static struct user_func funcs[] = {
   {"DELAY", Delay},     // (ms)
-  {"RAND", Rand},       // (mod)
-  {"SRAND", Srand},     // (seed)
   {"PRINT", Print},     // (num)
   {"LIST", List},       //
   {"SAVE", Save},       //
@@ -97,6 +98,31 @@ int main() {
   S.num_funcs = 0;
   while (funcs[S.num_funcs].name) S.num_funcs++;
 
+  uint8_t* line = NULL;
+  size_t size = 0;
+  while (1) {
+
+    printf(KNRM "> " KGRN);
+    if (getline((char**)&line, &size, stdin) < 0) {
+      printf(KNRM "\n");
+      return 0;
+    }
+    printf(KNRM);
+    int len = compile(&S, line);
+    if ((int) len < 0) {
+      int offset = 1 - (int)len;
+      while (offset--) printf(" ");
+      printf(KRED "^\n");
+      printf("Unexpected input\n" KNRM);
+      continue;
+    }
+    uint8_t* program = line;
+    while (program - line < len) {
+      number result;
+      program = eval(&S, program, &result);
+      printf("%s%"PRId64"%s\n", KBLU, result, KNRM);
+    }
+  }
 
   return 0;
 }
