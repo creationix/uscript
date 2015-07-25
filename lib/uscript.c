@@ -62,11 +62,29 @@ int compile(struct uState* S, unsigned char* program) {
     // Integer parsing
     else if (*cc >= '0' && *cc <= '9') {
 
-      // Parse the decimal ascii int
       number val = 0;
-      do {
-        val = val * 10 + *cc++ - '0';
-      } while (*cc >= 0x30 && *cc < 0x40);
+      if (*cc == '0' && (*(cc + 1) == 'x' || *(cc + 1) == 'X')) {
+        cc += 2;
+        // Parse the decimal ascii int
+        while (1) {
+          if (*cc >= '0' && *cc <= '9') {
+            val = (val << 4) | (*cc++ - '0');
+          }
+          else if (*cc >= 'a' && *cc <= 'f') {
+            val = (val << 4) | (*cc++ - ('a' - 10));
+          }
+          else if (*cc >= 'A' && *cc <= 'F') {
+            val = (val << 4) | (*cc++ - ('A' - 10));
+          }
+          else break;
+        }
+      }
+      else {
+        // Parse the decimal ascii int
+        do {
+          val = val * 10 + *cc++ - '0';
+        } while (*cc >= '0' && *cc <= '9');
+      }
 
       // TODO: parse hex literal
 

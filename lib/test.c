@@ -67,8 +67,13 @@ int main() {
   S.free = free;
   S.funcs = funcs;
   S.num_funcs = 0;
-  while (funcs[S.num_funcs++].name);
+  while (funcs[S.num_funcs].name) S.num_funcs++;
 
+  assert(name_to_op(&S, "BADNAME", 7) == 0);
+
+  test("0x100", 0x100);
+  test("0xdeadbeeef", 0xdeadbeeef);
+  test("0XDEADBEEF", 0XDEADBEEF);
   test("Times-42 10", 420);
   test("DO 3 SET i 10 AND 0 Times-42 SET i 20 GET i", 10);
   test("DO 3 SET i 10 AND 1 Times-42 SET i 20 GET i", 20);
