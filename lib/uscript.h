@@ -1,5 +1,7 @@
 #ifndef USCRIPT_H
 #define USCRIPT_H
+#include <stdint.h>
+#include <stddef.h>
 
 // Override these defines to tweak to your memory/program constraints.
 #ifndef SIZE_VARS
@@ -29,7 +31,7 @@ struct user_func {
 };
 
 struct uState {
-  void* (*malloc) (unsigned long size);
+  void* (*malloc) (size_t size);
   void (*free) (void* ptr);
   number vars[SIZE_VARS];
   number stack[SIZE_STACK];
@@ -59,8 +61,10 @@ enum opcodes {
   OP_EQ, OP_NEQ, OP_GTE, OP_LTE, OP_GT, OP_LT,
   /* math */
   OP_NEG, OP_ADD, OP_SUB, OP_MUL, OP_DIV, OP_MOD, OP_ABS,
+  /* random */
+  OP_RAND, OP_SRAND,
 };
-#define OP_USER_START (OP_ABS + 1)
+#define OP_USER_START (OP_SRAND + 1)
 
 const char* op_to_name(struct uState* S, int op);
 int name_to_op(struct uState* S, const char* name, int len);

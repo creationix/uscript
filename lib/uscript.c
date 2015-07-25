@@ -10,6 +10,7 @@ static const char* op_names =
   "BNOT\0BAND\0BOR\0BXOR\0LSHIFT\0RSHIFT\0"
   "EQ\0NEQ\0GTE\0LTE\0GT\0LT\0"
   "NEG\0ADD\0SUB\0MUL\0DIV\0MOD\0ABS\0"
+  "RAND\0SRAND\0"
   "\0"
 ;
 
@@ -195,6 +196,7 @@ unsigned char* skip(struct uState* S, unsigned char* pc) {
     case OP_PEEK:
     case OP_WAIT:
     case OP_GET: case OP_RM: case OP_RUN: case OP_READ: case OP_REMOVE:
+    case OP_RAND: case OP_SRAND:
       return skip(S, pc);
 
     // Opcodes that consume one two expressions
@@ -235,6 +237,10 @@ unsigned char* skip(struct uState* S, unsigned char* pc) {
     return pc; \
   }
 
+// From http://inglorion.net/software/deadbeef_rand/
+static unsigned deadbeef_seed;
+static unsigned deadbeef_beef = 0xdeadbeef;
+
 unsigned char* eval(struct uState* S, unsigned char* pc, number* res) {
   if (!pc) return 0;
 
@@ -248,6 +254,19 @@ unsigned char* eval(struct uState* S, unsigned char* pc, number* res) {
     case OP_ELIF: case OP_WHEN: case OP_ELSE:
       // Unexpected elif, when, or else opcode
       return 0;
+
+    case OP_RAND:
+      pc = eval(S, pc, res);
+      deadbeef_seed = (deadbeef_seed << 7) ^ ((deadbeef_seed >> 25) + deadbeef_beef);
+      deadbeef_beef = (deadbeef_beef << 7) ^ ((deadbeef_beef >> 25) + 0xdeadbeef);
+      *res = deadbeef_seed % *res;
+      return pc;
+
+    case OP_SRAND:
+      pc = eval(S, pc, res);
+      deadbeef_seed = *res;
+      deadbeef_beef = 0xdeadbeef;
+      return pc;
 
     case OP_SET: {
       number idx;
