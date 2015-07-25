@@ -76,7 +76,20 @@ static unsigned char* List(struct uState* S, unsigned char* pc, number* res) {
 
 static unsigned char* Save(struct uState* S, unsigned char* pc, number* res) {
   if (!res) return pc;
-  printf("TODO: save to filesystem\n");
+  int i;
+  int o = 2;
+  FILE* fd = fopen("uscript.dat", "w");
+  fputc('u', fd);
+  for (i = 0; i < SIZE_STUBS; i++) {
+    if (!S->stubs[i]) continue;
+    printf("Saving %c...\n", i + 'a');
+    int len = skip(S, S->stubs[i]) - S->stubs[i];
+    o += len + 3;
+    fprintf(fd, "%c%c%c%.*s", i, len >> 8, len & 0xff, len, S->stubs[i]);
+  }
+  fputc('u', fd);
+  fclose(fd);
+  *res = o;
   return pc;
 }
 

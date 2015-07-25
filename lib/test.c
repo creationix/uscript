@@ -71,13 +71,13 @@ int main() {
 
   assert(name_to_op(&S, "BADNAME", 7) == 0);
 
-  test("DO 2 SRAND 42 RAND 1000", 695);
   test("0x100", 0x100);
   test("0xdeadbeeef", 0xdeadbeeef);
   test("0XDEADBEEF", 0XDEADBEEF);
   test("Times-42 10", 420);
   test("DO 3 SET i 10 AND 0 Times-42 SET i 20 GET i", 10);
   test("DO 3 SET i 10 AND 1 Times-42 SET i 20 GET i", 20);
+  test("DO 2 SRAND 42 RAND 1000", 695);
   test("SET ADD 1 2 4", 4);
   test("GET SUB 4 1", 4);
   test("POKE 0 10", 10);
