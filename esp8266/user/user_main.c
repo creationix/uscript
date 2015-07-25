@@ -166,7 +166,7 @@ user_init()
 {
     S.funcs = funcs;
     S.num_funcs = 0;
-    while (funcs[S.num_funcs++].name);
+    while (funcs[S.num_funcs].name) S.num_funcs++;
     compile(&S, prog);
 
     // Initialize the GPIO subsystem.

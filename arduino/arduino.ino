@@ -52,6 +52,40 @@ static unsigned char* ICACHE_FLASH_ATTR Tone(struct uState* S, unsigned char* pc
   return pc;
 }
 
+static unsigned char* ICACHE_FLASH_ATTR Delay(struct uState* S, unsigned char* pc, number* res) {
+  if (!res) return skip(S, pc);
+  pc = eval(S, pc, res);
+  delay(*res);
+  return pc;
+}
+
+
+// From http://inglorion.net/software/deadbeef_rand/
+static uint32_t deadbeef_seed;
+static uint32_t deadbeef_beef = 0xdeadbeef;
+uint32_t deadbeef_rand() {
+  deadbeef_seed = (deadbeef_seed << 7) ^ ((deadbeef_seed >> 25) + deadbeef_beef);
+  deadbeef_beef = (deadbeef_beef << 7) ^ ((deadbeef_beef >> 25) + 0xdeadbeef);
+  return deadbeef_seed;
+}
+void deadbeef_srand(uint32_t x) {
+  deadbeef_seed = x;
+  deadbeef_beef = 0xdeadbeef;
+}
+
+static unsigned char* ICACHE_FLASH_ATTR Rand(struct uState* S, unsigned char* pc, number* res) {
+  if (!res) return skip(S, pc);
+  pc = eval(S, pc, res);
+  *res = deadbeef_rand() % *res;
+  return pc;
+}
+
+static unsigned char* ICACHE_FLASH_ATTR Srand(struct uState* S, unsigned char* pc, number* res) {
+  if (!res) return skip(S, pc);
+  pc = eval(S, pc, res);
+  deadbeef_srand(*res);
+  return pc;
+}
 
 static struct uState S;
 
@@ -59,6 +93,9 @@ static struct user_func funcs[] = {
   {"PM", PinMode},      // (pin, mode)
   {"DW", DigitalWrite}, // (pin, value)
   {"DR", DigitalRead},  // (pin)
+  {"DELAY", Delay},     // (ms)
+  {"RAND", Rand},       // (mod)
+  {"SRAND", Srand},     // (seed)
   {"TONE", Tone},       // (pin, frequency, duration)
   {NULL},
 };
@@ -129,7 +166,7 @@ void setup() {
 
   S.funcs = funcs;
   S.num_funcs = 0;
-  while (funcs[S.num_funcs++].name);
+  while (funcs[S.num_funcs].name) S.num_funcs++;
 
   Serial.begin(9600);
 
