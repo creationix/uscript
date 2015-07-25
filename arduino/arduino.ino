@@ -34,6 +34,23 @@ static unsigned char* ICACHE_FLASH_ATTR DigitalRead(struct uState* S, unsigned c
   return pc;
 }
 
+static unsigned char* ICACHE_FLASH_ATTR AnalogWrite(struct uState* S, unsigned char* pc, number* res) {
+  if (!res) return skip(S, skip(S, pc));
+  number pin, val;
+  pc = eval(S, eval(S, pc, &pin), &val);
+  analogWrite(pin, val);
+  *res = val;
+  return pc;
+}
+
+static unsigned char* ICACHE_FLASH_ATTR AnalogRead(struct uState* S, unsigned char* pc, number* res) {
+  if (!res) return skip(S, pc);
+  number pin;
+  pc = eval(S, pc, &pin);
+  *res = analogRead(pin);
+  return pc;
+}
+
 static unsigned char* ICACHE_FLASH_ATTR Tone(struct uState* S, unsigned char* pc, number* res) {
   if (!res) return skip(S, skip(S, skip(S, pc)));
   number pin, frequency, duration;
@@ -59,6 +76,13 @@ static unsigned char* ICACHE_FLASH_ATTR Delay(struct uState* S, unsigned char* p
   return pc;
 }
 
+static unsigned char* ICACHE_FLASH_ATTR Print(struct uState* S, unsigned char* pc, number* res) {
+  if (!res) return skip(S, pc);
+  pc = eval(S, pc, res);
+  Serial.print(*res);
+  Serial.print("\r\n");
+  return pc;
+}
 
 // From http://inglorion.net/software/deadbeef_rand/
 static uint32_t deadbeef_seed;
@@ -87,16 +111,65 @@ static unsigned char* ICACHE_FLASH_ATTR Srand(struct uState* S, unsigned char* p
   return pc;
 }
 
+
+static unsigned char* ICACHE_FLASH_ATTR Save(struct uState* S, unsigned char* pc, number* res) {
+  if (!res) return pc;
+  return pc;
+}
+
+void dump(struct uState* S, uint8_t* pc, int len) {
+  uint8_t* end = pc + len;
+  while (pc < end) {
+    Serial.write(' ');
+    // If the high bit is set, it's an opcode index.
+    if (*pc & 0x80) {
+      Serial.print(op_to_name(S, *pc++));
+      continue;
+    }
+    // Otherwise it's a variable length encoded integer.
+    number val = *pc & 0x3f;
+    if (*pc++ & 0x40) {
+      int b = 6;
+      do {
+        val |= (number)(*pc & 0x7f) << b;
+        b += 7;
+      } while (*pc++ & 0x80);
+    }
+    Serial.print(val);
+  }
+}
+
+static unsigned char* ICACHE_FLASH_ATTR List(struct uState* S, unsigned char* pc, number* res) {
+  if (!res) return pc;
+  int i;
+  *res = 2;
+  for (i = 0; i < SIZE_STUBS; i++) {
+    if (!S->stubs[i]) continue;
+    Serial.print("DEF ");
+    Serial.write(i + 'a');
+    int len = skip(S, S->stubs[i]) - S->stubs[i];
+    dump(S, S->stubs[i], len);
+    Serial.print("\r\n");
+    *res += len + 3;
+  }
+  return pc;
+}
+
 static struct uState S;
 
 static struct user_func funcs[] = {
   {"PM", PinMode},      // (pin, mode)
   {"DW", DigitalWrite}, // (pin, value)
   {"DR", DigitalRead},  // (pin)
+  {"AW", AnalogWrite}, // (pin, value)
+  {"AR", AnalogRead},  // (pin)
+  {"TONE", Tone},       // (pin, frequency, duration)
   {"DELAY", Delay},     // (ms)
   {"RAND", Rand},       // (mod)
   {"SRAND", Srand},     // (seed)
-  {"TONE", Tone},       // (pin, frequency, duration)
+  {"PRINT", Print},     // (num)
+  {"LIST", List},       //
+  {"SAVE", Save},       //
   {NULL},
 };
 
