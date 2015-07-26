@@ -6,6 +6,7 @@
 #include <EEPROM.h>
 #define REPL_BUFFER 4096
 #define EEPROM_SIZE 4096
+#define CHECKER (yield(),!digitalRead(0))
 #include "uscript.c"
 
 static uint8_t* ICACHE_FLASH_ATTR PinMode(struct uState* S, uint8_t* pc, number* res) {
