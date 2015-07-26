@@ -87,7 +87,28 @@ static uint8_t* ICACHE_FLASH_ATTR Print(struct uState* S, uint8_t* pc, number* r
 
 static uint8_t* ICACHE_FLASH_ATTR Save(struct uState* S, uint8_t* pc, number* res) {
   if (!res) return pc;
-  printf("TODO: save to EEPROM\n");
+  int i;
+  *res = 0;
+  int o = 0;
+  EEPROM.begin(EEPROM_SIZE);
+  EEPROM.write(o++, 'u');
+  for (i = 0; i < SIZE_STUBS; i++) {
+    if (!S->stubs[i]) continue;
+    Serial.print("Saving ");
+    Serial.write(i + 'a');
+    Serial.print("...\r\n");
+    EEPROM.write(o++, i);
+    int len = skip(S, S->stubs[i]) - S->stubs[i];
+    EEPROM.write(o++, len >> 8);
+    EEPROM.write(o++, len & 0xff);
+    int j;
+    for (j = 0; j < len; j++) {
+      EEPROM.write(o++, S->stubs[i][j]);
+    }
+  }
+  EEPROM.write(o++, 'u');
+  EEPROM.end();
+  *res = o;
   return pc;
 }
 
@@ -132,16 +153,16 @@ static uint8_t* ICACHE_FLASH_ATTR List(struct uState* S, uint8_t* pc, number* re
 static struct uState S;
 
 static struct user_func funcs[] = {
-  {"PM", PinMode},      // (pin, mode)
-  {"DW", DigitalWrite}, // (pin, value)
-  {"DR", DigitalRead},  // (pin)
-  {"AW", AnalogWrite}, // (pin, value)
-  {"AR", AnalogRead},  // (pin)
-  {"TONE", Tone},       // (pin, frequency, duration)
-  {"DELAY", Delay},     // (ms)
-  {"PRINT", Print},     // (num)
-  {"LIST", List},       //
-  {"SAVE", Save},       //
+  {"PM", PinMode},      // (pin, mode) -> mode
+  {"DW", DigitalWrite}, // (pin, value) -> value
+  {"DR", DigitalRead},  // (pin) -> value
+  {"AW", AnalogWrite}, // (pin, value) -> value
+  {"AR", AnalogRead},  // (pin) -> value
+  {"TONE", Tone},       // (pin, frequency, duration) -> frequency
+  {"DELAY", Delay},     // (ms) -> ms
+  {"PRINT", Print},     // (num) -> num
+  {"LIST", List},       // -> len
+  {"SAVE", Save},       // -> len
   {NULL},
 };
 
