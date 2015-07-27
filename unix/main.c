@@ -101,7 +101,13 @@ static unsigned char* Save(struct uState* S, unsigned char* pc, number* res) {
     printf("Saving %c...\n", i + 'a');
     int len = skip(S, S->stubs[i]) - S->stubs[i];
     o += len + 3;
-    fprintf(fd, "%c%c%c%.*s", i, len >> 8, len & 0xff, len, S->stubs[i]);
+    fputc(i, fd);
+    fputc(len >> 8, fd);
+    fputc(len & 0xff, fd);
+    int j;
+    for (j = 0; j < len; j++) {
+      fputc(S->stubs[i][j], fd);
+    }
   }
   fputc('u', fd);
   fclose(fd);
