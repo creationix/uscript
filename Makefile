@@ -6,3 +6,6 @@ flash:
 
 run:
 	make -C unix run
+
+clean:
+	git clean -dfx
