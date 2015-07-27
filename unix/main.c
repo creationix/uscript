@@ -8,9 +8,13 @@
 #include <assert.h>
 #include <sys/select.h>
 #include <sys/time.h>
+#include <signal.h>
+
+static volatile int stopLoop = 0;
 
 #define NUMBER_TYPE int64_t
 #define DATA_FILE "uscript.dat"
+#define CHECKER stopLoop
 #include "uscript.c"
 
 #define KNRM  "\x1B[0m"
@@ -21,6 +25,11 @@
 #define KMAG  "\x1B[1;35m"
 #define KCYN  "\x1B[36m"
 #define KWHT  "\x1B[37m"
+
+
+void intHandler(int dummy) {
+  stopLoop = 1;
+}
 
 static unsigned char* Print(struct uState* S, unsigned char* pc, number* res) {
   if (!res) return skip(S, pc);
@@ -112,7 +121,6 @@ int main() {
   S.num_funcs = 0;
   while (funcs[S.num_funcs].name) S.num_funcs++;
 
-
   printf("Welcome to uscript.\n");
   FILE* fd = fopen(DATA_FILE, "r");
   if (fd) {
@@ -136,7 +144,10 @@ int main() {
   if (S.stubs[0]) {
     printf("Running auto script...\n");
     number out;
+    signal(SIGINT, intHandler);
+    stopLoop = 0;
     eval(&S, S.stubs[0], &out);
+    signal(SIGINT, SIG_DFL);
   }
 
   uint8_t* line = NULL;
@@ -160,7 +171,10 @@ int main() {
     uint8_t* program = line;
     while (program - line < len) {
       number result;
+      signal(SIGINT, intHandler);
+      stopLoop = 0;
       program = eval(&S, program, &result);
+      signal(SIGINT, SIG_DFL);
       printf("%s%"PRId64"%s\n", KBLU, result, KNRM);
     }
   }
