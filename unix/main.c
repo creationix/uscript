@@ -10,6 +10,13 @@
 #include <sys/time.h>
 #include <signal.h>
 
+
+// Assume unix on arm is raspberry pi for now
+// We need much better logic in the long run.
+#ifdef __arm__
+#include "rpi-io.c"
+#endif
+
 static volatile int stopLoop = 0;
 
 #define NUMBER_TYPE int64_t
@@ -25,7 +32,6 @@ static volatile int stopLoop = 0;
 #define KMAG  "\x1B[1;35m"
 #define KCYN  "\x1B[36m"
 #define KWHT  "\x1B[37m"
-
 
 void intHandler(int dummy) {
   stopLoop = 1;
@@ -103,9 +109,90 @@ static unsigned char* Save(struct uState* S, unsigned char* pc, number* res) {
   return pc;
 }
 
+#ifdef BCM2708_PERI_BASE
+
+static unsigned char* PinMode(struct uState* S, unsigned char* pc, number* res) {
+  if (!res) return skip(S, skip(S, pc));
+  number pin;
+  pc = eval(S, pc, &pin);
+  pc = eval(S, pc, res);
+  INP_GPIO(pin);
+  if (*res) OUT_GPIO(pin);
+  return pc;
+}
+
+static unsigned char* DigitalWrite(struct uState* S, unsigned char* pc, number* res) {
+  if (!res) return skip(S, skip(S, pc));
+  number pin;
+  pc = eval(S, pc, &pin);
+  pc = eval(S, pc, res);
+  if (*res) GPIO_SET = 1 << pin;
+  else GPIO_CLR = 1 << pin;
+  return pc;
+}
+
+static unsigned char* AnalogWrite(struct uState* S, unsigned char* pc, number* res) {
+  if (!res) return skip(S, skip(S, pc));
+  number pin;
+  pc = eval(S, pc, &pin);
+  pc = eval(S, pc, res);
+  // TODO: pwm write somehow?
+  printf("TODO: Implement analog write for rPI\n");
+  return pc;
+}
+
+static unsigned char* DigitalRead(struct uState* S, unsigned char* pc, number* res) {
+  if (!res) return skip(S, pc);
+  number pin;
+  pc = eval(S, pc, &pin);
+  *res = !!GET_GPIO(pin);
+  return pc;
+}
+
+static unsigned char* AnalogRead(struct uState* S, unsigned char* pc, number* res) {
+  if (!res) return skip(S, pc);
+  number pin;
+  pc = eval(S, pc, &pin);
+  // TODO: there are no analog inputs right?
+  printf("TODO: Implement analog read for rPI\n");
+  *res = 0;
+  return pc;
+}
+
+static unsigned char* Tone(struct uState* S, unsigned char* pc, number* res) {
+  if (!res) return skip(S, skip(S, skip(S, pc)));
+  number pin, dur;
+  pc = eval(S, pc, &pin);
+  pc = eval(S, pc, res);
+  pc = eval(S, pc, &dur);
+  struct timeval t;
+  t.tv_sec = 0;
+
+  int p = 1000000 / *res;
+  dur *= 1000;
+  t.tv_usec = p >> 1;
+  while ((dur -= p) > 0) {
+    GPIO_SET = 1 << pin;
+    select(0, NULL, NULL, NULL, &t);
+    GPIO_CLR = 1 << pin;
+    select(0, NULL, NULL, NULL, &t);
+  }
+  return pc;
+}
+
+#endif
+
 static struct uState S;
 
 static struct user_func funcs[] = {
+  #ifdef BCM2708_PERI_BASE
+  {"PM", PinMode},      // (pin, mode) -> mode
+  {"DW", DigitalWrite}, // (pin, value) -> value
+  {"DR", DigitalRead},  // (pin) -> value
+  {"AW", AnalogWrite}, // (pin, value) -> value
+  {"AR", AnalogRead},  // (pin) -> value
+  {"TONE", Tone},       // (pin, frequency, duration) -> frequency
+  #endif
   {"DELAY", Delay},     // (ms)
   {"PRINT", Print},     // (num)
   {"LIST", List},       //
@@ -120,6 +207,10 @@ int main() {
   S.funcs = funcs;
   S.num_funcs = 0;
   while (funcs[S.num_funcs].name) S.num_funcs++;
+
+  #ifdef BCM2708_PERI_BASE
+  setup_io();
+  #endif
 
   printf("Welcome to uscript.\n");
   FILE* fd = fopen(DATA_FILE, "r");

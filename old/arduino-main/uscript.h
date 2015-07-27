@@ -1,1 +1,0 @@
-../uscript.c
