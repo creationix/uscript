@@ -10,6 +10,7 @@
 #include <sys/time.h>
 
 #define NUMBER_TYPE int64_t
+#define DATA_FILE "uscript.dat"
 #include "uscript.c"
 
 #define KNRM  "\x1B[0m"
@@ -78,7 +79,7 @@ static unsigned char* Save(struct uState* S, unsigned char* pc, number* res) {
   if (!res) return pc;
   int i;
   int o = 2;
-  FILE* fd = fopen("uscript.dat", "w");
+  FILE* fd = fopen(DATA_FILE, "w");
   fputc('u', fd);
   for (i = 0; i < SIZE_STUBS; i++) {
     if (!S->stubs[i]) continue;
@@ -110,6 +111,33 @@ int main() {
   S.funcs = funcs;
   S.num_funcs = 0;
   while (funcs[S.num_funcs].name) S.num_funcs++;
+
+
+  printf("Welcome to uscript.\n");
+  FILE* fd = fopen(DATA_FILE, "r");
+  if (fd) {
+    if (fgetc(fd) == 'u') {
+      while (1) {
+        int key = fgetc(fd);
+        if (key == 'u') break;
+        printf("Loading %c...\n", key + 'a');
+        int len = fgetc(fd);
+        len = (len << 8) | fgetc(fd);
+        uint8_t* stub = S.stubs[key] = malloc(len);
+        int j;
+        for (j = 0; j < len; j++) {
+          stub[j] = fgetc(fd);
+        }
+      }
+
+    }
+    fclose(fd);
+  }
+  if (S.stubs[0]) {
+    printf("Running auto script...\n");
+    number out;
+    eval(&S, S.stubs[0], &out);
+  }
 
   uint8_t* line = NULL;
   size_t size = 0;

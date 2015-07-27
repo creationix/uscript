@@ -242,28 +242,26 @@ void setup() {
   webSocket.onEvent(webSocketEvent);
 
   Serial.print("\r\nWelcome to uscript.\r\n");
-  #ifdef ARDUINO
-    pinMode(0, 0);
-    EEPROM.begin(EEPROM_SIZE);
-    int o = 0;
-    if (EEPROM.read(o++) == 'u') {
-      while (EEPROM.read(o) != 'u') {
-        int key = EEPROM.read(o++);
-        Serial.print("Loading ");
-        Serial.write(key + 'a');
-        Serial.print("...\r\n");
-        int len = EEPROM.read(o++) << 8;
-        len |= EEPROM.read(o++);
-        uint8_t* stub = (uint8_t*)malloc(len);
-        S.stubs[key] = stub;
-        int j;
-        for (j = 0; j < len; j++) {
-          stub[j] = EEPROM.read(o++);
-        }
+  pinMode(0, 0);
+  EEPROM.begin(EEPROM_SIZE);
+  int o = 0;
+  if (EEPROM.read(o++) == 'u') {
+    while (EEPROM.read(o) != 'u') {
+      int key = EEPROM.read(o++);
+      Serial.print("Loading ");
+      Serial.write(key + 'a');
+      Serial.print("...\r\n");
+      int len = EEPROM.read(o++) << 8;
+      len |= EEPROM.read(o++);
+      uint8_t* stub = (uint8_t*)malloc(len);
+      S.stubs[key] = stub;
+      int j;
+      for (j = 0; j < len; j++) {
+        stub[j] = EEPROM.read(o++);
       }
     }
-    EEPROM.end();
-  #endif
+  }
+  EEPROM.end();
   if (S.stubs[0]) {
     Serial.print("Running auto script...\r\n");
     number out;
