@@ -1,4 +1,6 @@
 #include <stdio.h>
+#include <stdint.h>
+#include <inttypes.h>
 
 // 0mxxxxxx mxxxxxxx - unsigned integer literal (variable length)
 //
@@ -8,6 +10,7 @@
 #define DMAX 16
 #define RMAX 16
 
+#define number uint64_t
 enum opcodes {
   OP_JUMP = 128, OP_NJUMP,
   OP_JZ, OP_NJZ,
@@ -32,7 +35,8 @@ enum opcodes {
 // int code_len = 13;
 
 unsigned char code[] = {
-  0x40, 0x64, // 100
+  // '01000011 11011100 11101011 10010100 00000000'
+  0x43, 0xdc, 0xeb, 0x94, 0x00,  // 1000000000
   0x0, // 0
   OP_OVER, // copy count
   OP_ADD,
@@ -42,29 +46,34 @@ unsigned char code[] = {
   OP_OVER, OP_NOT, 10, OP_NJZ, // loop while count left
   OP_SWAP, OP_POP,
 };
-int code_len = 15;
+int code_len = 18;
 
 int main() {
-  int dstack[DMAX];
-  int* d = dstack - 1;
-  int rstack[RMAX];
-  int* r = rstack - 1;
+  number dstack[DMAX];
+  number* d = dstack - 1;
+  number rstack[RMAX];
+  number* r = rstack - 1;
 
   unsigned char* pc = code;
   unsigned char* end = pc + code_len;
+  number z = 0;
   while (pc < end) {
-    int* i;
-    printf("\npc: %ld\nD:", pc - code);
-    for (i = dstack; i <= d; i++) {
-      printf(" %d", *i);
+    if (!(z++ % 100000000)) {
+      number* i;
+      // printf("\npc: %ld\nD:", pc - code);
+      for (i = dstack; i <= d; i++) {
+        printf(" %"PRId64, *i);
+      }
+      printf("\n");
+
     }
-    printf("\nR:");
-    for (i = rstack; i <= r; i++) {
-      printf(" %d", *i);
-    }
-    printf("\n");
+    // printf("\nR:");
+    // for (i = rstack; i <= r; i++) {
+    //   printf(" %"PRId64, *i);
+    // }
+    // printf("\n");
     if (*pc < 0x80) {
-      int num = *pc & 0x3f;
+      number num = *pc & 0x3f;
       if (*pc++ & 0x40) {
         do {
           num = (num << 7) | (*pc & 0x7f);
@@ -80,51 +89,45 @@ int main() {
         pc -= *d--;
         break;
       case OP_JZ: {
-        int jump = *d--;
+        number jump = *d--;
         if (!(*d--)) pc += jump;
         break;
       }
       case OP_NJZ: {
-        int jump = *d--;
+        number jump = *d--;
         if (!(*d--)) pc -= jump;
         break;
       }
-      case OP_ADD: {
-        int b = *d--;
-        int a = *d--;
-        *++d = a + b;
+      case OP_ADD:
+        --d;
+        *d += *(d + 1);
         break;
-      }
-      case OP_SUB: {
-        int b = *d--;
-        int a = *d--;
-        *++d = a - b;
+      case OP_SUB:
+        --d;
+        *d -= *(d + 1);
         break;
-      }
       case OP_NEG:
         *d = -*d;
         break;
       case OP_NOT:
         *d = *d ? 0 : 1;
         break;
-      case OP_DUP: {
-        int num = *d;
-        *++d = num;
+      case OP_DUP:
+        ++d;
+        *d = *(d - 1);
         break;
-      }
-      case OP_OVER: {
-        int num = *(d - 1);
-        *++d = num;
+      case OP_OVER:
+        ++d;
+        *d = *(d - 2);
         break;
-      }
       case OP_SWAP: {
-        int temp = *d;
+        number temp = *d;
         *d = *(d - 1);
         *(d - 1) = temp;
         break;
       }
       case OP_POP: {
-        d--;
+        --d;
         break;
       }
       case OP_PUT:
@@ -136,14 +139,14 @@ int main() {
     }
   }
 
-  int* i;
+  number* i;
   printf("\npc: %ld\nD:", pc - code);
   for (i = dstack; i <= d; i++) {
-    printf(" %d", *i);
+    printf(" %"PRId64, *i);
   }
   printf("\nR:");
   for (i = rstack; i <= r; i++) {
-    printf(" %d", *i);
+    printf(" %"PRId64, *i);
   }
   printf("\n");
 
