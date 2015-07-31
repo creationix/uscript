@@ -44,14 +44,38 @@
 // };
 // int code_len = 11;
 
+//unsigned char code[] = {
+//  0x3f, // i = 63
+//  0x3f, OP_OVER, OP_SUB, OP_PRINT, // PRINT 63 - i
+//  0x5e, 0xc2, 0x20, OP_DELAY, // DELAY 500,000
+//  OP_DECR, // i--
+//  11, OP_WHILE,
+//};
+//int code_len = 12;
+
 unsigned char code[] = {
-  0x3f, // i = 63
-  0x3f, OP_OVER, OP_SUB, OP_PRINT, // PRINT 63 - i
-  0x5e, 0xc2, 0x20, OP_DELAY, // DELAY 500,000
-  OP_DECR, // i--
-  11, OP_WHILE,
+  16, 1, OP_PM,
+  17, 1, OP_PM,
+  18, 1, OP_PM,
+  19, 1, OP_PM,
+  20, 1, OP_PM,
+  21, 1, OP_PM,
+  22, 1, OP_PM,
+  23, 1, OP_PM,
+  24, 1, OP_PM,
+  25, 1, OP_PM,
+  16, 1, OP_DW,
+  17, 1, OP_DW,
+  18, 1, OP_DW,
+  19, 1, OP_DW,
+  20, 1, OP_DW,
+  21, 1, OP_DW,
+  22, 1, OP_DW,
+  23, 1, OP_DW,
+  24, 1, OP_DW,
+  25, 1, OP_DW,
 };
-int code_len = 12;
+int code_len = 60;
 
 // unsigned char code[] = {
 //   0, // 0
@@ -66,6 +90,10 @@ int code_len = 12;
 // int code_len = 13;
 
 int main() {
+
+  #ifdef BCM2708_PERI_BASE
+  setup_io();
+  #endif
   d = dstack - 1;
   r = rstack - 1;
 
@@ -114,11 +142,12 @@ int main() {
     case OP_PM:
       if (*d--) {
         INP_GPIO(*d);
-        OUT_GPIO(*d--);
+        OUT_GPIO(*d);
       }
       else {
-        INP_GPIO(*d--);
+        INP_GPIO(*d);
       }
+      --d;
       break;
     case OP_DW:
       if (*d--) GPIO_SET = 1 << *d--;
