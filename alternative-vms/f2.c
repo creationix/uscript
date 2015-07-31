@@ -48,7 +48,7 @@ static number dstack[DMAX], rstack[RMAX], *d, *r;
 static unsigned char *pc, *end;
 
 static void dump(unsigned char* start) {
-  printf("%04lu:", pc - start);
+  printf("%04tu:", pc - start);
   number* i;
   for (i = dstack; i <= d; i++) printf(" %"PRId64, *i);
   printf(" -");
