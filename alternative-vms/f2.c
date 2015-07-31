@@ -1,22 +1,8 @@
-#include <stdio.h>
-#include <stdint.h>
-#include <inttypes.h>
 #define PLATFORM_INCLUDES
 #include "platform.c"
 #undef PLATFORM_INCLUDES
-
-#define number uint64_t
-
-// Max depth for data stack
-#define DMAX 16
-static number dstack[DMAX];
-static number* d;
-// Max depth for local/return stack
-#define RMAX 16
-static number rstack[RMAX];
-static number* r;
-
-unsigned char *pc, *end;
+#ifndef F2VM
+#define F2VM
 
 enum opcodes {
   // Jumps/Conditionals
@@ -56,6 +42,10 @@ const char* opnames =
   #include "platform.c"
   #undef PLATFORM_OPNAMES
   "\0";
+
+// Global state
+static number dstack[DMAX], rstack[RMAX], *d, *r;
+static unsigned char *pc, *end;
 
 static void dump(unsigned char* start) {
   printf("%04lu:", pc - start);
@@ -144,53 +134,4 @@ const char* eval() {
   return NULL;
 }
 
-// unsigned char code[] = {
-//   0x2a, // 42
-//   0x3a, // 58
-//   0x40, 0x64, // 100
-//   OP_ADD,
-//   OP_ADD,
-//   0x32, // 50
-//   OP_SUB,
-//   4, OP_WHILE, // Loop while not zero
-//   10,
-// };
-// int code_len = 11;
-
-unsigned char code[] = {
-  0x3f, // 63
-  0x3f, OP_OVER, OP_SUB,
-  OP_PRINT,
-  OP_DECR,
-  7, OP_WHILE,
-};
-int code_len = 8;
-
-// unsigned char code[] = {
-//   0, // 0
-//   0x43, 0xdc, 0xeb, 0x94, 0x00,  // 1000000000
-//   OP_SAVE, // Save a copy of count
-//   OP_ADD, // Add count into sum
-//   OP_GET, // Restore count
-//   OP_DECR, // Decrement count
-//   6, OP_WHILE, // loop while count is non-zero
-//   OP_POP, // pop the 0 count leaving the sum
-// };
-// int code_len = 13;
-
-int main() {
-  d = dstack - 1;
-  r = rstack - 1;
-
-  pc = code;
-  end = code + code_len;
-  const char* err = eval();
-
-  dump(code);
-
-  if (err) {
-    printf("ERROR: %s\n", err);
-    return -1;
-  }
-  return 0;
-}
+#endif
