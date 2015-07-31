@@ -1,49 +1,75 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <inttypes.h>
-
-// 0mxxxxxx mxxxxxxx - unsigned integer literal (variable length)
-//
-// JUMP - jump to address
-// JZ - jump if top is zero
-
-#define DMAX 16
-#define RMAX 16
+#define PLATFORM_INCLUDES
+#include "platform.c"
+#undef PLATFORM_INCLUDES
 
 #define number uint64_t
+
+// Max depth for data stack
+#define DMAX 16
+static number dstack[DMAX];
+static number* d;
+// Max depth for local/return stack
+#define RMAX 16
+static number rstack[RMAX];
+static number* r;
+
+unsigned char *pc, *end;
+
 enum opcodes {
-  OP_JF = 128, OP_JB,
-  OP_IF_JF, OP_IF_JB,
-  OP_UNLESS_JF, OP_UNLESS_JB,
-  OP_WHILE, OP_UNTIL,
-  OP_ADD, OP_SUB, OP_MUL, OP_DIV, OP_MOD,
-  OP_INCR, OP_DECR,
-  OP_NEG, OP_NOT,
+  // Jumps/Conditionals
+  // All consume the top value and use it as the jump distance in bytes.
+  // Forward Jumps - always consume conditional.
+  // 'Skip' always jumps, 'If' jumps if non-zero, 'unless' jumps if zero.
+  OP_SKIP = 128, OP_IF, OP_UNLESS,
+  // Backward Jumps - never consume conditional.
+  // 'Repeat' always jumps, 'If' jumps if non-zero, 'until' jumps is zero.
+  OP_REPEAT, OP_WHILE, OP_UNTIL,
+  // Stack Operations
   OP_OVER, OP_DUP,
   OP_PUT, OP_GET, OP_SAVE,
   OP_SWAP, OP_POP,
+  // Binary Operations, top is right, next is left.
+  OP_ADD, OP_SUB, OP_MUL, OP_DIV, OP_MOD,
+  OP_AND, OP_OR, OP_XOR,
+  // Unary Operations
+  OP_INCR, OP_DECR, OP_NEG, OP_NOT,
+
+  // Platform defined enums
+  #define PLATFORM_OPCODES
+  #include "platform.c"
+  #undef PLATFORM_OPCODES
 };
 
-#define FUNC(name, body) \
-const char* name(number** dp, number** rp) { \
-  number* d = *dp; number* r = *rp; const char* res = NULL; \
-  body \
-  *dp = d; *rp = r; return res; \
+const char* opnames =
+  "SKIP\0IF\0UNLESS\0"
+  "REPEAT\0WHILE\0UNTIL\0"
+  "OVER\0DUP\0"
+  "PUT\0GET\0SAVE\0"
+  "SWAP\0POP\0"
+  "ADD\0SUB\0MUL\0DIV\0MOD\0"
+  "AND\0OR\0XOR\0"
+  "INCR\0DECR\0NEG\0NOT\0"
+  #define PLATFORM_OPNAMES
+  #include "platform.c"
+  #undef PLATFORM_OPNAMES
+  "\0";
+
+static void dump(unsigned char* start) {
+  printf("%04lu:", pc - start);
+  number* i;
+  for (i = dstack; i <= d; i++) printf(" %"PRId64, *i);
+  printf(" -");
+  for (i = r; i >= rstack; i--) printf(" %"PRId64, *i);
+  printf("\n");
 }
 
-static FUNC(print, {
-  printf("%"PRId64"\n", *--d);
-})
-
-typedef const char* (*userfunc)(number** dp, number** rp);
-
-userfunc functions[] = {
-  print,
-};
-
-const char* eval(unsigned char* pc, unsigned char* end, number** dp, number** rp) {
-  number* d = *dp; number* r = *rp;
+const char* eval() {
+  unsigned char* start = pc;
   while (pc < end) {
+    dump(start);
     if (*pc < 0x80) {
       number num = *pc & 0x3f;
       if (*pc++ & 0x40) {
@@ -54,28 +80,18 @@ const char* eval(unsigned char* pc, unsigned char* end, number** dp, number** rp
       *++d = num;
     }
     else switch ((enum opcodes)*pc++) {
-      case OP_JF: pc += *d--; break;
-      case OP_JB: pc -= *d--; break;
-      case OP_IF_JF: {
+      case OP_SKIP: pc += *d--; break;
+      case OP_IF: {
         number jump = *d--;
         if (*d--) pc += jump;
         break;
       }
-      case OP_IF_JB: {
-        number jump = *d--;
-        if (*d--) pc -= jump;
-        break;
-      }
-      case OP_UNLESS_JF: {
+      case OP_UNLESS: {
         number jump = *d--;
         if (!(*d--)) pc += jump;
         break;
       }
-      case OP_UNLESS_JB: {
-        number jump = *d--;
-        if (!(*d--)) pc -= jump;
-        break;
-      }
+      case OP_REPEAT: pc -= *d--; break;
       case OP_WHILE: {
         number jump = *d--;
         if (*d) pc -= jump;
@@ -86,18 +102,12 @@ const char* eval(unsigned char* pc, unsigned char* end, number** dp, number** rp
         if (!*d) pc -= jump;
         break;
       }
-      case OP_ADD: --d; *d += *(d + 1); break;
-      case OP_SUB: --d; *d -= *(d + 1); break;
-      case OP_MUL: --d; *d *= *(d + 1); break;
-      case OP_DIV: --d; *d /= *(d + 1); break;
-      case OP_MOD: --d; *d %= *(d + 1); break;
-      case OP_INCR: ++*d; break;
-      case OP_DECR: --*d; break;
-      case OP_NEG: *d = -*d; break;
-      case OP_NOT: *d = !*d; break;
 
-      case OP_DUP:  ++d; *d = *(d - 1); break;
       case OP_OVER: ++d; *d = *(d - 2); break;
+      case OP_DUP:  ++d; *d = *(d - 1); break;
+      case OP_PUT:  *++r = *d--; break;
+      case OP_GET:  *++d = *r--; break;
+      case OP_SAVE: *++r = *d; break;
       case OP_SWAP: {
         number temp = *d;
         *d = *(d - 1);
@@ -105,12 +115,32 @@ const char* eval(unsigned char* pc, unsigned char* end, number** dp, number** rp
         break;
       }
       case OP_POP: --d; break;
-      case OP_PUT: *++r = *d--; break;
-      case OP_SAVE: *++r = *d; break;
-      case OP_GET: *++d = *r--; break;
+
+      case OP_ADD: --d; *d += *(d + 1); break;
+      case OP_SUB: --d; *d -= *(d + 1); break;
+      case OP_MUL: --d; *d *= *(d + 1); break;
+      case OP_DIV: --d; *d /= *(d + 1); break;
+      case OP_MOD: --d; *d %= *(d + 1); break;
+
+      case OP_AND: if   (*--d)  *d = *(d + 1) ? *(d + 1) : 0; break;
+      case OP_OR:  if (!(*--d)) *d = *(d + 1) ? *(d + 1) : 0; break;
+      case OP_XOR:
+        --d;
+        *d = *d && !*(d + 1) ? *d :
+             *(d + 1) && !*d ? *(d + 1) :
+             0;
+        break;
+
+      case OP_INCR: ++*d; break;
+      case OP_DECR: --*d; break;
+      case OP_NEG: *d = -*d; break;
+      case OP_NOT: *d = !*d; break;
+
+      #define PLATFORM_CASES
+      #include "platform.c"
+      #undef PLATFORM_CASES
     }
   }
-  *dp = d; *rp = r;
   return NULL;
 }
 
@@ -122,41 +152,41 @@ const char* eval(unsigned char* pc, unsigned char* end, number** dp, number** rp
 //   OP_ADD,
 //   0x32, // 50
 //   OP_SUB,
-//   OP_DUP, OP_NOT, 6, OP_NJZ, // Loop while not zero
+//   4, OP_WHILE, // Loop while not zero
 //   10,
+// };
+// int code_len = 11;
+
+unsigned char code[] = {
+  0x3f, // 63
+  0x3f, OP_OVER, OP_SUB,
+  OP_PRINT,
+  OP_DECR,
+  7, OP_WHILE,
+};
+int code_len = 8;
+
+// unsigned char code[] = {
+//   0, // 0
+//   0x43, 0xdc, 0xeb, 0x94, 0x00,  // 1000000000
+//   OP_SAVE, // Save a copy of count
+//   OP_ADD, // Add count into sum
+//   OP_GET, // Restore count
+//   OP_DECR, // Decrement count
+//   6, OP_WHILE, // loop while count is non-zero
+//   OP_POP, // pop the 0 count leaving the sum
 // };
 // int code_len = 13;
 
-unsigned char code[] = {
-  0, // 0
-  0x43, 0xdc, 0xeb, 0x94, 0x00,  // 1000000000
-  OP_SAVE, // Save a copy of count
-  OP_ADD, // Add count into sum
-  OP_GET, // Restore count
-  OP_DECR, // Decrement count
-  6, OP_WHILE, // loop while count is non-zero
-  OP_POP, // pop the 0 count leaving the sum
-};
-int code_len = 13;
-
 int main() {
-  number dstack[DMAX];
-  number* d = dstack - 1;
-  number rstack[RMAX];
-  number* r = rstack - 1;
+  d = dstack - 1;
+  r = rstack - 1;
 
-  const char* err = eval(code, code + code_len, &d, &r);
+  pc = code;
+  end = code + code_len;
+  const char* err = eval();
 
-  number* i;
-  printf("D:");
-  for (i = dstack; i <= d; i++) {
-    printf(" %"PRId64, *i);
-  }
-  printf("\nR:");
-  for (i = rstack; i <= r; i++) {
-    printf(" %"PRId64, *i);
-  }
-  printf("\n");
+  dump(code);
 
   if (err) {
     printf("ERROR: %s\n", err);
