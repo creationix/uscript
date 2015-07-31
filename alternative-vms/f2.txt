@@ -1,0 +1,71 @@
+variable length opcodes in 8-bit chunks
+
+
+
+
+16-slot sliding window
+16-bit wide bytecode
+max 16 bytecodes
+
+OP_INT8 xxxxxxxx - Signed literal integer -128 - 127
+
+0xxxxxxxxxxxxxxx - Literal Integer 0-32767
+
+1oooooooxxxxxxxx -
+IF
+
+8 rich opcodes with 12 bits of extra space
+i = 1000000000
+s = 0
+top:
+s = s + i
+i = i - 1
+if i goto top:
+
+14 bytes to sum the first 1000000000 numbers and get 500000000500000000
+
+  0x00                      // *++d = 0
+  INT32 0x3b 0x9a 0xca 0x00 // *++d = 1000000000
+top:
+  ADD   0x10                // *(d - 1) += *(d - 0)
+  SUBI  0x11                // *(d - 0) -= 1
+  GTI   0x00 top            // if *(d - 0) > 0 then top
+  POP                       // --d
+
+ADD,SUB,
+
+
+# Basic math - ,
+ADD, SUB, MUL, DIV, MOD: OP(slot) top = top OP slot
+ADDI, SUBI, MULI, DIVI, MODI: OPI(literal) top = top OP literal
+ADDH, SUBH, MULH, DIVH, MODH: OPH(address) top = top OP *address
+
+-(a,b)
+*(a,b)
+/(a,b)
+%(a,b)
+-(a)
+
++=(slot, a)
+-=(slot, a)
+*=(slot, a)
+/=(slot, a)
+%=(slot, a)
+
+
++=(target, a, literal)
+-=(target, a, literal)
+*=(target, a, literal)
+/=(target, a, literal)
+%=(target, a, literal)
+
+>(target,a,b)
+<(target,a,b)
+≥(target,a,b)
+≤(target,a,b)
+=(target,a,b)
+≠(target,a,b)
+
+# Heap Access
+store(slot, address)
+load(target, address)
