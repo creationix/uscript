@@ -15,7 +15,7 @@ enum opcodes {
   OP_REPEAT, OP_WHILE, OP_UNTIL,
   // Stack Operations
   OP_OVER, OP_DUP,
-  OP_PUT, OP_GET, OP_SAVE,
+  OP_PUT, OP_GET, OP_SAVE, OP_PEEK,
   OP_SWAP, OP_POP,
   // Binary Operations, top is right, next is left.
   OP_ADD, OP_SUB, OP_MUL, OP_DIV, OP_MOD,
@@ -33,7 +33,7 @@ const char* opnames =
   "SKIP\0IF\0UNLESS\0"
   "REPEAT\0WHILE\0UNTIL\0"
   "OVER\0DUP\0"
-  "PUT\0GET\0SAVE\0"
+  "PUT\0GET\0SAVE\0PEEK\0"
   "SWAP\0POP\0"
   "ADD\0SUB\0MUL\0DIV\0MOD\0"
   "AND\0OR\0XOR\0"
@@ -98,6 +98,7 @@ const char* eval() {
       case OP_PUT:  *++r = *d--; break;
       case OP_GET:  *++d = *r--; break;
       case OP_SAVE: *++r = *d; break;
+      case OP_PEEK: *++d = *r; break;
       case OP_SWAP: {
         number temp = *d;
         *d = *(d - 1);

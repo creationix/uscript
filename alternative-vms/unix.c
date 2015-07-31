@@ -54,28 +54,22 @@
 //int code_len = 12;
 
 unsigned char code[] = {
-  16, 1, OP_PM,
-  17, 1, OP_PM,
-  18, 1, OP_PM,
-  19, 1, OP_PM,
-  20, 1, OP_PM,
-  21, 1, OP_PM,
-  22, 1, OP_PM,
-  23, 1, OP_PM,
-  24, 1, OP_PM,
-  25, 1, OP_PM,
-  16, 1, OP_DW,
-  17, 1, OP_DW,
-  18, 1, OP_DW,
-  19, 1, OP_DW,
-  20, 1, OP_DW,
-  21, 1, OP_DW,
-  22, 1, OP_DW,
-  23, 1, OP_DW,
-  24, 1, OP_DW,
-  25, 1, OP_DW,
+  10, // i = 10
+  26, OP_OVER, OP_SUB, OP_SAVE, // j = 25 - i
+  1, OP_PM,
+  OP_GET, 0, OP_DW,
+  OP_DECR,
+  12, OP_WHILE,
+  OP_POP,
+  1, OP_PUT,
+  10,
+  26, OP_OVER, OP_SUB, OP_PEEK, OP_DW,
+  OP_DECR, 8, OP_WHILE, OP_POP,
+  OP_GET, OP_NOT, OP_PUT,
+  0x5e, 0xc2, 0x20, OP_DELAY, // DELAY 500,000
+  18, OP_REPEAT
 };
-int code_len = 60;
+int code_len = 35;
 
 // unsigned char code[] = {
 //   0, // 0
