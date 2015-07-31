@@ -41,7 +41,7 @@ static void test_raw(uint8_t* code, int len, number answer) {
   printf(">" KNRM);
   number result;
   int used = eval(&S, code, &result) - code;
-  printf(" %s(%d/%d)\n%s%ld%s\n", KWHT, used, len, KYEL, result, KNRM);
+  printf(" %s(%d/%d)\n%s%"PRId64"%s\n", KWHT, used, len, KYEL, result, KNRM);
   assert(used == len);
   assert(result == answer);
 }
