@@ -242,7 +242,7 @@ void setup() {
   webSocket.onEvent(webSocketEvent);
 
   Serial.print("\r\nWelcome to uscript.\r\n");
-  pinMode(0, 0);
+  pinMode(0, INPUT_PULLUP);
   EEPROM.begin(EEPROM_SIZE);
   int o = 0;
   if (EEPROM.read(o++) == 'u') {
