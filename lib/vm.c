@@ -1,11 +1,31 @@
-#include <stdint.h>
-#include <inttypes.h>
-#include <stdio.h>
-#include <assert.h>
+// Feel free to override these to fit your constraints / needs.
+#ifndef NUMBER_TYPE
+#define NUMBER_TYPE long
+#endif
+#ifndef NUM_VALUES
+#define NUM_VALUES 16
+#endif
+#ifndef NUM_TARGETS
+#define NUM_TARGETS 16
+#endif
 
-int64_t slots[16];
-uint8_t* labels[16];
-uint8_t* pc;
+typedef NUMBER_TYPE integer;
+
+struct block {
+  struct block* next;
+  const char* name;
+  int len;
+  unsigned char body[];
+};
+
+// value registers
+integer slots[NUM_VALUES];
+// jump traget register
+unsigned char* labels[NUM_TARGETS];
+// Current program counter
+unsigned char* pc;
+// Heap allocated functions
+struct block* blocks;
 
 enum opcode {
   // Consume one expression and write to register slot
@@ -18,8 +38,6 @@ enum opcode {
   IS, ISN,
   // Statement math
   RADD, RSUB, RISUB, RMUL, RDIV, RIDIV, RMOD, RIMOD, RNEG, INCR, DECR,
-  // Print takes a single expression and prints it.
-  PRINT,
   // end
   RETURN, END,
   // // Socket write (address, port, value)
@@ -73,13 +91,15 @@ void skip() {
       skip(); skip(); // condition / body
       while (*pc == ELIF) { ++pc; skip(); skip(); } // ELIF / condition / body
       if (*pc == ELSE) { ++pc; skip(); } // ELSE / body
-    case ELIF: case ELSE: assert(0);
+    case ELIF: case ELSE:
+      // TODO: This should never happen, fail somehow?
+      return;
   }
 }
 
-int64_t eval() {
+integer eval() {
   if (*pc < 0x80) {
-    int64_t num = *pc & 0x3f;
+    integer num = *pc & 0x3f;
     if (*pc++ & 0x40) {
       do {
         num = (num << 7) | (*pc & 0x7f);
@@ -117,24 +137,24 @@ int64_t eval() {
     case GTE: return eval() >= eval();
     case LTE: return eval() <= eval();
     case AND: {
-      int64_t a = eval();
+      integer a = eval();
       if (a) return eval();
       skip(); return a;
     }
     case OR: {
-      int64_t a = eval();
+      integer a = eval();
       if (!a) return eval();
       skip(); return a;
     }
     case XOR: {
-      int64_t a, b;
+      integer a, b;
       a = eval();
       b = eval();
       return a ? (!b ? a : 0) : (b ? b : 0);
     }
     case NOT: return !eval();
     case IF: {
-      int64_t r = 0;
+      integer r = 0;
       while (1) {
         if (eval()) {
           r = eval();
@@ -154,17 +174,18 @@ int64_t eval() {
       if (*pc == ELSE) { ++pc; skip(); }
       return r;
     }
-    case ELIF: case ELSE: assert(0);
-
+    case ELIF: case ELSE:
+      // TODO: This should never happen, fail somehow?
+      return -1;
   }
   return 0;
 }
 
-// int64_t z = 0;
+// uint64_t z;
 void exec() {
   while (1) {
-    // if (!(z++ % 30000000)) {
-    //   printf("%"PRId64" %"PRId64"\n", slots[0], slots[1]);
+    // if ((z++) % 1000000 < 10) {
+    //   printf("%p: %02x: %"PRId64" %"PRId64"\n", pc, *pc, slots[0], slots[1]);
     // }
     switch ((enum opcode) *pc++) {
       case W0: slots[0] = eval(); continue;
@@ -219,9 +240,11 @@ void exec() {
       case J15: pc = labels[15]; continue;
       case IS:
         if (slots[*pc >> 4]) pc = labels[*pc & 0xf];
+        else ++pc;
         continue;
       case ISN:
         if (!slots[*pc >> 4]) pc = labels[*pc & 0xf];
+        else ++pc;
         continue;
       case RADD:
         slots[*pc >> 4] += slots[*pc & 0xf];
@@ -256,9 +279,6 @@ void exec() {
       case DECR:
         slots[*pc >> 4] -= *pc & 0xf;
         ++pc; continue;
-      case PRINT:
-        printf("%"PRId64"\n", eval());
-        continue;
       case RETURN:
         // start = *pc >> 4
         // end = *pc & 0xf
@@ -267,27 +287,4 @@ void exec() {
       case END: return;
     }
   }
-}
-
-
-int main() {
-  slots[0] = 10;
-  slots[1] = 20;
-  pc = (uint8_t[]){
-    ADD, R0, R1
-  };
-  printf("%"PRId64"\n", eval());
-  pc = (uint8_t[]){
-    W0, 0x43, 0xdc, 0xeb, 0x94, 0x00, // a = 1000000000
-    W1, 0x0,                          // b = 0
-    L0,                               // :start:
-    RADD, 0x10,                       // b += a
-    DECR, 0x01,                       // a -= 1
-    IS, 0x00,                         // if a goto :start:
-    PRINT, R1,                        // print b
-    END,
-  };
-  exec();
-
-  return 0;
 }
