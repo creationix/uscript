@@ -1,3 +1,5 @@
+#ifndef USCRIPT_H
+#define USCRIPT_H
 // Feel free to override these to fit your constraints / needs.
 
 // This is the c-type of the basic number type. Use some type of signed integer.
@@ -6,7 +8,7 @@
 #endif
 // This is the total space for all unique strings.  It needs string + null byte.
 #ifndef SIZE_STRINGS
-#define SIZE_STRINGS 1024
+#define SIZE_STRINGS 512
 #endif
 // These are the maximum stack heights.  There is a sliding window of 16 slots.
 #ifndef MAX_VALUES
@@ -19,20 +21,6 @@
 // Make sure to leave enough heap for bytecode that is handled externally.
 
 typedef NUMBER_TYPE integer;
-
-// String data pool
-char strings[SIZE_STRINGS];
-// value registers
-integer slots[MAX_VALUES];
-// jump traget register
-unsigned char* labels[MAX_LABELS];
-
-// Current value registers
-integer* d;
-// Current label registers
-unsigned char** l;
-// Current program counter
-unsigned char* pc;
 
 enum opcode {
   // Consume one expression and write to register slot
@@ -47,10 +35,14 @@ enum opcode {
   RADD, RSUB, RISUB, RMUL, RDIV, RIDIV, RMOD, RIMOD, RNEG, INCR, DECR,
   // end
   RETURN, END,
+  // Digital Write, Analog Write (port, value)
+  DW, AW, PM,
+  // Delay(ms)
+  DELAY,
+  // print(val)
+  PRINT,
   // // Socket write (address, port, value)
   // SW,
-  // // Digital Write, Analog Write (port, value)
-  // DW, AW,
 };
 
 // Expression tree nodes
@@ -66,16 +58,13 @@ enum node {
   AND, OR, XOR, NOT,
   // Conditionals
   IF, ELIF, ELSE,
+  // GPIO reads (digital / analog)
+  DR, AR,
   // // Read from virtual slots (network ports)
   // SR,
-  // // Read from GPIO port (digital value)
-  // DR,
-  // // Read from GPIO port (analog value)
-  // AR,
 };
 
-int add_string(const char* string);
-const char* get_string(int index);
-void skip();
-integer eval();
-void exec();
+void uscript_setup();
+integer* uscript_run(unsigned char* code);
+
+#endif
