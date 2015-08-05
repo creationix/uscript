@@ -6,8 +6,7 @@
 #include <stdlib.h>
 
 #define NUMBER_TYPE int64_t
-#include "vm.c"
-
+#include "uscript.c"
 
 void test_expression(unsigned char* code, integer expected) {
   unsigned char* end;
