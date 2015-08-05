@@ -2,9 +2,12 @@
 #include <assert.h>
 #include <stdint.h>
 #include <inttypes.h>
+#include <string.h>
+#include <stdlib.h>
 
 #define NUMBER_TYPE int64_t
 #include "vm.c"
+
 
 void test_expression(unsigned char* code, integer expected) {
   unsigned char* end;
@@ -129,20 +132,7 @@ int main() {
     0, 50005000
   });
 
-  test_program((unsigned char[]){
-    W0, 0x43, 0xdc, 0xeb, 0x94, 0x00, // a = 1000000000
-    W1, 0x0,                          // b = 0
-    L0,                               // :start:
-    RADD, 0x10,                       // b += a
-    DECR, 0x01,                       // a -= 1
-    IS, 0x00,                         // if a goto :start:
-    END,
-  }, 2, (integer[]){
-    0, 500000000500000000
-  });
-
-  // printf("%"PRId64"\n", eval());
-  // pc = (unsigned char[]){
+  // test_program((unsigned char[]){
   //   W0, 0x43, 0xdc, 0xeb, 0x94, 0x00, // a = 1000000000
   //   W1, 0x0,                          // b = 0
   //   L0,                               // :start:
@@ -150,10 +140,22 @@ int main() {
   //   DECR, 0x01,                       // a -= 1
   //   IS, 0x00,                         // if a goto :start:
   //   END,
-  // };
-  // exec();
-  // printf("%"PRId64"\n", slots[0]);
-  //
+  // }, 2, (integer[]){
+  //   0, 500000000500000000
+  // });
+
+  i = add_string("Hello World");
+  i = add_string("happy");
+  i = add_string("Stuff");
+  i = add_string("happy");
+  i = add_string("more");
+  const char* s = strings;
+  while (*s) {
+    printf("%s\n", s);
+    while (*s++);
+  }
+
+
   return 0;
 }
 //

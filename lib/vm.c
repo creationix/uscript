@@ -1,31 +1,81 @@
 // Feel free to override these to fit your constraints / needs.
+
+// This is the c-type of the basic number type. Use some type of signed integer.
 #ifndef NUMBER_TYPE
 #define NUMBER_TYPE long
 #endif
-#ifndef NUM_VALUES
-#define NUM_VALUES 16
+// This is the total space for all unique strings.  It needs string + null byte.
+#ifndef SIZE_STRINGS
+#define SIZE_STRINGS 1024
 #endif
-#ifndef NUM_TARGETS
-#define NUM_TARGETS 16
+// These are the maximum stack heights.  There is a sliding window of 16 slots.
+#ifndef MAX_VALUES
+#define MAX_VALUES 64
 #endif
+#ifndef MAX_LABELS
+#define MAX_LABELS 64
+#endif
+
+// Make sure to leave enough heap for bytecode that is handled externally.
 
 typedef NUMBER_TYPE integer;
 
-struct block {
-  struct block* next;
-  const char* name;
-  int len;
-  unsigned char body[];
-};
-
+// String data pool
+char strings[SIZE_STRINGS];
 // value registers
-integer slots[NUM_VALUES];
+integer slots[MAX_VALUES];
 // jump traget register
-unsigned char* labels[NUM_TARGETS];
+unsigned char* labels[MAX_LABELS];
+
+// Current value registers
+integer* d;
+// Current label registers
+unsigned char** l;
 // Current program counter
 unsigned char* pc;
-// Heap allocated functions
-struct block* blocks;
+
+int add_string(const char* string) {
+  // Count length of input string
+  int len;
+  {
+    const char* end = string;
+    while (*end) end++;
+    len = end - string;
+  }
+  // Empty strings are an error
+  if (!len) return -1;
+
+  // Search for existing match
+  char* s = strings;
+  int index = 0;
+  while (*s) {
+    int i = 0;
+    while (string[i] && string[i] == s[i]) i++;
+    if (i == len && s[i] == 0) return index;
+    while (*s++);
+    index++;
+  }
+  // Out of space error
+  if (s + len + 1 >= strings + SIZE_STRINGS) return -1;
+  {
+    // Copy the new string
+    int i;
+    for (i = 0; i < len; i++) {
+      s[i] = string[i];
+    }
+  }
+  return index;
+}
+
+const char* get_string(int index) {
+  char* s = strings;
+  while (index--) {
+    if (!*s) return 0;
+    while (*s) s++;
+    s++;
+  }
+  return s;
+}
 
 enum opcode {
   // Consume one expression and write to register slot
