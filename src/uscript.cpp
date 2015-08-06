@@ -2,6 +2,8 @@
 
 // String data pool
 char strings[SIZE_STRINGS];
+// User function data pool
+unsigned char* funcs[MAX_FUNCS];
 // value registers
 integer slots[MAX_VALUES];
 // jump traget register
@@ -26,11 +28,13 @@ static void digitalWrite(integer pin, integer value) { }
 static void analogWrite(integer pin, integer value) { }
 static void pinMode(integer pin, integer mode) { }
 static void delay(integer ms) { }
-static void print(integer value) { }
+static void delayMicroseconds(integer us) { }
 #endif
 
+void uscript_print(integer number);
+void uscript_prints(const char* string);
 
-static int add_string(const char* string) {
+int put_string(const char* string) {
   // Count length of input string
   int len;
   {
@@ -63,7 +67,7 @@ static int add_string(const char* string) {
   return index;
 }
 
-static const char* get_string(int index) {
+const char* get_string(int index) {
   char* s = strings;
   while (index--) {
     if (!*s) return 0;
@@ -189,6 +193,37 @@ static integer eval() {
   return 0;
 }
 
+static void skip_to_end() {
+  int depth = 1;
+  while (depth) switch((enum opcode) *pc++) {
+    // Statements that don't consume anything
+    case L0: case L1: case L2: case L3: case L4: case L5: case L6: case L7:
+    case L8: case L9: case L10: case L11: case L12: case L13: case L14: case L15:
+    case J0: case J1: case J2: case J3: case J4: case J5: case J6: case J7:
+    case J8: case J9: case J10: case J11: case J12: case J13: case J14: case J15:
+      continue;
+    // Statements that consume one byte
+    case IS: case ISN:
+    case RADD: case RSUB: case RISUB: case RMUL: case RDIV: case RIDIV:
+    case RMOD: case RIMOD: case RNEG: case INCR: case DECR:
+      pc++; continue;
+    // Statements that consume two bytes
+    case CALL:
+      pc += 2; continue;
+    // Statements that consume one expression
+    case W0: case W1: case W2: case W3: case W4: case W5: case W6: case W7:
+    case W8: case W9: case W10: case W11: case W12: case W13: case W14: case W15:
+    case DELAY: case UDELAY: case PRINT: case PRINTS:
+      skip(); continue;
+    // Statements that consume two expressions
+    case DW: case AW: case PM:
+      skip(); skip(); continue;
+    case DEF:
+      pc++; depth++; continue;
+    case END: depth--; continue;
+  }
+}
+
 static void exec() {
   while (1) {
     switch ((enum opcode) *pc++) {
@@ -262,7 +297,9 @@ static void exec() {
         continue;
       }
       case DELAY: delay(eval()); continue;
-      case PRINT: print(eval()); continue;
+      case UDELAY: delayMicroseconds(eval()); continue;
+      case PRINT: uscript_print(eval()); continue;
+      case PRINTS: uscript_prints(get_string(eval())); continue;
       case IS:
         if (d[*pc >> 4]) pc = l[*pc & 0xf];
         else ++pc;
@@ -304,11 +341,31 @@ static void exec() {
       case DECR:
         d[*pc >> 4] -= *pc & 0xf;
         ++pc; continue;
-      case RETURN:
-        // start = *pc >> 4
-        // end = *pc & 0xf
-        // Copy values to return stack
-        return;
+      case DEF: {
+        int index = *pc++;
+        unsigned char* start = pc;
+        skip_to_end();
+        if (index < 0 || index >= MAX_FUNCS) return;
+        free(funcs[index]);
+        int len = pc - start;
+        funcs[index] = (unsigned char*)malloc(len);
+        memcpy(funcs[index], start, len);
+        continue;
+      }
+      case CALL: {
+        // Index of function to call
+        int index = *pc++;
+        // slot offset
+        int offset = *pc++;
+        integer* top = d;
+        unsigned char* ret = pc;
+        d += offset;
+        pc = funcs[index];
+        exec();
+        d = top;
+        pc = ret;
+        continue;
+      }
       case END: return;
     }
   }
@@ -317,7 +374,6 @@ static void exec() {
 void uscript_setup() {
   d = slots;
   l = labels;
-  get_string(add_string("test"));
 }
 
 integer* uscript_run(unsigned char* code) {

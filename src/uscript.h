@@ -10,6 +10,10 @@
 #ifndef SIZE_STRINGS
 #define SIZE_STRINGS 512
 #endif
+// Maximum number of user functions
+#ifndef MAX_FUNCS
+#define MAX_FUNCS 32
+#endif
 // These are the maximum stack heights.  There is a sliding window of 16 slots.
 #ifndef MAX_VALUES
 #define MAX_VALUES 64
@@ -33,14 +37,14 @@ enum opcode {
   IS, ISN,
   // Statement math
   RADD, RSUB, RISUB, RMUL, RDIV, RIDIV, RMOD, RIMOD, RNEG, INCR, DECR,
-  // end
-  RETURN, END,
+  // function bodies
+  CALL, DEF, END,
   // Digital Write, Analog Write (port, value)
   DW, AW, PM,
   // Delay(ms)
-  DELAY,
+  DELAY, UDELAY,
   // print(val)
-  PRINT,
+  PRINT, PRINTS,
   // // Socket write (address, port, value)
   // SW,
 };
