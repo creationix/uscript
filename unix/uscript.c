@@ -1,1 +1,1 @@
-../lib/uscript.c
+../src/uscript.cpp

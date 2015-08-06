@@ -8,6 +8,14 @@
 #define NUMBER_TYPE int64_t
 #include "uscript.c"
 
+void uscript_print(integer num) {
+  printf("%"PRId64"\n", num);
+}
+
+void uscript_prints(const char* str) {
+  printf("%s\n", str);
+}
+
 void test_expression(unsigned char* code, integer expected) {
   unsigned char* end;
   integer actual;
@@ -19,7 +27,7 @@ void test_expression(unsigned char* code, integer expected) {
   assert(pc == end);
   printf("<");
   unsigned char* i;
-  for (i = code; i < pc; i++) {
+  for (i = code; i < end; i++) {
     printf(" %02x", *i);
   }
   printf(" > -> %"PRId64"/%"PRId64"\n", actual, expected);
@@ -27,24 +35,30 @@ void test_expression(unsigned char* code, integer expected) {
 }
 
 void test_program(unsigned char* code, int count, integer* expected) {
+  unsigned char* end;
   pc = code;
-  exec();
+  skip_to_end();
+  end = pc;
   printf("<");
   unsigned char* i;
-  for (i = code; i < pc; i++) {
+  for (i = code; i < end; i++) {
     printf(" %02x", *i);
   }
   printf(" >\n");
+  pc = code;
+  exec();
+  assert(pc == end);
   int j;
   for (j = 0; j < count; j++) {
-    printf("  %d: %"PRId64"/%"PRId64"\n", j, slots[j], expected[j]);
+    printf("  %d: %"PRId64"/%"PRId64"\n", j, d[j], expected[j]);
   }
   for (j = 0; j < count; j++) {
-    assert(slots[j] == expected[j]);
+    assert(d[j] == expected[j]);
   }
 }
 
 int main() {
+  uscript_setup();
   test_expression((unsigned char[]){ 0 }, 0);
   test_expression((unsigned char[]){ 10 }, 10);
   test_expression((unsigned char[]){ 0x40, 0x64 }, 100);
@@ -53,7 +67,7 @@ int main() {
   int i = 0;
   for (i = 0; i < 16; i++) {
     integer val = 42 + i;
-    slots[i] = 42 + i;
+    d[i] = 42 + i;
     test_expression((unsigned char[]){ R0 + i }, val);
   }
   test_expression((unsigned char[]){ ADD, 10, 20 }, 30);
@@ -130,6 +144,13 @@ int main() {
   }, 2, (integer[]){
     0, 50005000
   });
+  test_program((unsigned char[]){
+    DEF, put_string("greet"),
+      PRINTS, put_string("Hello World"),
+    END,
+    CALL, put_string("greet"), 0,
+    END
+  }, 0, 0);
 
   // test_program((unsigned char[]){
   //   W0, 0x43, 0xdc, 0xeb, 0x94, 0x00, // a = 1000000000
@@ -142,17 +163,6 @@ int main() {
   // }, 2, (integer[]){
   //   0, 500000000500000000
   // });
-
-  i = add_string("Hello World");
-  i = add_string("happy");
-  i = add_string("Stuff");
-  i = add_string("happy");
-  i = add_string("more");
-  const char* s = strings;
-  while (*s) {
-    printf("%s\n", s);
-    while (*s++);
-  }
 
 
   return 0;
