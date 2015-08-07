@@ -17,8 +17,11 @@ const char* names[] = {
   "Add", "Sub", "Mul", "Div", "Mod", "Neg",
   "Do", "Doing", "End",
   "And", "Or",
-  "If", "Then", "ElIf", "Else",
+  "If", "Then", "ElIf", "Else", 0
 };
+
+#define USER_START (Else + 1)
+
 
 instruction iStack[400];
 instruction* I;
@@ -55,7 +58,7 @@ uint8_t code[] = {
     Or, 10, 0,
     Or, 0, 20,
     Or, 30, 40,
-  End
+  End, 0
 };
 
 bool skip() {
@@ -141,87 +144,50 @@ bool step() {
   if (I < iStack) return false;
   // Switch on instruction at top of iStack
   switch(*I--) {
-    case Doing:
-      if (*PC == End) {
-        PC++;
-        break;
-      }
-      V--;
+    case Empty: if (!fetch()) return false; break;
+    // Simple math operators
+    case Add: V--; *V += *(V + 1); break;
+    case Sub: V--; *V -= *(V + 1); break;
+    case Mul: V--; *V *= *(V + 1); break;
+    case Div: V--; *V /= *(V + 1); break;
+    case Mod: V--; *V %= *(V + 1); break;
+    case Neg: *V = -*V; break;
     case Do:
-      *++I = Doing;
-    case Empty:
-      if (!fetch()) return false;
-      break;
-    case Add:
-      V--;
-      *V += *(V + 1);
-      break;
-    case Sub:
-      V--;
-      *V -= *(V + 1);
-      break;
-    case Mul:
-      V--;
-      *V *= *(V + 1);
-      break;
-    case Div:
-      V--;
-      *V /= *(V + 1);
-      break;
-    case Mod:
-      V--;
-      *V %= *(V + 1);
-      break;
-    case Neg:
-      *V = -*V;
-      break;
+      // If End if reached, let Do drop and move on.
+      if (*PC == End) { PC++; break; }
+      // Transform to Doing and start new fetch.
+      *++I = Doing; if (!fetch()) return false; break;
+    case Doing:
+      // If End if reached, let Doing drop and move on.
+      if (*PC == End) { PC++; break; }
+      // Otherwise preserve Doing and drop last value and start new fetch.
+      V--; I++; if (!fetch()) return false; break;
     case And:
-      if (*V) {
-        --V;
-        *++I = Empty;
-        break;
-      }
-      if (!skip()) return false;
-      break;
+      // If first value is truthy, drop it and capture second value.
+      if (*V) { --V; if (!fetch()) return false; break; }
+      // Otherwise keep false and skip second value.
+      if (!skip()) return false; break;
     case Or:
-      if (!*V) {
-        --V;
-        *++I = Empty;
-        break;
-      }
-      if (!skip()) return false;
-      break;
+      // If the first value was truthy, keep it and skip second value.
+      if (*V) { if (!skip()) return false; break; }
+      // Otherwise, throw away first value and capture second.
+      --V; if (!fetch()) return false; break;
     case If:
-      if (!*V) {
-        if (!skip()) return false;
-        if (*PC == ElIf) {
-          PC++;
-          V--;
-          *++I = If;
-          *++I = Empty;
-          break;
-        }
-        if (*PC == Else) {
-          PC++;
-          V--;
-          *++I = Empty;
-          break;
-        }
-        break;
-      }
-      V--;
-      *++I = Then;
-      *++I = Empty;
-      break;
+      // When condition is true, setup Then/Empty to capture value
+      if (*V--) { *++I = Then; if (!fetch()) return false; break; }
+      // Skip the body when condition is false.
+      if (!skip()) return false;
+      // If there is an ElIf, transform it to an If and start over.
+      if (*PC == ElIf) { PC++; *++I = If; if (!fetch()) return false; break; }
+      // If there is an Else, start next fetch to capture it.
+      if (*PC == Else) { PC++; if (!fetch()) return false; break; }
+      // Otherwise keep falsy condition as result value.
+      V++; break;
     case Then:
-      while (*PC == ElIf) {
-        PC++;
-        if (!(skip() && skip())) return false;
-      }
-      if (*PC == Else) {
-        PC++;
-        if (!skip()) return false;
-      }
+      // Skip any ElIf blocks, if any.
+      while (*PC == ElIf) { PC++; if (!(skip() && skip())) return false; }
+      // Skip Else block if there is one.
+      if (*PC == Else) { PC++; if (!skip()) return false; }
       break;
     case End: case ElIf: case Else:
       err = "Invalid instruction in iStack";
