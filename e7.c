@@ -7,8 +7,14 @@
 typedef enum {
   Empty = 128,
   Add, Sub, Mul, Div, Mod, Neg,
-  Do, End,
+  Do, Doing, End,
 } instruction;
+
+const char* names[] = {
+  "Empty",
+  "Add", "Sub", "Mul", "Div", "Mod", "Neg",
+  "Do", "Doing", "End"
+};
 
 instruction iStack[400];
 instruction* I;
@@ -18,14 +24,43 @@ uint8_t* PC;
 const char* err;
 
 uint8_t code[] = {
-  Mul, Add, 1, 2, Add, 3, 4
+  Do,
+    Mul, Add, 1, 2, Add, 3, 4,
+    34,
+    Do, 1, 2, 3, 4, 5, End,
+    Mul, 10, 20,
+  End
 };
 
 bool step() {
-  printf("iStack=%td, vStack=%td, pc=%td\n", I - iStack + 1, V - vStack + 1, PC - code);
+  printf("\niStack:");
+  instruction* i;
+  for (i = iStack; i <= I; i++) {
+    printf(" %s", names[*i - 128]);
+  }
+  printf("\nvStack:");
+  int32_t* v;
+  for (v = vStack; v <= V; v++) {
+    printf(" %"PRId32, *v);
+  }
+  printf("\n");
   if (I < iStack) return false;
+  if (*PC < 128) {
+    printf("%td: %"PRIu8"\n", PC - code, *PC);
+  }
+  else {
+    printf("%td: %s\n", PC - code, names[*PC - 128]);
+  }
   // Switch on instruction at top of iStack
   switch(*I--) {
+    case Doing:
+      if (*PC == End) {
+        PC++;
+        break;
+      }
+      V--;
+    case Do:
+      *++I = Doing;
     case Empty:
       if (*PC < 128) {
         *++V = *PC++;
@@ -43,10 +78,7 @@ bool step() {
           *++I = Empty;
           break;
         case Do:
-          // TODO: Implement do
-          break;
-        case End:
-          // TODO: Implement end
+          *++I = *PC++;
           break;
         default:
           err = "Invalid Instruction";
@@ -76,7 +108,7 @@ bool step() {
     case Neg:
       *V = -*V;
       break;
-    case End: case Do:
+    case End:
       // You should never get here since these aren't operators.
       assert(0);
       break;
@@ -95,6 +127,5 @@ int main() {
     printf("Error: %s\n", err);
     return -1;
   }
-  printf("Result: %"PRId32"\n", *V);
   return 0;
 }
