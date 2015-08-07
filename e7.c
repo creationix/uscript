@@ -8,7 +8,8 @@ typedef enum {
   Empty = 128,
   Add, Sub, Mul, Div, Mod, Neg,
   Do, Doing, End,
-  And, Or
+  And, Or,
+  If, Then, ElIf, Else,
 } instruction;
 
 const char* names[] = {
@@ -16,6 +17,7 @@ const char* names[] = {
   "Add", "Sub", "Mul", "Div", "Mod", "Neg",
   "Do", "Doing", "End",
   "And", "Or",
+  "If", "Then", "ElIf", "Else",
 };
 
 instruction iStack[400];
@@ -27,6 +29,21 @@ const char* err;
 
 uint8_t code[] = {
   Do,
+    Add,
+      Add,
+        Add,
+          If, 0, 10,
+          If, 1, 10,
+        Add,
+          If, 0, 10, Else, 20,
+          If, 1, 10, Else, 20,
+      Add,
+        Add,
+          If, 0, 10, ElIf, 0, 5,
+          If, 1, 10, ElIf, 1, 17,
+        Add,
+          If, 0, 10, ElIf, 0, 2, Else, 20,
+          If, 1, 10, ElIf, 0, 2, Else, 20,
     Or, Sub, 10, 10, Mul, 10, 20,
     Mul, Add, 1, 2, Add, 3, 4,
     34,
@@ -41,31 +58,71 @@ uint8_t code[] = {
   End
 };
 
-void skip() {
+bool skip() {
   if (*PC < 128) {
     ++PC;
     // TODO: parse larger numbers
-    return;
+    return true;
   }
   switch(*PC++) {
     case Add: case Sub: case Mul: case Div: case Mod: case And: case Or:
-      skip(); skip();
-      return;
+      return skip() && skip();
     case Neg:
-      skip();
-      return;
+      return skip();
     case Do: {
       int depth = 1;
       while (depth) {
         if (*PC == End) {
           PC++;
           depth--;
+          continue;
         }
-        else {
-          skip();
-        }
+        if (!skip()) return false;
       }
+      return true;
     }
+    case If: {
+      if (!(skip() && skip())) return false;
+      while (*PC == ElIf) {
+        ++PC;
+        if (!(skip() && skip())) return false;
+      }
+      if (*PC == Else) {
+        ++PC;
+        if (!skip()) return false;
+      }
+      return true;
+    }
+    default:
+      err = "Invalid instruction in skip";
+      return false;
+  }
+}
+
+bool fetch() {
+  if (*PC < 128) {
+    printf("%td: %"PRIu8"\n", PC - code, *PC);
+    *++V = *PC++;
+    // TODO: handle numbers larger than 127
+    return true;
+  }
+  printf("%td: %s\n", PC - code, names[*PC - 128]);
+  switch(*PC) {
+    case Add: case Sub: case Mul: case Div: case Mod:
+      *++I = *PC++;
+      *++I = Empty;
+      *++I = Empty;
+      return true;
+    case Neg: case And: case Or: case If:
+      *++I = *PC++;
+      *++I = Empty;
+      return true;
+    case Do:
+      *++I = *PC++;
+      return true;
+    default:
+      err = "Invalid Instruction in eval";
+      return false;
   }
 }
 
@@ -93,30 +150,7 @@ bool step() {
     case Do:
       *++I = Doing;
     case Empty:
-      if (*PC < 128) {
-        printf("%td: %"PRIu8"\n", PC - code, *PC);
-        *++V = *PC++;
-        // TODO: handle numbers larger than 127
-        break;
-      }
-      printf("%td: %s\n", PC - code, names[*PC - 128]);
-      switch(*PC) {
-        case Add: case Sub: case Mul: case Div: case Mod:
-          *++I = *PC++;
-          *++I = Empty;
-          *++I = Empty;
-          break;
-        case Neg: case And: case Or:
-          *++I = *PC++;
-          *++I = Empty;
-          break;
-        case Do:
-          *++I = *PC++;
-          break;
-        default:
-          err = "Invalid Instruction";
-          return false;
-      }
+      if (!fetch()) return false;
       break;
     case Add:
       V--;
@@ -147,7 +181,7 @@ bool step() {
         *++I = Empty;
         break;
       }
-      skip();
+      if (!skip()) return false;
       break;
     case Or:
       if (!*V) {
@@ -155,12 +189,43 @@ bool step() {
         *++I = Empty;
         break;
       }
-      skip();
+      if (!skip()) return false;
       break;
-    case End:
-      // You should never get here since these aren't operators.
-      assert(0);
+    case If:
+      if (!*V) {
+        if (!skip()) return false;
+        if (*PC == ElIf) {
+          PC++;
+          V--;
+          *++I = If;
+          *++I = Empty;
+          break;
+        }
+        if (*PC == Else) {
+          PC++;
+          V--;
+          *++I = Empty;
+          break;
+        }
+        break;
+      }
+      V--;
+      *++I = Then;
+      *++I = Empty;
       break;
+    case Then:
+      while (*PC == ElIf) {
+        PC++;
+        if (!(skip() && skip())) return false;
+      }
+      if (*PC == Else) {
+        PC++;
+        if (!skip()) return false;
+      }
+      break;
+    case End: case ElIf: case Else:
+      err = "Invalid instruction in iStack";
+      return false;
   }
   return true;
 }
