@@ -112,7 +112,8 @@ uint8_t* eval(uint8_t* pc) {
         continue;
       case POP: last--; continue;
       case DUP:
-        *++last = slot(*pc & 0xf);
+        ++last;
+	*last = slot(*pc & 0xf);
         pc++; continue;
       case ADD:
         last--;
