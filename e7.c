@@ -2,6 +2,8 @@
 #include <inttypes.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <assert.h>
 
 typedef enum {
@@ -10,6 +12,7 @@ typedef enum {
   Do, Doing, End,
   And, Or,
   If, Then, ElIf, Else,
+  Def, Call,
 } instruction;
 
 const char* names[] = {
@@ -17,18 +20,31 @@ const char* names[] = {
   "Add", "Sub", "Mul", "Div", "Mod", "Neg",
   "Do", "Doing", "End",
   "And", "Or",
-  "If", "Then", "ElIf", "Else", 0
+  "If", "Then", "ElIf", "Else",
+  "Def", "Call",
+  0
 };
 
-#define USER_START (Else + 1)
+#define LAST_OP Def
+#define DEF(id, nargs) Def, id, nargs
+#define CALL(id) (255 - id)
 
+#define MAX_ISTACK 512
+#define MAX_VSTACK 128
+#define MAX_DEFS 64
+#define MAX_CALLS 64
 
-instruction iStack[400];
+instruction iStack[MAX_ISTACK];
 instruction* I;
-int32_t vStack[100];
+int32_t vStack[MAX_VSTACK];
 int32_t* V;
+uint8_t* rStack[MAX_CALLS];
+uint8_t** R;
 uint8_t* PC;
 const char* err;
+
+uint8_t* defs[MAX_DEFS];
+uint8_t nargs[MAX_DEFS];
 
 uint8_t code[] = {
   Do,
@@ -67,9 +83,23 @@ bool skip() {
     // TODO: parse larger numbers
     return true;
   }
-  switch(*PC++) {
+  if (*PC > LAST_OP) {
+    uint8_t id = 255 - *PC++;
+    if (id >= MAX_DEFS || !defs[id]) {
+      err = "Invalid user function in skip";
+      return false;
+    }
+    uint8_t n = nargs[id];
+    while (n--) {
+      if (!(skip())) return false;
+    }
+    return true;
+  }
+  switch((instruction)*PC++) {
     case Add: case Sub: case Mul: case Div: case Mod: case And: case Or:
       return skip() && skip();
+    case Def:
+      PC += 2; return skip();
     case Neg:
       return skip();
     case Do: {
@@ -96,7 +126,7 @@ bool skip() {
       }
       return true;
     }
-    default:
+    case Empty: case Doing: case End: case Then: case ElIf: case Else: case Call:
       err = "Invalid instruction in skip";
       return false;
   }
@@ -123,6 +153,32 @@ bool fetch() {
     case Do:
       *++I = *PC++;
       return true;
+    case Def: {
+      PC++;
+      uint8_t id = *PC++;
+      uint8_t n = *PC++;
+      if (id < 0 || id >= MAX_DEFS) {
+        err = "User function index out of range";
+        return false;
+      }
+      if (defs[id]) {
+        if (nargs[id] != n) {
+          err = "Cannot change arity when redefining function";
+          return false;
+        }
+        free(defs[id]);
+      }
+      else {
+        nargs[id] = n;
+      }
+      uint8_t* start = PC;
+      if (!skip()) return false;
+      size_t len = PC - start + 1;
+      defs[id] = malloc(len);
+      memcpy(defs[id], start, len);
+      return true;
+    }
+
     default:
       err = "Invalid Instruction in eval";
       return false;
@@ -143,6 +199,15 @@ bool step() {
   printf("\n");
   if (I < iStack) return false;
   // Switch on instruction at top of iStack
+  if (*I > LAST_OP) {
+    uint8_t id = 255 - *I--;
+    if (id > MAX_DEFS || !defs[id]) {
+      err = "No such user function";
+      return false;
+    }
+    uint8_t n = nargs[id];
+
+  }
   switch(*I--) {
     case Empty: if (!fetch()) return false; break;
     // Simple math operators
@@ -189,7 +254,15 @@ bool step() {
       // Skip Else block if there is one.
       if (*PC == Else) { PC++; if (!skip()) return false; }
       break;
-    case End: case ElIf: case Else:
+    case Call: {
+      uint8_t id = 255 - *I--;
+      uint8_t n = nargs[id];
+      *R++ = PC;
+      PC = defs[id];
+      // TODO: call
+      break;
+    }
+    case End: case ElIf: case Else: case Def:
       err = "Invalid instruction in iStack";
       return false;
   }
@@ -199,6 +272,7 @@ bool step() {
 int main() {
   I = iStack;
   V = vStack - 1;
+  R = rStack - 1;
   *I = Empty;
   PC = code;
   while (step());
