@@ -4,22 +4,7 @@
 
 // This is the c-type of the basic number type. Use some type of signed integer.
 #ifndef NUMBER_TYPE
-#define NUMBER_TYPE long
-#endif
-// This is the total space for all unique strings.  It needs string + null byte.
-#ifndef SIZE_STRINGS
-#define SIZE_STRINGS 512
-#endif
-// Maximum number of user functions
-#ifndef MAX_FUNCS
-#define MAX_FUNCS 32
-#endif
-// These are the maximum stack heights.  There is a sliding window of 16 slots.
-#ifndef MAX_VALUES
-#define MAX_VALUES 64
-#endif
-#ifndef MAX_LABELS
-#define MAX_LABELS 64
+#define NUMBER_TYPE int
 #endif
 
 // Make sure to leave enough heap for bytecode that is handled externally.

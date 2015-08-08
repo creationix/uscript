@@ -8,12 +8,12 @@
 typedef enum {
   // Numbers under 128 represent themselves
   INT32 = 128, INT64,
-  // ADD, SUB, MUL, DIV, MOD, NEG,
+  POP, DUP,
+  ADD, SUB, MUL, DIV, MOD, NEG,
   // LT, LTE, GT, GTE, EQ, NEQ,
   // AND, OR, XOR, NOT,
   IST, ISF, JMP, // jump - 0 is last
-  POP,
-  RADD, RSUB, RMUL, RDIV, RMOD, RNEG, // d/s - 0 is last
+  COPY, RADD, RSUB, RMUL, RDIV, RMOD, RNEG, // d/s - 0 is last
   INCR, DECR, // d/v
   CALL, END,
   DUMP,
@@ -21,9 +21,9 @@ typedef enum {
 
 const char* names[] = {
   "INT32", "INT64",
+  "POP", "DUP",
   "IST", "ISF", "JMP",
-  "POP",
-  "RADD", "RSUB", "RMUL", "RDIV", "RMOD", "RNEG",
+  "COPY", "RADD", "RSUB", "RMUL", "RDIV", "RMOD", "RNEG",
   "INCR", "DECR",
   "CALL", "END",
   "DUMP",
@@ -39,36 +39,22 @@ const char* names[] = {
                    ((uint32_t)(val) >> 24)
 
 uint8_t code[] = {
+  10, 9,
+  CALL, 0x29, Int16(13),
+  DUMP,
+  ADD, ADD,
+  DUMP,
+  ADD, ADD, ADD,
+  DUMP,
+  ADD, ADD, ADD,
+  DUMP,
+  END,
   1,
-  CALL, 0x11, Int16(84),
+  RMUL, 0x20, DUP, 0x2,
+  DECR, 0x11,
+  CALL, 0x11, Int16(6),
   DUMP,
-  10,
-  CALL, 0x11, Int16(78),
-  DUMP,
-  100,
-  CALL, 0x11, Int16(72),
-  DUMP,
-  INT32, Int32(1000),
-  CALL, 0x11, Int16(62),
-  DUMP,
-  INT32, Int32(10000),
-  CALL, 0x11, Int16(52),
-  DUMP,
-  INT32, Int32(100000),
-  CALL, 0x11, Int16(42),
-  DUMP,
-  INT32, Int32(1000000),
-  CALL, 0x11, Int16(32),
-  DUMP,
-  INT32, Int32(10000000),
-  CALL, 0x11, Int16(22),
-  DUMP,
-  INT32, Int32(100000000),
-  CALL, 0x11, Int16(12),
-  DUMP,
-  INT32, Int32(1000000000),
-  CALL, 0x11, Int16(2),
-  DUMP,
+  IST, 0x1, Int16(-15),
   END,
   0,                        // sum = 0
   RADD, 0x10,               // sum += count
@@ -100,8 +86,9 @@ void dump() {
 
 uint8_t* eval(uint8_t* pc) {
   while (true) {
+    // dump();
     if (*pc < 128) {
-      // printf("%d\n", *pc);
+      // printf("%td: %d\n", pc - code, *pc);
       *++last = *pc++;
       continue;
     }
@@ -125,6 +112,35 @@ uint8_t* eval(uint8_t* pc) {
         pc += *(int16_t*)pc + 2;
         continue;
       case POP: last--; continue;
+      case DUP:
+        *++last = slot(*pc & 0xf);
+        pc++; continue;
+      case ADD:
+        last--;
+        *last += *(last + 1);
+        continue;
+      case SUB:
+        last--;
+        *last -= *(last + 1);
+        continue;
+      case MUL:
+        last--;
+        *last *= *(last + 1);
+        continue;
+      case DIV:
+        last--;
+        *last /= *(last + 1);
+        continue;
+      case MOD:
+        last--;
+        *last %= *(last + 1);
+        continue;
+      case NEG:
+        *last = -*last;
+        continue;
+      case COPY:
+        slot(*pc >> 4) = slot(*pc & 0xf);
+        pc++; continue;
       case RADD:
         slot(*pc >> 4) += slot(*pc & 0xf);
         pc++; continue;
@@ -141,7 +157,7 @@ uint8_t* eval(uint8_t* pc) {
         slot(*pc >> 4) %= slot(*pc & 0xf);
         pc++; continue;
       case RNEG:
-        slot(*pc >> 4) = -slot(*pc >> 4);
+        slot(*pc >> 4) = -slot(*pc & 0xf);
         pc++; continue;
       case INCR:
         slot(*pc >> 4) += (*pc & 0xf);
