@@ -2,7 +2,6 @@
 #include <inttypes.h>
 #include <stdbool.h>
 #include <stdio.h>
-#include <assert.h>
 
 // stack based
 typedef enum {
@@ -64,7 +63,7 @@ uint8_t code[] = {
   END,
 };
 
-int64_t stack[100];
+int64_t stack[64];
 int64_t* last;
 int64_t* first;
 
@@ -183,7 +182,7 @@ uint8_t* eval(uint8_t* pc) {
       case END: return pc;
       case DUMP: dump(); continue;
     }
-    assert(0);
+    return NULL;
   }
   return pc;
 }
