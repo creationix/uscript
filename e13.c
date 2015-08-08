@@ -50,10 +50,10 @@ uint8_t code[] = {
   DUMP,
   END,
   1,
+  DUMP,
   RMUL, 0x20, DUP, 0x2,
   DECR, 0x11,
-  CALL, 0x11, Int16(6),
-  DUMP,
+  CALL, 0x11, Int16(5),
   IST, 0x1, Int16(-15),
   END,
   0,                        // sum = 0
