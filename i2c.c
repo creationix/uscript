@@ -23,6 +23,26 @@ typedef enum {
   DUMP,
 } opcode;
 
+const char* names[] = {
+  "DROP",
+  "DUP",
+  "DUP2",
+  "OVER",
+  "SWAP",
+  "ROT",
+  "ADD", "SUB", "MUL", "DIV", "MOD", "NEG",
+  "BAND", "BOR", "BXOR", "BNOT", "RSHIFT", "LSHIFT",
+  "BGET",
+  "BSET",
+  "BCLR",
+  "AND", "OR", "NOT", "XOR",
+  "GT", "LT", "GTE", "LTE", "EQ", "NEQ",
+  "ISTC", "ISFC", "IST", "ISF", "JMP",
+  "CALL",
+  "END",
+  "DUMP",
+};
+
 int slots[32];
 int* top = slots - 1;
 
@@ -35,18 +55,33 @@ void dump() {
   printf("\n");
 }
 
+#define Int16(val) ((uint16_t)(val) & 0xff), ((uint16_t)(val) >> 8)
+
+static unsigned char code[] = {
+  1, 2, ADD, 3, 4, ADD, MUL,
+  CALL, 0x12, Int16(1),
+  END,
+  ISTC, Int16(5),
+  42, 15,
+  JMP, Int16(1),
+  30, END
+};
+
 int eval(unsigned char* pc) {
   while (1) {
     dump();
     if (*pc < 0x80) {
+      printf("%td: ", pc - code);
       *++top = *pc & 0x3f;
       if (*pc++ & 0x40) {
         do {
           *top = (*top << 7) | (*pc & 0x7f);
         } while (*pc++ & 0x80);
       }
+      printf("%d\n", *top);
       continue;
     }
+    printf("%td: %s\n", pc - code, names[*pc - 128]);
     switch ((opcode)*pc++) {
       case DROP: top--; continue;
       case DUP: top++; *top = *(top - 1); continue;
@@ -99,6 +134,7 @@ int eval(unsigned char* pc) {
       case EQ:  top--; *top = *top == *(top + 1); continue;
       case NEQ: top--; *top = *top != *(top + 1); continue;
       case ISTC:
+        printf("JUMP %d\n", *(int16_t*)pc);
         if (*top) pc += *(int16_t*)pc;
         pc += 2;
         continue;
@@ -135,17 +171,6 @@ int eval(unsigned char* pc) {
     }
   }
 }
-
-
-#define Int16(val) ((uint16_t)(val) & 0xff), ((uint16_t)(val) >> 8)
-
-static unsigned char code[] = {
-  1, 2, ADD, 3, 4, ADD, MUL,
-  CALL, 0x12, Int16(1),
-  END,
-  10, 20, 30, END
-
-};
 
 int main() {
   int ret = eval(code);
