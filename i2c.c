@@ -1,5 +1,18 @@
 #include "stdint.h"
-#include "stdio.h"
+
+extern void printString(const char* str);
+extern void printInt(int val);
+extern void slotWrite(int addr, int value);
+extern int slotRead(int i);
+extern void pinMode(int pin, int mode);
+extern void digitalWrite(int pin, int value);
+extern void digitalRead(int pin);
+extern void analogWrite(int pin, int value);
+extern void analogRead(int pin);
+extern void delay(int ms);
+extern void delayMicroseconds(int us);
+extern int random(int max);
+extern void randomSeed(int seed);
 
 typedef enum {
   // stack operations
@@ -9,7 +22,6 @@ typedef enum {
   OVER, // a b -> a b a
   SWAP, // a b -> b a
   ROT,  // a b c -> b c a
-
   ADD, SUB, MUL, DIV, MOD, NEG, // ([a], b)
   BAND, BOR, BXOR, BNOT, RSHIFT, LSHIFT, // (a, b)
   BGET, // (num, bit)
@@ -17,6 +29,17 @@ typedef enum {
   BCLR, // (num, bit)
   AND, OR, NOT, XOR, // ([a], b)
   GT, LT, GTE, LTE, EQ, NEQ, // (a, b)
+  PM, // (pin, mode)
+  DW, // (pin, value)
+  DR, // (pin)
+  AW, // (pin, value)
+  AR, // (pin)
+  SW, // (addr/slot, value)
+  SR, // (slot)
+  DELAY, // (ms)
+  UDELAY, // (us)
+  SRAND, // (seed)
+  RAND, // (mod)
   ISTC, ISFC, IST, ISF, JMP, // ([cond], jump)
   CALL, // (out/in, jump)
   END, // return
@@ -37,22 +60,34 @@ const char* names[] = {
   "BCLR",
   "AND", "OR", "NOT", "XOR",
   "GT", "LT", "GTE", "LTE", "EQ", "NEQ",
+  "PM",
+  "DW",
+  "DR",
+  "AW",
+  "AR",
+  "SW",
+  "SR",
+  "DELAY",
+  "UDELAY",
+  "SRAND",
+  "RAND",
   "ISTC", "ISFC", "IST", "ISF", "JMP",
   "CALL",
   "END",
   "DUMP",
 };
 
-int slots[32];
-int* top = slots - 1;
+int stack[32];
+int* top = stack - 1;
 
 void dump() {
-  printf("stack:");
+  printString("stack:");
   int* i;
-  for (i = slots; i <= top; i++) {
-    printf(" %d", *i);
+  for (i = stack; i <= top; i++) {
+    printString(" ");
+    printInt(*i);
   }
-  printf("\n");
+  printString("\r\n");
 }
 
 #define Int16(val) ((uint16_t)(val) & 0xff), ((uint16_t)(val) >> 8)
@@ -71,17 +106,22 @@ int eval(unsigned char* pc) {
   while (1) {
     dump();
     if (*pc < 0x80) {
-      printf("%td: ", pc - code);
+      printInt(pc - code);
+      printString(": ");
       *++top = *pc & 0x3f;
       if (*pc++ & 0x40) {
         do {
           *top = (*top << 7) | (*pc & 0x7f);
         } while (*pc++ & 0x80);
       }
-      printf("%d\n", *top);
+      printInt(*top);
+      printString("\r\n");
       continue;
     }
-    printf("%td: %s\n", pc - code, names[*pc - 128]);
+    printInt(pc - code);
+    printString(": ");
+    printString(names[*pc - 128]);
+    printString("\r\n");
     switch ((opcode)*pc++) {
       case DROP: top--; continue;
       case DUP: top++; *top = *(top - 1); continue;
@@ -133,8 +173,18 @@ int eval(unsigned char* pc) {
       case LTE: top--; *top = *top <= *(top + 1); continue;
       case EQ:  top--; *top = *top == *(top + 1); continue;
       case NEQ: top--; *top = *top != *(top + 1); continue;
+      case PM: pinMode(*(top - 1), *(top)); top -= 2; continue;
+      case DW: digitalWrite(*(top - 1), *(top)); top -= 2; continue;
+      case DR: digitalRead(*(top)); top--; continue;
+      case AW: analogWrite(*(top - 1), *(top)); top -= 2; continue;
+      case AR: analogRead(*(top)); top--; continue;
+      case SW: slotWrite(*(top - 1), *(top)); top -= 2; continue;
+      case SR: slotRead(*(top)); top--; continue;
+      case DELAY: delay(*top); top--; continue;
+      case UDELAY: delayMicroseconds(*top); top--; continue;
+      case RAND: *top = random(*top); continue;
+      case SRAND: randomSeed(*top); top--; continue;
       case ISTC:
-        printf("JUMP %d\n", *(int16_t*)pc);
         if (*top) pc += *(int16_t*)pc;
         pc += 2;
         continue;
@@ -170,11 +220,4 @@ int eval(unsigned char* pc) {
       case END: return 0;
     }
   }
-}
-
-int main() {
-  int ret = eval(code);
-  dump();
-  if (ret) printf("Error in eval!\n");
-  return ret;
 }
