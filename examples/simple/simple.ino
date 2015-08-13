@@ -1,68 +1,91 @@
 #include "uscript.h"
+#define REPL_BUFFER 512
+#define MAX_OPS 100
 
-int slots[16];
-void printString(const char* str) {
-  Serial.print(str);
-}
-void printInt(int val) {
-  Serial.print(val);
-}
-void slotWrite(int addr, int slot, int value) {
-  Serial.print("TODO: send message to remote slot\r\n");
-}
+char line[REPL_BUFFER];
+int offset;
+function out[MAX_OPS];
 
-int slotRead(int i) {
-  return slots[i];
-}
+struct state S;
 
-#define CLK 8
-#define SDA 9
-
-#define Int16(val) ((uint16_t)(val) & 0xff), ((uint16_t)(val) >> 8)
-
-unsigned char code[] = {
-  // Setup
-  13, OUTPUT, PM,  // pinMode(13, OUTPUT)
-  SDA, 1, PM, SDA, 0, DW, // Set data line to pull low
-  CLK, 1, PM, CLK, 0, DW, // Set clock line to pull low
-  END,
-  // Loop
-  13, 13, DR, NOT, DW, // digitalWrite(13, !digitalRead(13))
-  0x43, 0x74, DELAY,   // delay(500)
-  END,
-  // Start
-  SDA, 1, PM, // Pull data line low
-  50, UDELAY, // Wait 50 us
-  CLK, 1, PM, // Pull clock low
-  END,
-  // Stop
-  END,
-  // Send byte 
-  DUP, 1, BAND, CALL, 0x10, Uint16(53),
-  DUP, 2, BAND, CALL, 0x10, Uint16(46),
-  DUP, 4, BAND, CALL, 0x10, Uint16(38),
-  DUP, 8, BAND, CALL, 0x10, Uint16(31),
-  DUP, 16, BAND, CALL, 0x10, Uint16(24),
-  DUP, 32, BAND, CALL, 0x10, Uint16(17),
-  DUP, 0x40, 0x40, BAND, CALL, 0x10, Uint16(9),
-  DUP, 0x41, 0x00, BAND, CALL, 0x10, Uint16(1),
-  END,
-  // Send bit
-  CLK, 1, PM, // Set clock line to pull low
-  SDA, OVER, NOT, PM, 
-  CLK, 0, PM, // Release clock line
-  END,
-  // read byte
-  END,
+function fns[] = {
+  Call, Add, Sub, Mul, Div,
+  Mod, Neg, Not,
+  Swap, Over, Dup, Decr, Incr,
+  IsTrue, IsFalse, Jump, Random, SeedRandom,
+  Dump, Delay, DelayMicroseconds,
+  PinMode, DigitalWrite, DigitalRead, AnalogWrite, AnalogRead,
 };
+const char* names =
+  "CALL\0ADD\0SUB\0MUL\0DIV\0"
+  "MOD\0NEG\0NOT\0"
+  "SWAP\0OVER\0DUP\0DECR\0INCR\0"
+  "IST\0ISF\0JMP\0RAND\0SRAND\0"
+  "DUMP\0DELAY\0UDELAY\0"
+  "PM\0DW\0DR\0AW\0AR\0"
+  "\0";
+
+//  run(&S, "\
+//    a0 0 PM       \
+//    a1 1 PM       \
+//    3 1 PM       \
+//    7 1 PM       \
+//  ");
+//  run(&S, "\
+//    3 1 DW        \
+//    7 0 DW        \
+//    DUMP          \
+//    a0 AR DELAY   \
+//    3 0 DW        \
+//    7 1 DW        \
+//    DUMP          \
+//    a0 AR DELAY   \
+//  ");
 
 void setup() {
   Serial.begin(9600);
-  eval(code);
+  S.fns = fns;
+  S.names = names;
+  S.top = S.stack - 1;
 }
 
+function dumpCode[] = {Dump, 0};
+
+void handle_input(struct state* S, char c) {
+  if (offset < REPL_BUFFER && c >= 0x20 && c < 0x7f) {
+    line[offset++] = c;
+    Serial.write(c);
+  }
+  else if (offset > 0 && (c == 127 || c == 8)) {
+    line[--offset] = 0;
+    Serial.print("\x08 \x08");
+  }
+  else if (c == '\r' || c == '\n') {
+    Serial.print("\r\n");
+    if (offset) {
+      line[offset++] = 0;
+
+      int res = compile(S, out, 100, line);
+      if (res >= 0) {
+        while (res--) Serial.print(" ");
+        Serial.print("  ^ Unexpected input\r\n");
+      }
+      else {
+        int i = 0;
+        S->pc = out;
+        (*S->pc)(S);
+        S->pc = dumpCode;
+        (*S->pc)(S);
+      }
+
+    }
+    offset = 0;
+    Serial.print("> ");
+  }
+}
+
+
 void loop() {
-  reset();
-  eval(code + 4);
+  while (Serial.available() > 0) handle_input(&S, Serial.read());
 }
 

@@ -1,54 +1,48 @@
 #ifndef USCRIPT_H
 #define USCRIPT_H
-// Feel free to override these to fit your constraints / needs.
-#include "stdint.h"
+#include <stdint.h>
+#ifdef ARDUINO
+  #include "Arduino.h"
+  #include "uscript-wiring.h"
+#endif
 
-extern void printString(const char* str);
-extern void printInt(int val);
-extern void slotWrite(int addr, int slot, int value);
-extern int slotRead(int i);
-// extern void pinMode(int pin, int mode);
-// extern void digitalWrite(int pin, int value);
-// extern int digitalRead(int pin);
-// extern void analogWrite(int pin, int value);
-// extern int analogRead(int pin);
-// extern void delay(int ms);
-// extern void delayMicroseconds(int us);
+#define MAX_STACK 64
 
-typedef enum {
-  // stack operations
-  DROP = 128, // n ->
-  DUP, // n -> n n
-  DUP2, // a b -> a b a b
-  OVER, // a b -> a b a
-  SWAP, // a b -> b a
-  ROT,  // a b c -> b c a
-  ADD, SUB, MUL, DIV, MOD, NEG, // ([a], b)
-  BAND, BOR, BXOR, BNOT, RSHIFT, LSHIFT, // (a, b)
-  BGET, // (num, bit)
-  BSET, // (num, bit)
-  BCLR, // (num, bit)
-  AND, OR, NOT, XOR, // ([a], b)
-  GT, LT, GTE, LTE, EQ, NEQ, // (a, b)
-  PM, // (pin, mode)
-  DW, // (pin, value)
-  DR, // (pin)
-  AW, // (pin, value)
-  AR, // (pin)
-  SW, // (addr/slot, value)
-  SR, // (slot)
-  DELAY, // (ms)
-  UDELAY, // (us)
-  SRAND, // (seed)
-  RAND, // (mod)
-  ISTC, ISFC, IST, ISF, JMP, // ([cond], jump)
-  CALL, // (out/in, jump)
-  END, // return
-  DUMP,
-} opcode;
+struct state;
 
-void dump();
-void reset();
-int eval(unsigned char* pc);
+typedef void (*function)(struct state *s);
+
+struct state {
+  function* fns;
+  const char* names;
+  intptr_t stack[MAX_STACK];
+  intptr_t* top;
+  function* pc;
+};
+
+#define DONEXT ++s->pc; if (*s->pc) return (*s->pc)(s);
+
+int compile(struct state* S, function* out, int max, const char* in);
+
+void Call(struct state* s);
+void Num(struct state* s);
+void Add(struct state* s);
+void Sub(struct state* s);
+void Mul(struct state* s);
+void Div(struct state* s);
+void Mod(struct state* s);
+void Neg(struct state* s);
+void Not(struct state* s);
+void Swap(struct state* s);
+void Over(struct state* s);
+void Dup(struct state* s);
+void Decr(struct state* s);
+void Incr(struct state* s);
+void IsTrue(struct state* s);
+void IsFalse(struct state* s);
+void Jump(struct state* s);
+void Random(struct state* s);
+void SeedRandom(struct state* s);
+void Start(struct state* s, function* code);
 
 #endif
