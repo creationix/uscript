@@ -1,5 +1,8 @@
 #include "uscript-wiring.h"
 
+void printStr(const char* str);
+void printNum(int str);
+
 void Dump(struct state* s) {
   intptr_t* i = s->stack;
   Serial.print("stack:");
@@ -40,4 +43,21 @@ void AnalogWrite(struct state* s) {
 void AnalogRead(struct state* s) {
   *s->top = analogRead(*s->top);
   DONEXT;
+}
+
+void Tone(struct state* s) {
+  s->top -= 3;
+  long int pin = *(s->top + 1),
+           frequency = *(s->top + 2);
+  long int duration = *(s->top + 3);
+  long int p = 1000000 / frequency;
+  long int us = p >> 1;
+  duration *= 1000;
+  while ((duration -= p) > 0) {
+    digitalWrite(pin, 1);
+    delayMicroseconds(us);
+    digitalWrite(pin, 0);
+    delayMicroseconds(us);
+  }
+  DONEXT
 }

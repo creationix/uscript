@@ -11,5 +11,6 @@ void DigitalWrite(struct state* s);
 void DigitalRead(struct state* s);
 void AnalogWrite(struct state* s);
 void AnalogRead(struct state* s);
+void Tone(struct state* s);
 
 #endif

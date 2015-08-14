@@ -1,4 +1,7 @@
 #include "uscript.h"
+void printStr(const char* str);
+void printNum(int str);
+
 
 static function nameToFunction(struct state* S, const char* name, int len) {
   // First search in the language-defined names.
@@ -26,6 +29,7 @@ const char* functionToName(struct state* S, function fn) {
 }
 
 int compile(struct state* S, function* out, int max, const char* in) {
+  int wasJump = 0;
   const char* cc = in;
   function* end = out + max;
   while (out < end) {
@@ -44,7 +48,10 @@ int compile(struct state* S, function* out, int max, const char* in) {
     if (*cc >= 'A' && *cc <= 'Z') {
       int len = 1;
       while (*(cc + len) >= 'A' && *(cc + len) <= 'Z' ) len++;
-      if (!(*out++ = nameToFunction(S, cc, len))) return cc - in;
+      function fn = nameToFunction(S, cc, len);
+      if (!fn) return cc - in;
+      *out++ = fn;
+      wasJump = fn == Jump;
       // printf("%.*s\n", len, cc);
       cc += len;
       continue;
@@ -95,7 +102,10 @@ int compile(struct state* S, function* out, int max, const char* in) {
       }
       val *= neg;
       // printf("NUM %td\n", val);
-      *out++ = Num;
+      if (!wasJump) {
+        *out++ = Num;
+      }
+      wasJump = 0;
       *out++ = (function)val;
       continue;
     }

@@ -8,12 +8,20 @@ function out[MAX_OPS];
 
 struct state S;
 
+void printStr(const char* str) {
+  Serial.print(str);
+}
+void printNum(int num) {
+  Serial.print(num);
+}
+
+
 function fns[] = {
   Call, Add, Sub, Mul, Div,
   Mod, Neg, Not,
   Swap, Over, Dup, Decr, Incr,
   IsTrue, IsFalse, Jump, Random, SeedRandom,
-  Dump, Delay, DelayMicroseconds,
+  Dump, Delay, DelayMicroseconds, Tone,
   PinMode, DigitalWrite, DigitalRead, AnalogWrite, AnalogRead,
 };
 const char* names =
@@ -21,7 +29,7 @@ const char* names =
   "MOD\0NEG\0NOT\0"
   "SWAP\0OVER\0DUP\0DECR\0INCR\0"
   "IST\0ISF\0JMP\0RAND\0SRAND\0"
-  "DUMP\0DELAY\0UDELAY\0"
+  "DUMP\0DELAY\0UDELAY\0TONE\0"
   "PM\0DW\0DR\0AW\0AR\0"
   "\0";
 
@@ -66,10 +74,18 @@ void handle_input(struct state* S, char c) {
       line[offset++] = 0;
 
       int res = compile(S, out, 100, line);
+      int i;
+      Serial.print("code: ");
+      for (i = 0; out[i]; i++) {
+        Serial.print(" ");
+        Serial.print((intptr_t)out[i]);
+      }
+      Serial.print("\r\n");
       if (res >= 0) {
         while (res--) Serial.print(" ");
         Serial.print("  ^ Unexpected input\r\n");
       }
+
       else {
         int i = 0;
         S->pc = out;
@@ -83,7 +99,6 @@ void handle_input(struct state* S, char c) {
     Serial.print("> ");
   }
 }
-
 
 void loop() {
   while (Serial.available() > 0) handle_input(&S, Serial.read());
