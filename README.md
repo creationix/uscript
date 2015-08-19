@@ -86,13 +86,64 @@ The language will have a portable byte-code that is extremely compact.
 ## Registers
 
 The VM has a sliding window of registers.  In any particular function invocation
-the window will be able to see 16 slots in the stack as registers 0-15.  This
-window will slide during function calls so that subroutines don't clobber state
-of their callers.
+the window will be able to see up to 16 slots in the stack as registers 0-15.
+This window will slide during function calls so that subroutines don't clobber
+state of their callers.
 
 Also each VM will have 16 global slots where other robots can read and write
 values.
 
-## Opcodes
+## Values
 
-TODO: define opcodes
+The μScript language will have a few basic value types that can be stored on the
+stack.  For now there are just two types, but more may be added later.
+
+ - Integer - This is a 32-bit signed integer.
+
+ - Data - This is a resizable and mutable array of 8-bit bytes.  It can be used
+   to store strings or app data.  Duplicated copies of this value on the stack
+   will share the same backing store.  The memory released when the window
+   slides above the top copy.
+
+## Expression Trees
+
+Expressions in μScript can be rich expression trees.  This keeps the core
+opcodes simple yet powerful.
+
+ - get(n) - Read stack slot
+ - set(n, v) - Write stack slot
+ - check(n) - Read network slot
+ - send(a, n, v) - Network write slot
+ - write(pin, value) - Write to GPIO pin
+ - read(pin) - Read from GPIO pin
+ - Arithmetic: integer input(s), integer outputs.
+   - a + b
+   - a - b
+   - a * b
+   - a / b
+   - a % b
+   - -a
+ - Comparisons: output is 1 for true, 0 for false.
+   - a > b
+   - a < b
+   - a >= b
+   - a <= b
+   - a == b
+   - a != b
+   - !a
+ - Logic: output preserves values when possible.  Code short-circuits.
+   - a and b
+   - a or b
+   - a xor b
+   - not a
+ - Bit Operations
+   - a & b
+   - a | b
+   - a ^ b
+   - a >> b
+   - a << b
+   - ~a
+
+## Control Flow
+
+TODO: Define control flow
