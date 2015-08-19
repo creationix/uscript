@@ -1,1 +1,0 @@
-../src/uscript.cpp
