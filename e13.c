@@ -21,6 +21,7 @@ typedef enum {
 const char* names[] = {
   "INT32", "INT64",
   "POP", "DUP",
+  "ADD", "SUB", "MUL", "DIV", "MOD", "NEG",
   "IST", "ISF", "JMP",
   "COPY", "RADD", "RSUB", "RMUL", "RDIV", "RMOD", "RNEG",
   "INCR", "DECR",
@@ -28,6 +29,7 @@ const char* names[] = {
   "DUMP",
   NULL
 };
+
 
 // Macro to make 16-bit constants as bytes
 #define Int16(val) ((uint16_t)(val) & 0xff), ((uint16_t)(val) >> 8)
