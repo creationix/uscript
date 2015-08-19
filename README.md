@@ -71,3 +71,28 @@ The editor will be able to query the hub about connected robots as well as
 control the robots.  It can send down commands to run and get the result.
 Also it can write to the robots's filesystem to save persistent code.  We may
 add other commands like getting free heap or to restart the device/vm.
+
+# Programming Language
+
+μScript will have it's own simple programming language.  This will be the
+assembly that runs on the robots.  It is low-level enough to be implemented as
+an interpreter on 8-bit AVR (Arduino) chips with only 2kb of ram, but high-level
+enough that kids can write it using a graphical block system in the editor.
+
+The main goal of the language is to control GPIO pins and respond to inputs.
+
+The language will have a portable byte-code that is extremely compact.  
+
+## Registers
+
+The VM has a sliding window of registers.  In any particular function invocation
+the window will be able to see 16 slots in the stack as registers 0-15.  This
+window will slide during function calls so that subroutines don't clobber state
+of their callers.
+
+Also each VM will have 16 global slots where other robots can read and write
+values.
+
+## Opcodes
+
+TODO: define opcodes
