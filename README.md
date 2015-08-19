@@ -72,6 +72,9 @@ control the robots.  It can send down commands to run and get the result.
 Also it can write to the robots's filesystem to save persistent code.  We may
 add other commands like getting free heap or to restart the device/vm.
 
+Robots can also log values and messages that will appear in the UI of any
+connected editors.  They may also query the editor to prompt for values.
+
 # Programming Language
 
 μScript will have it's own simple programming language.  This will be the
@@ -96,26 +99,34 @@ values.
 ## Values
 
 The μScript language will have a few basic value types that can be stored on the
-stack.  For now there are just two types, but more may be added later.
+stack.  All slots initialize to false.  In conditions, only false is falsy.
+
+ - Boolean - true or false
 
  - Integer - This is a 32-bit signed integer.
 
- - Data - This is a resizable and mutable array of 8-bit bytes.  It can be used
-   to store strings or app data.  Duplicated copies of this value on the stack
-   will share the same backing store.  The memory released when the window
+ - Data - This is a fixed-length but mutable array of 8-bit bytes.  It can be
+   used to store strings or app data.  Duplicated copies of this value on the
+   stack will share the same backing store.  The memory released when the window
    slides above the top copy.
+
+ - Tuple - A tuple is a fixed-length list of values.  Values in a tuple cannot
+   be replaced.  This means cycles are not possible.
 
 ## Expression Trees
 
 Expressions in μScript can be rich expression trees.  This keeps the core
 opcodes simple yet powerful.
 
- - get(n) - Read stack slot
- - set(n, v) - Write stack slot
+ - x - Read stack slot
+ - x = v - Write stack slot
  - check(n) - Read network slot
  - send(a, n, v) - Network write slot
- - write(pin, value) - Write to GPIO pin
- - read(pin) - Read from GPIO pin
+ - pm(pin, mode) - Set pin mode
+ - dw(pin, value) - Write digital value to GPIO pin
+ - dr(pin) - Read digital value from GPIO pin
+ - aw(pin, value) - Write analog (pwm) value to GPIO pin
+ - ar(pin) - Read analog value from GPIO pin
  - Arithmetic: integer input(s), integer outputs.
    - a + b
    - a - b
@@ -123,7 +134,7 @@ opcodes simple yet powerful.
    - a / b
    - a % b
    - -a
- - Comparisons: output is 1 for true, 0 for false.
+ - Comparisons: output is boolean.
    - a > b
    - a < b
    - a >= b
@@ -143,7 +154,35 @@ opcodes simple yet powerful.
    - a >> b
    - a << b
    - ~a
-
-## Control Flow
-
-TODO: Define control flow
+ - Control-flow
+   - IF (expr) val ELIF (expr) val ELSE val
+   - MATCH (expr) WITH (expr) val ELSE val
+   - WHILE (expr) val
+   - DO val* END
+ - Stub Manipulation
+   - list() - return list of names
+   - save(name, bytecode) - save byte-code to persistent storage.
+   - load(name) - return stub as byte-code
+   - del(name) - delete saved stub
+   - format() - delete all stubs
+   - eval(bytecode) - Eval byte-code
+   - run(name) - run directly from storage
+ - Function def and calls
+   - def(name, nargs, body)
+   - call(name, nargs, args*)
+ - Editor I/O
+   - log(value)
+   - prompt(value)
+ - Buffer Manipulation
+   - a .. b (concat two values)
+   - a * b (repeat buffer a for b times)
+   - slice(a, start, end) - make a sub-buffer sharing data
+   - sub(a, start, end) - copy sub buffer to new space
+   - len(a) - return length of buffer
+   - a[b] - read index in buffer
+   - a[b] = v - write value to buffer at index
+ - Tuple Manipulation
+   - pack(start, end) - create tuple from register slots
+   - unpack(val, start, end) - Fast unpack to register slots
+   - len(a) - return length of tuple
+   - a[b] - read index in tuple
