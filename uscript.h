@@ -4,14 +4,14 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-// These defines control the capability and size of execution threads (coroutines)
+// These defines control the capability and size of coroutines
 #define MAX_INSTRUCTIONS 8 // Max instruction depth per thread
 #define MAX_VALUES 8       // Max value depth per thread
 #define MAX_CALLS 8        // Max call stack per thread
 
 // These define the capability and size of VM states.
 #define MAX_DEFS 32
-#define MAX_THREADS 8
+#define MAX_COROUTINES 8
 
 typedef enum {
   EMPTY = 128, // internal opcode for consuming arguments.
@@ -44,7 +44,7 @@ typedef enum {
   DEF, // (id, nargs) {body} define an expression
   CALL, // (id, args...) run expression at target address and pass through value.
   TCALL, // (id, args...) run expression at target and return value.
-} instruction;
+} instruction_t;
 
 typedef struct {
   uint8_t istack[MAX_INSTRUCTIONS]; // Stack of instructions
@@ -54,24 +54,24 @@ typedef struct {
   uint8_t* rstack[MAX_CALLS]; // Stack of program counters for call stack
   uint8_t** r; // pointer to current top of return stack
   uint8_t* pc; // pointer to current program counter
-  struct state_s* state;
-} thread_t;
+  unsigned long again; // startup again after millis() is >= again. (0 disables)
+  uint8_t* cond; // startup again after condition is true. (0 disables)
+} coroutine_t;
 
 typedef struct {
   int len;
   int nargs;
-  struct state_s* state;
   uint8_t* code[];
 } def_t;
 
-struct state_s {
-  thread_t threads[MAX_THREADS];
+typedef struct {
+  coroutine_t coroutines[MAX_COROUTINES];
   def_t defs[MAX_DEFS];
-};
-typedef struct state_s state_t;
+} state_t;
 
-bool skip(thread_t* T);
-bool fetch(thread_t* T);
-bool step(thread_t* T);
+bool skip(state_t* S, coroutine_t* T);
+bool fetch(state_t* S, coroutine_t* T);
+bool step(state_t* S, coroutine_t* T);
+bool loop(state_t* S);
 
 #endif
