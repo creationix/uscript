@@ -52,6 +52,7 @@ bool fetch(state_t* S, coroutine_t* T) {
   printf("%s\n", names[*T->pc - 128]);
   switch((instruction_t)*T->pc) {
     case ADD: case SUB: case MUL: case DIV: case MOD: case XOR:
+    case GT: case LT: case GTE: case LTE: case EQ: case NEQ:
       *(T->i)++ = *T->pc++;
       *(T->i)++ = EMPTY;
       *(T->i)++ = EMPTY;
@@ -126,6 +127,12 @@ bool step(state_t* S, coroutine_t* T) {
     case MUL: T->v--; *(T->v - 1) *= *T->v; break;
     case DIV: T->v--; *(T->v - 1) /= *T->v; break;
     case MOD: T->v--; *(T->v - 1) %= *T->v; break;
+    case GT:  T->v--; *(T->v - 1) =  *(T->v - 1) > *T->v; break;
+    case LT:  T->v--; *(T->v - 1) =  *(T->v - 1) < *T->v; break;
+    case GTE:  T->v--; *(T->v - 1) =  *(T->v - 1) >= *T->v; break;
+    case LTE:  T->v--; *(T->v - 1) =  *(T->v - 1) <= *T->v; break;
+    case EQ:  T->v--; *(T->v - 1) =  *(T->v - 1) == *T->v; break;
+    case NEQ:  T->v--; *(T->v - 1) =  *(T->v - 1) != *T->v; break;
     default:
       printf("TODO: Implement step for %s\n", names[T->i[0] - 128]);
       T->pc = 0;
