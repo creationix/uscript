@@ -18,6 +18,7 @@ const char* names[] = {
   "AND", // (val, val) logical AND with value preservation and short-circuit
   "OR",  // (val, val) logical OR with value preservation and short-circuit
   "XOR", // (val, val) logic XOR with value preservation
+  "NEG", // (val) negate a value
   "ADD", // (val, val) Add two values
   "SUB", // (val, val) subtract two values
   "MUL", // (val, val) multiple two values
@@ -50,9 +51,13 @@ bool fetch(state_t* S, coroutine_t* T) {
   }
   printf("%s\n", names[*T->pc - 128]);
   switch((instruction_t)*T->pc) {
-    case ADD: case SUB: case MUL: case DIV: case MOD:
+    case ADD: case SUB: case MUL: case DIV: case MOD: case XOR:
       *(T->i)++ = *T->pc++;
       *(T->i)++ = EMPTY;
+      *(T->i)++ = EMPTY;
+      return true;
+    case NEG: case NOT: case AND: case OR:
+      *(T->i)++ = *T->pc++;
       *(T->i)++ = EMPTY;
       return true;
     case DELAY:
@@ -98,6 +103,24 @@ bool step(state_t* S, coroutine_t* T) {
       T->again = millis() + delay;
       return false;
     }
+    case NOT: *(T->v - 1) = ! *(T->v - 1); break;
+    case AND:
+      // If first value is truthy, drop it and capture second value.
+      if (*(T->v - 1)) { --T->v; return fetch(S, T); }
+      // Otherwise keep false and skip second value.
+      return skip(S, T);
+    case OR:
+      // If the first value was truthy, keep it and skip second value.
+      if (*(T->v - 1)) return skip(S, T);
+      // Otherwise, throw away first value and capture second.
+      --T->v; return fetch(S, T);
+    case XOR:
+      T->v--;
+      *(T->v - 1) = *(T->v - 1) ?
+        (*T->v ? 0 : *(T->v - 1)) :
+        (*T->v ? *T->v : 0);
+      break;
+    case NEG: *(T->v - 1) = - *(T->v - 1); break;
     case ADD: T->v--; *(T->v - 1) += *T->v; break;
     case SUB: T->v--; *(T->v - 1) -= *T->v; break;
     case MUL: T->v--; *(T->v - 1) *= *T->v; break;

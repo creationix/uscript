@@ -30,6 +30,7 @@ typedef enum {
   AND, // (val, val) logical AND with value preservation and short-circuit
   OR,  // (val, val) logical OR with value preservation and short-circuit
   XOR, // (val, val) logic XOR with value preservation
+  NEG, // (val) negate a value
   ADD, // (val, val) Add two values
   SUB, // (val, val) subtract two values
   MUL, // (val, val) multiple two values
