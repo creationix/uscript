@@ -18,8 +18,9 @@ typedef enum {
   DO, DOING, END, // Run all expressions inside returning last value.
   RETURN, // (value) return early from DO..END with value.
   YIELD, // Pauses the current thread, putting it at the end of the event queue.
+  WHILE, // (cond) {body} repeatedly run body while condition is true.
+  WAIT, // (cond) repeatedly run condition till it's true.
   DELAY, // (ms) Pause, but don't resume till after delay timeout.
-  WAIT, // (cond) Repeatedly yield, and only resume when expression is true.
   PM,  // (pin, mode) Set Pin Mode
   DW,  // (pin, value) Digital write to pin
   DR,  // (pin) Digital read from pin
@@ -48,14 +49,13 @@ typedef enum {
 
 typedef struct {
   uint8_t istack[MAX_INSTRUCTIONS]; // Stack of instructions
-  uint8_t* i; // pointer to current top of instruction stack
+  uint8_t* i; // pointer to current top of instruction stack (empty slot)
   int32_t vstack[MAX_VALUES]; // Stack of values
-  int32_t* v; // pointer to current top of value stack
+  int32_t* v; // pointer to current top of value stack (empty slot)
   uint8_t* rstack[MAX_CALLS]; // Stack of program counters for call stack
-  uint8_t** r; // pointer to current top of return stack
-  uint8_t* pc; // pointer to current program counter
+  uint8_t** r; // pointer to current top of return stack (empty slot)
+  uint8_t* pc; // pointer to current program counter (next instruction)
   unsigned long again; // startup again after millis() is >= again. (0 disables)
-  uint8_t* cond; // startup again after condition is true. (0 disables)
 } coroutine_t;
 
 typedef struct {
@@ -73,5 +73,5 @@ bool skip(state_t* S, coroutine_t* T);
 bool fetch(state_t* S, coroutine_t* T);
 bool step(state_t* S, coroutine_t* T);
 bool loop(state_t* S);
-
+bool coroutine_create(state_t* S, uint8_t* pc);
 #endif
