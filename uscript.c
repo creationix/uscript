@@ -6,9 +6,9 @@ const char* names[] = {
   "DO", "DOING", "END", // Run all expressions inside returning last value.
   "RETURN", // (value) return early from DO..END with value.
   "YIELD", // Pauses the current thread, putting it at the end of the event queue.
+  "DELAY", // (ms) Pause, but don't resume till after delay timeout.
   "WHILE", // (cond) {body} repeatedly run body while condition is true.
   "WAIT", // (cond) repeatedly run condition till it's true.
-  "DELAY", // (ms) Pause, but don't resume till after delay timeout.
   "PM",  // (pin, mode) Set Pin Mode
   "DW",  // (pin, value) Digital write to pin
   "DR",  // (pin) Digital read from pin
@@ -55,9 +55,15 @@ bool fetch(state_t* S, coroutine_t* T) {
       *(T->i)++ = EMPTY;
       *(T->i)++ = EMPTY;
       return true;
-    case YIELD:
+    case DELAY:
+      T->i++;
       T->pc++;
+      *(T->i)++ = DELAY;
       *(T->i)++ = EMPTY;
+      return true;
+    case YIELD:
+      T->i++;
+      T->pc++;
       return false;
     default:
       printf("TODO: Implement fetch for %s\n", names[T->i[0] - 128]);
@@ -87,6 +93,11 @@ bool step(state_t* S, coroutine_t* T) {
   }
   switch((instruction_t)*--T->i) {
     case EMPTY: return fetch(S, T);
+    case DELAY: {
+      int delay = *--T->v;
+      T->again = millis() + delay;
+      return false;
+    }
     case ADD: T->v--; *(T->v - 1) += *T->v; break;
     case SUB: T->v--; *(T->v - 1) -= *T->v; break;
     case MUL: T->v--; *(T->v - 1) *= *T->v; break;
@@ -111,7 +122,10 @@ bool loop(state_t* S) {
     if (!T->pc) continue;
 
     // Skip coroutines that are waiting for a delay
-    if (T->again > now) continue;
+    if (T->again > now) {
+      more = true;
+      continue;
+    }
 
     // Run till stop
     printf("Running %p\n", T);

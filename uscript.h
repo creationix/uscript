@@ -18,9 +18,9 @@ typedef enum {
   DO, DOING, END, // Run all expressions inside returning last value.
   RETURN, // (value) return early from DO..END with value.
   YIELD, // Pauses the current thread, putting it at the end of the event queue.
+  DELAY, // (ms) Pause, but don't resume till after delay timeout.
   WHILE, // (cond) {body} repeatedly run body while condition is true.
   WAIT, // (cond) repeatedly run condition till it's true.
-  DELAY, // (ms) Pause, but don't resume till after delay timeout.
   PM,  // (pin, mode) Set Pin Mode
   DW,  // (pin, value) Digital write to pin
   DR,  // (pin) Digital read from pin
