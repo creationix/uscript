@@ -1,3 +1,5 @@
+#include <stdio.h>
+
 #ifdef __MACH__
   #include <mach/mach_time.h>
   unsigned long millis() {
@@ -18,3 +20,22 @@
     return tp.tv_sec * 1000 + tp.tv_nsec / 1000000;
   }
 #endif
+
+
+void pinMode(uint8_t pin, uint8_t mode) {
+  printf("pinMode(%d, %d)\n", pin, mode);
+}
+void digitalWrite(uint8_t pin, uint8_t value) {
+  printf("digitalWrite(%d, %d)\n", pin, value);
+}
+int digitalRead(uint8_t pin) {
+  printf("digitalRead(%d)\n", pin);
+  return 0;
+}
+int analogRead(uint8_t pin) {
+  printf("analogRead(%d)\n", pin);
+  return 0;
+}
+void analogWrite(uint8_t pin, int value) {
+  printf("analogWrite(%d, %d)\n", pin, value);
+}

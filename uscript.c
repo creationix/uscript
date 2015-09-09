@@ -1,4 +1,10 @@
 #include "uscript.h"
+#ifdef ARDUINO
+  #include "Arduino.h"
+#else
+  #include "wiring-polyfill.c"
+#endif
+
 #include <stdio.h>
 
 const char* names[] = {
@@ -36,8 +42,6 @@ const char* names[] = {
   "TCALL", // (id, args...) run expression at target and return value.
 };
 
-extern unsigned long millis();
-
 bool skip(state_t* S, coroutine_t* T) {
   return false;
 }
@@ -53,11 +57,13 @@ bool fetch(state_t* S, coroutine_t* T) {
   switch((instruction_t)*T->pc) {
     case ADD: case SUB: case MUL: case DIV: case MOD: case XOR:
     case GT: case LT: case GTE: case LTE: case EQ: case NEQ:
+    case PM: case DW: case AW:
       *(T->i)++ = *T->pc++;
       *(T->i)++ = EMPTY;
       *(T->i)++ = EMPTY;
       return true;
     case NEG: case NOT: case AND: case OR:
+    case DR: case AR:
       *(T->i)++ = *T->pc++;
       *(T->i)++ = EMPTY;
       return true;
@@ -71,7 +77,13 @@ bool fetch(state_t* S, coroutine_t* T) {
       T->i++;
       T->pc++;
       return false;
-    default:
+    case EMPTY: case DOING: case THEN:
+      printf("Unexpected opcode in fetch %s\n", names[T->i[0] - 128]);
+      T->pc = 0;
+      return false;
+    case DO: case END: case RETURN: case WHILE: case WAIT:
+    case IF: case ELIF: case ELSE:
+    case DEF: case CALL: case TCALL:
       printf("TODO: Implement fetch for %s\n", names[T->i[0] - 128]);
       T->pc = 0;
       return false;
@@ -104,6 +116,22 @@ bool step(state_t* S, coroutine_t* T) {
       T->again = millis() + delay;
       return false;
     }
+    case PM:
+      T->v--;
+      pinMode(*(T->v - 1), *T->v);
+      *(T->v - 1) = *T->v;
+      break;
+    case DW:
+      T->v--;
+      digitalWrite(*(T->v - 1), *T->v);
+      *(T->v - 1) = *T->v;
+      break;
+    case DR: *(T->v - 1) = digitalRead(*(T->v - 1)); break;
+    case AW:
+      T->v--;
+      analogWrite(*(T->v - 1), *T->v);
+      break;
+    case AR: *(T->v - 1) = analogRead(*(T->v - 1)); break;
     case NOT: *(T->v - 1) = ! *(T->v - 1); break;
     case AND:
       // If first value is truthy, drop it and capture second value.
@@ -133,7 +161,10 @@ bool step(state_t* S, coroutine_t* T) {
     case LTE:  T->v--; *(T->v - 1) =  *(T->v - 1) <= *T->v; break;
     case EQ:  T->v--; *(T->v - 1) =  *(T->v - 1) == *T->v; break;
     case NEQ:  T->v--; *(T->v - 1) =  *(T->v - 1) != *T->v; break;
-    default:
+    case DO: case DOING: case END:
+    case RETURN: case YIELD: case WHILE: case WAIT:
+    case IF: case THEN: case ELIF: case ELSE:
+    case DEF: case CALL: case TCALL:
       printf("TODO: Implement step for %s\n", names[T->i[0] - 128]);
       T->pc = 0;
       return false;

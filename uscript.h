@@ -15,12 +15,12 @@
 
 typedef enum {
   EMPTY = 128, // internal opcode for consuming arguments.
-  DO, DOING, END, // Run all expressions inside returning last value.
-  RETURN, // (value) return early from DO..END with value.
+  DO, DOING, END, // *Run all expressions inside returning last value.
+  RETURN, // *(value) return early from DO..END with value.
   YIELD, // Pauses the current thread, putting it at the end of the event queue.
   DELAY, // (ms) Pause, but don't resume till after delay timeout.
-  WHILE, // (cond) {body} repeatedly run body while condition is true.
-  WAIT, // (cond) repeatedly run condition till it's true.
+  WHILE, // *(cond) {body} repeatedly run body while condition is true.
+  WAIT, // *(cond) repeatedly run condition till it's true.
   PM,  // (pin, mode) Set Pin Mode
   DW,  // (pin, value) Digital write to pin
   DR,  // (pin) Digital read from pin
@@ -42,7 +42,7 @@ typedef enum {
   LTE, // (val, val) less than or equal
   EQ,  // (val, val) equal
   NEQ, // (val, val) not equal
-  IF, THEN, ELIF, ELSE, // if (cond) {body} elif (cond) {body} else {body}
+  IF, THEN, ELIF, ELSE, // *if (cond) {body} elif (cond) {body} else {body}
   DEF, // (id, nargs) {body} define an expression
   CALL, // (id, args...) run expression at target address and pass through value.
   TCALL, // (id, args...) run expression at target and return value.
