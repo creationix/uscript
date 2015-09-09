@@ -42,40 +42,47 @@ const char* names[] = {
   "TCALL", // (id, args...) run expression at target and return value.
 };
 
+// Stack operations
+#define push(L, v) (*(++(L)) = (v))
+#define pop(L) (*((L)--))
+#define peek(L) (*(L))
+#define peek1(L) (*((L) + 1))
+
+#define shift(L) *((L)++)
+
 bool skip(state_t* S, coroutine_t* T) {
   return false;
 }
 
 bool fetch(state_t* S, coroutine_t* T) {
-  if (*T->pc < 128) {
-    printf("%d\n", *T->pc);
-    *T->v++ = *T->pc++;
+  if (peek(T->pc) < 128) {
+    printf("%d\n", peek(T->pc));
+    push(T->v, shift(T->pc));
     // TODO: handle numbers larger than 127
     return true;
   }
-  printf("%s\n", names[*T->pc - 128]);
-  switch((instruction_t)*T->pc) {
+  printf("%s\n", names[peek(T->pc) - 128]);
+  instruction_t op = shift(T->pc);
+  switch (op) {
     case ADD: case SUB: case MUL: case DIV: case MOD: case XOR:
     case GT: case LT: case GTE: case LTE: case EQ: case NEQ:
     case PM: case DW: case AW:
-      *(T->i)++ = *T->pc++;
-      *(T->i)++ = EMPTY;
-      *(T->i)++ = EMPTY;
+      push(T->i, op);
+      push(T->i, EMPTY);
+      push(T->i, EMPTY);
       return true;
     case NEG: case NOT: case AND: case OR:
     case DR: case AR:
-      *(T->i)++ = *T->pc++;
-      *(T->i)++ = EMPTY;
+      push(T->i, op);
+      push(T->i, EMPTY);
       return true;
     case DELAY:
-      T->i++;
-      T->pc++;
-      *(T->i)++ = DELAY;
-      *(T->i)++ = EMPTY;
+      T->i++; // un-consume empty instruction that fetched us
+      push(T->i, DELAY);
+      push(T->i, EMPTY);
       return true;
     case YIELD:
-      T->i++;
-      T->pc++;
+      T->i++; // un-consume empty instruction that fetched us
       return false;
     case EMPTY: case DOING: case THEN:
       printf("Unexpected opcode in fetch %s\n", names[T->i[0] - 128]);
@@ -92,75 +99,87 @@ bool fetch(state_t* S, coroutine_t* T) {
 }
 
 bool step(state_t* S, coroutine_t* T) {
-  printf("iStack:");
+  printf("iStack(");
   uint8_t* i;
-  for (i = T->istack; i < T->i; i++) {
+  for (i = T->istack; i <= T->i; i++) {
     printf(" %s", names[*i - 128]);
   }
-  printf("\nvStack:");
+  printf(" ) vStack(");
   int32_t* v;
-  for (v = T->vstack; v < T->v; v++) {
+  for (v = T->vstack; v <= T->v; v++) {
     printf(" %d", *v);
   }
-  printf("\n");
+  printf(" )\n");
 
   // When the instruction stack runs out, we're done with this coroutine.
-  if (T->i <= T->istack) {
+  if (T->i < T->istack) {
     T->pc = 0;
     return false;
   }
-  switch((instruction_t)*--T->i) {
+  instruction_t op = pop(T->i);
+  switch(op) {
     case EMPTY: return fetch(S, T);
     case DELAY: {
-      int delay = *--T->v;
-      T->again = millis() + delay;
+      T->again = millis() + pop(T->v);
       return false;
     }
-    case PM:
-      T->v--;
-      pinMode(*(T->v - 1), *T->v);
-      *(T->v - 1) = *T->v;
+    case PM: {
+      int32_t mode = pop(T->v);
+      pinMode(peek(T->v), mode);
+      peek(T->v) = mode;
       break;
-    case DW:
-      T->v--;
-      digitalWrite(*(T->v - 1), *T->v);
-      *(T->v - 1) = *T->v;
+    }
+    case DW: {
+      int32_t value = pop(T->v);
+      digitalWrite(peek(T->v), value);
+      peek(T->v) = value;
       break;
-    case DR: *(T->v - 1) = digitalRead(*(T->v - 1)); break;
-    case AW:
-      T->v--;
-      analogWrite(*(T->v - 1), *T->v);
+    }
+    case DR:
+      peek(T->v) = digitalRead(peek(T->v));
       break;
-    case AR: *(T->v - 1) = analogRead(*(T->v - 1)); break;
-    case NOT: *(T->v - 1) = ! *(T->v - 1); break;
+    case AW: {
+      int32_t value = pop(T->v);
+      analogWrite(peek(T->v), value);
+      peek(T->v) = value;
+      break;
+    }
+    case AR:
+      peek(T->v) =  analogRead(peek(T->v));
+      break;
+    case NOT: peek(T->v) = !peek(T->v); break;
     case AND:
       // If first value is truthy, drop it and capture second value.
-      if (*(T->v - 1)) { --T->v; return fetch(S, T); }
+      if (peek(T->v)) {
+        pop(T->v);
+        return fetch(S, T);
+      }
       // Otherwise keep false and skip second value.
       return skip(S, T);
     case OR:
       // If the first value was truthy, keep it and skip second value.
-      if (*(T->v - 1)) return skip(S, T);
+      if (peek(T->v)) return skip(S, T);
       // Otherwise, throw away first value and capture second.
-      --T->v; return fetch(S, T);
-    case XOR:
-      T->v--;
-      *(T->v - 1) = *(T->v - 1) ?
-        (*T->v ? 0 : *(T->v - 1)) :
-        (*T->v ? *T->v : 0);
+      pop(T->v);
+      return fetch(S, T);
+    case XOR: {
+      int32_t b = pop(T->v),
+              a = peek(T->v);
+      peek(T->v) = a ? (b ? 0 : a) : (b ? b : 0);
       break;
-    case NEG: *(T->v - 1) = - *(T->v - 1); break;
-    case ADD: T->v--; *(T->v - 1) += *T->v; break;
-    case SUB: T->v--; *(T->v - 1) -= *T->v; break;
-    case MUL: T->v--; *(T->v - 1) *= *T->v; break;
-    case DIV: T->v--; *(T->v - 1) /= *T->v; break;
-    case MOD: T->v--; *(T->v - 1) %= *T->v; break;
-    case GT:  T->v--; *(T->v - 1) =  *(T->v - 1) > *T->v; break;
-    case LT:  T->v--; *(T->v - 1) =  *(T->v - 1) < *T->v; break;
-    case GTE:  T->v--; *(T->v - 1) =  *(T->v - 1) >= *T->v; break;
-    case LTE:  T->v--; *(T->v - 1) =  *(T->v - 1) <= *T->v; break;
-    case EQ:  T->v--; *(T->v - 1) =  *(T->v - 1) == *T->v; break;
-    case NEQ:  T->v--; *(T->v - 1) =  *(T->v - 1) != *T->v; break;
+    }
+    case NEG: peek(T->v) = -peek(T->v); break;
+    case ADD: pop(T->v); peek(T->v) += peek1(T->v); break;
+    case SUB: pop(T->v); peek(T->v) -= peek1(T->v); break;
+    case MUL: pop(T->v); peek(T->v) *= peek1(T->v); break;
+    case DIV: pop(T->v); peek(T->v) /= peek1(T->v); break;
+    case MOD: pop(T->v); peek(T->v) %= peek1(T->v); break;
+    case GT:  pop(T->v); peek(T->v) = peek(T->v) > peek1(T->v); break;
+    case LT:  pop(T->v); peek(T->v) = peek(T->v) < peek1(T->v); break;
+    case GTE: pop(T->v); peek(T->v) = peek(T->v) >= peek1(T->v); break;
+    case LTE: pop(T->v); peek(T->v) = peek(T->v) <= peek1(T->v); break;
+    case EQ:  pop(T->v); peek(T->v) = peek(T->v) == peek1(T->v); break;
+    case NEQ: pop(T->v); peek(T->v) = peek(T->v) != peek1(T->v); break;
     case DO: case DOING: case END:
     case RETURN: case YIELD: case WHILE: case WAIT:
     case IF: case THEN: case ELIF: case ELSE:
@@ -203,9 +222,10 @@ bool coroutine_create(state_t* S, uint8_t* pc) {
     if (i >= MAX_COROUTINES) return false;
   }
   S->coroutines[i].istack[0] = EMPTY;
-  S->coroutines[i].i = S->coroutines[i].istack + 1;
-  S->coroutines[i].v = S->coroutines[i].vstack;
-  S->coroutines[i].r = S->coroutines[i].rstack;
+  // i points to first item, the empty.
+  S->coroutines[i].i = S->coroutines[i].istack;
+  // v points to space above stack since it's empty.
+  S->coroutines[i].v = S->coroutines[i].vstack - 1;
   S->coroutines[i].pc = pc;
   S->coroutines[i].again = 0;
   return true;

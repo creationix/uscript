@@ -7,7 +7,6 @@
 // These defines control the capability and size of coroutines
 #define MAX_INSTRUCTIONS 8 // Max instruction depth per thread
 #define MAX_VALUES 8       // Max value depth per thread
-#define MAX_CALLS 8        // Max call stack per thread
 
 // These define the capability and size of VM states.
 #define MAX_DEFS 32
@@ -50,11 +49,9 @@ typedef enum {
 
 typedef struct {
   uint8_t istack[MAX_INSTRUCTIONS]; // Stack of instructions
-  uint8_t* i; // pointer to current top of instruction stack (empty slot)
+  uint8_t* i; // pointer to current top of instruction stack
   int32_t vstack[MAX_VALUES]; // Stack of values
-  int32_t* v; // pointer to current top of value stack (empty slot)
-  uint8_t* rstack[MAX_CALLS]; // Stack of program counters for call stack
-  uint8_t** r; // pointer to current top of return stack (empty slot)
+  int32_t* v; // pointer to current top of value stack
   uint8_t* pc; // pointer to current program counter (next instruction)
   unsigned long again; // startup again after millis() is >= again. (0 disables)
 } coroutine_t;
