@@ -51,18 +51,62 @@ const char* names[] = {
 #define shift(L) *((L)++)
 
 bool skip(state_t* S, coroutine_t* T) {
-  return false;
+  if (peek(T->pc) < 128) {
+    shift(T->pc);
+    // TODO: handle numbers larger than 127
+    return true;
+  }
+  instruction_t op = shift(T->pc);
+  switch (op) {
+    case ADD: case SUB: case MUL: case DIV: case MOD: case XOR:
+    case GT: case LT: case GTE: case LTE: case EQ: case NEQ:
+    case AND: case OR:
+    case PM: case DW: case AW:
+      return skip(S, T) && skip(S, T);
+    case NEG: case NOT:
+    case DR: case AR:
+      return skip(S, T);
+    case IF:
+      // Skip condition and body
+      if (!(skip(S, T) && skip(S, T))) return false;
+
+      // Skip any ELIF blocks, if any.
+      while (peek(T->pc) == ELIF) {
+        shift(T->pc);
+        if (!(skip(S, T) && skip(S, T))) return false;
+      }
+
+      // Skip ELSE block if there is one.
+      if (peek(T->pc) == ELSE) {
+        shift(T->pc);
+        if (!skip(S, T)) return false;
+      }
+    break;
+
+    case EMPTY: case DOING: case THEN: case ELIF: case ELSE:
+      printf("Unexpected opcode in skip %s\n", names[op - 128]);
+      T->pc = 0;
+      return false;
+    case DO: case END: case RETURN: case YIELD: case DELAY:
+    case WHILE: case WAIT:
+    case DEF: case CALL: case TCALL:
+      printf("TODO: Implement skip for %s\n", names[op - 128]);
+      T->pc = 0;
+      return false;
+  }
+  return true;
 }
 
 bool fetch(state_t* S, coroutine_t* T) {
   if (peek(T->pc) < 128) {
-    printf("%d\n", peek(T->pc));
-    push(T->v, shift(T->pc));
+    int32_t value = shift(T->pc);
     // TODO: handle numbers larger than 127
+    printf("%d\n", value);
+    push(T->v, value);
     return true;
   }
-  printf("%s\n", names[peek(T->pc) - 128]);
   instruction_t op = shift(T->pc);
+  printf("%s\n", names[op - 128]);
   switch (op) {
     case ADD: case SUB: case MUL: case DIV: case MOD: case XOR:
     case GT: case LT: case GTE: case LTE: case EQ: case NEQ:
@@ -71,7 +115,7 @@ bool fetch(state_t* S, coroutine_t* T) {
       push(T->i, EMPTY);
       push(T->i, EMPTY);
       return true;
-    case NEG: case NOT: case AND: case OR:
+    case NEG: case NOT: case AND: case OR: case IF:
     case DR: case AR:
       push(T->i, op);
       push(T->i, EMPTY);
@@ -84,14 +128,13 @@ bool fetch(state_t* S, coroutine_t* T) {
     case YIELD:
       T->i++; // un-consume empty instruction that fetched us
       return false;
-    case EMPTY: case DOING: case THEN:
-      printf("Unexpected opcode in fetch %s\n", names[T->i[0] - 128]);
+    case EMPTY: case DOING: case THEN: case ELIF: case ELSE:
+      printf("Unexpected opcode in fetch %s\n", names[op - 128]);
       T->pc = 0;
       return false;
     case DO: case END: case RETURN: case WHILE: case WAIT:
-    case IF: case ELIF: case ELSE:
     case DEF: case CALL: case TCALL:
-      printf("TODO: Implement fetch for %s\n", names[T->i[0] - 128]);
+      printf("TODO: Implement fetch for %s\n", names[op - 128]);
       T->pc = 0;
       return false;
   }
@@ -180,11 +223,50 @@ bool step(state_t* S, coroutine_t* T) {
     case LTE: pop(T->v); peek(T->v) = peek(T->v) <= peek1(T->v); break;
     case EQ:  pop(T->v); peek(T->v) = peek(T->v) == peek1(T->v); break;
     case NEQ: pop(T->v); peek(T->v) = peek(T->v) != peek1(T->v); break;
+    case IF:
+      // When condition is true, setup Then and capture value
+      if (pop(T->v)) {
+        push(T->i, THEN);
+        return fetch(S, T);
+      }
+      // Otherwise, skip the body.
+      if (!skip(S, T)) return false;
+
+      // If there is an ELIF, transform it to an IF and start over.
+      if (peek(T->pc) == ELIF) {
+        shift(T->pc);
+        push(T->i, IF);
+        return fetch(S, T);
+      }
+
+      // If there is an ELSE, start next fetch to capture it.
+      if (peek(T->pc) == ELSE) {
+        shift(T->pc);
+        return fetch(S, T);
+      }
+
+      // If nothing matched, push false
+      printf("push 0\n");
+      push(T->v, 0);
+      break;
+    case THEN:
+      // Skip any ELIF blocks, if any.
+      while (peek(T->pc) == ELIF) {
+        shift(T->pc);
+        if (!(skip(S, T) && skip(S, T))) return false;
+      }
+
+      // Skip ELSE block if there is one.
+      if (peek(T->pc) == ELSE) {
+        shift(T->pc);
+        if (!skip(S, T)) return false;
+      }
+      break;
     case DO: case DOING: case END:
     case RETURN: case YIELD: case WHILE: case WAIT:
-    case IF: case THEN: case ELIF: case ELSE:
+    case ELIF: case ELSE:
     case DEF: case CALL: case TCALL:
-      printf("TODO: Implement step for %s\n", names[T->i[0] - 128]);
+      printf("TODO: Implement step for %s\n", names[op - 128]);
       T->pc = 0;
       return false;
   }

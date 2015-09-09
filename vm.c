@@ -16,8 +16,21 @@ int main() {
   // coroutine_create(&S, (uint8_t[]){
   //   XOR, 0, 0
   // });
+  // coroutine_create(&S, (uint8_t[]){
+  //   DW, 13, NOT, DR, 13
+  // });
   coroutine_create(&S, (uint8_t[]){
-    DW, 13, NOT, DR, 13
+    ADD,
+      OR,
+        1,
+        AND,
+          IF, 0, 10,
+           ELIF, 0, 20,
+           ELSE, 30,
+          IF, 1, 40,
+           ELIF, 0, 50,
+           ELSE, 60,
+      41
   });
   while (loop(&S));
   return 0;
