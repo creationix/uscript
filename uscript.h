@@ -46,6 +46,8 @@ typedef enum {
   LTE, // (val, val) less than or equal
   EQ,  // (val, val) equal
   NEQ, // (val, val) not equal
+  SRAND, // (seed) seed for PRNG
+  RAND, // (mod) modulus for random value
   IF, THEN, ELIF, ELSE, // if (cond) {body} elif (cond) {body} else {body}
   WHILE, // *(cond) {body} repeatedly run body while condition is true.
   WAIT, // *(cond) repeatedly run condition till it's true.

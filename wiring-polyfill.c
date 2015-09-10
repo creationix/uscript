@@ -2,6 +2,7 @@
 #include <sys/select.h>
 
 #ifdef __MACH__
+  // There is no clock_gettime on OSX, so we need to use the mach APIs
   #include <mach/mach_time.h>
   unsigned long millis() {
     uint64_t time = mach_absolute_time();

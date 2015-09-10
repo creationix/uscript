@@ -37,6 +37,8 @@ const char* names[] = {
   "LTE", // (val, val) less than or equal
   "EQ",  // (val, val) equal
   "NEQ", // (val, val) not equal
+  "SRAND", // (seed) seed for PRNG
+  "RAND", // (mod) modulus for random value
   "IF", "THEN", "ELIF", "ELSE", // if (cond) {body} elif (cond) {body} else {body}
   "WHILE", // (cond) {body} repeatedly run body while condition is true.
   "WAIT", // (cond) repeatedly run condition till it's true.
@@ -68,7 +70,7 @@ bool skip(state_t* S, coroutine_t* T) {
       return skip(S, T) && skip(S, T);
 
     // 1 argument
-    case NEG: case NOT: case DR: case AR: case DELAY:
+    case NEG: case NOT: case DR: case AR: case DELAY: case SRAND: case RAND:
       return skip(S, T);
 
     // 0 arguments
@@ -140,12 +142,8 @@ bool fetch(state_t* S, coroutine_t* T) {
       push(T->i, EMPTY);
       return true;
     case NEG: case NOT: case AND: case OR: case IF:
-    case DR: case AR:
+    case DR: case AR: case SRAND: case RAND: case DELAY:
       push(T->i, op);
-      push(T->i, EMPTY);
-      return true;
-    case DELAY:
-      push(T->i, DELAY);
       push(T->i, EMPTY);
       return true;
     case YIELD:
@@ -163,6 +161,9 @@ bool fetch(state_t* S, coroutine_t* T) {
   }
   return false;
 }
+
+static uint32_t deadbeef_seed;
+static uint32_t deadbeef_beef = 0xdeadbeef;
 
 bool step(state_t* S, coroutine_t* T) {
   #ifdef VERBOSE_VM
@@ -279,6 +280,16 @@ bool step(state_t* S, coroutine_t* T) {
     case LTE: pop(T->v); peek(T->v) = peek(T->v) <= peek1(T->v); break;
     case EQ:  pop(T->v); peek(T->v) = peek(T->v) == peek1(T->v); break;
     case NEQ: pop(T->v); peek(T->v) = peek(T->v) != peek1(T->v); break;
+    case SRAND:
+      deadbeef_seed = peek(T->v);
+      deadbeef_beef = 0xdeadbeef;
+      break;
+    case RAND:
+      // From http://inglorion.net/software/deadbeef_rand/
+      deadbeef_seed = (deadbeef_seed << 7) ^ ((deadbeef_seed >> 25) + deadbeef_beef);
+      deadbeef_beef = (deadbeef_beef << 7) ^ ((deadbeef_beef >> 25) + 0xdeadbeef);
+      peek(T->v) = deadbeef_seed % peek(T->v);
+      break;
     case IF:
       // When condition is true, setup Then and capture value
       if (pop(T->v)) {
