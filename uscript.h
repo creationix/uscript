@@ -5,12 +5,19 @@
 #include <stdbool.h>
 
 // These defines control the capability and size of coroutines
-#define MAX_INSTRUCTIONS 8 // Max instruction depth per thread
+#ifndef MAX_INSTRUCTIONS
+#define MAX_INSTRUCTIONS 32 // Max instruction depth per thread
+#endif
+#ifndef MAX_VALUES
 #define MAX_VALUES 8       // Max value depth per thread
-
+#endif
 // These define the capability and size of VM states.
+#ifndef MAX_DEFS
 #define MAX_DEFS 32
+#endif
+#ifndef MAX_COROUTINES
 #define MAX_COROUTINES 8
+#endif
 
 typedef enum {
   EMPTY = 128, // internal opcode for consuming arguments.
@@ -70,6 +77,6 @@ typedef struct {
 bool skip(state_t* S, coroutine_t* T);
 bool fetch(state_t* S, coroutine_t* T);
 bool step(state_t* S, coroutine_t* T);
-bool loop(state_t* S);
-bool coroutine_create(state_t* S, uint8_t* pc);
+coroutine_t* coroutine_create(state_t* S, uint8_t* pc);
+bool loop(state_t* S, unsigned long timeout);
 #endif

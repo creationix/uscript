@@ -4,6 +4,9 @@
 #else
   #include "wiring-polyfill.c"
 #endif
+#ifdef VERBOSE_VM
+#include <assert.h>
+#endif
 
 #include <stdio.h>
 
@@ -115,12 +118,16 @@ bool fetch(state_t* S, coroutine_t* T) {
   if (peek(T->pc) < 128) {
     int32_t value = shift(T->pc);
     // TODO: handle numbers larger than 127
+    #ifdef VERBOSE_VM
     printf("%d\n", value);
+    #endif
     push(T->v, value);
     return true;
   }
   instruction_t op = shift(T->pc);
+  #ifdef VERBOSE_VM
   printf("%s\n", names[op - 128]);
+  #endif
   switch (op) {
     case DO:
       push(T->i, op);
@@ -158,6 +165,9 @@ bool fetch(state_t* S, coroutine_t* T) {
 }
 
 bool step(state_t* S, coroutine_t* T) {
+  #ifdef VERBOSE_VM
+  assert(T->v < T->vstack + MAX_VALUES);
+  assert(T->i < T->istack + MAX_INSTRUCTIONS);
   printf("iStack(");
   uint8_t* i;
   for (i = T->istack; i <= T->i; i++) {
@@ -169,7 +179,7 @@ bool step(state_t* S, coroutine_t* T) {
     printf(" %d", *v);
   }
   printf(" )\n");
-
+  #endif
   // When the instruction stack runs out, we're done with this coroutine.
   if (T->i < T->istack) {
     T->pc = 0;
@@ -292,7 +302,6 @@ bool step(state_t* S, coroutine_t* T) {
       }
 
       // If nothing matched, push false
-      printf("push 0\n");
       push(T->v, 0);
       break;
     case THEN:
@@ -318,10 +327,47 @@ bool step(state_t* S, coroutine_t* T) {
   return true;
 }
 
-bool loop(state_t* S) {
+coroutine_t* coroutine_create(state_t* S, uint8_t* pc) {
+  int i;
+  for (i = 0; S->coroutines[i].pc; i++) {
+    if (i >= MAX_COROUTINES) return 0;
+  }
+  S->coroutines[i].istack[0] = EMPTY;
+  // i points to first item, the empty.
+  S->coroutines[i].i = S->coroutines[i].istack;
+  // v points to space above stack since it's empty.
+  S->coroutines[i].v = S->coroutines[i].vstack - 1;
+  S->coroutines[i].pc = pc;
+  S->coroutines[i].again = 0;
+  return S->coroutines + i;
+}
+
+bool loop(state_t* S, unsigned long timeout) {
   unsigned long now = millis();
   bool more = false;
+
+  // Calculate time to first live coroutine
   int i;
+  for (i = 0; i < MAX_COROUTINES; i++) {
+    coroutine_t* T = S->coroutines + i;
+    if (!T->pc) continue;
+    more = true;
+    if (!timeout || T->again <= now) {
+      timeout = 0;
+    }
+    else {
+      unsigned long delta = T->again - now;
+      timeout = timeout < delta ? timeout : delta;
+    }
+  }
+  if (!more) return false;
+
+  if (timeout) {
+    delay(timeout);
+    now = millis();
+  }
+
+  more = false;
   for (i = 0; i < MAX_COROUTINES; i++) {
     coroutine_t* T = S->coroutines + i;
 
@@ -335,25 +381,12 @@ bool loop(state_t* S) {
     }
 
     // Run till stop
-    printf("Running %p\n", T);
+    #ifdef VERBOSE_VM
+    printf("Running %td\n", T - S->coroutines);
+    #endif
     while (step(S, T));
 
     more = more || T->pc;
   }
   return more;
-}
-
-bool coroutine_create(state_t* S, uint8_t* pc) {
-  int i;
-  for (i = 0; S->coroutines[i].pc; i++) {
-    if (i >= MAX_COROUTINES) return false;
-  }
-  S->coroutines[i].istack[0] = EMPTY;
-  // i points to first item, the empty.
-  S->coroutines[i].i = S->coroutines[i].istack;
-  // v points to space above stack since it's empty.
-  S->coroutines[i].v = S->coroutines[i].vstack - 1;
-  S->coroutines[i].pc = pc;
-  S->coroutines[i].again = 0;
-  return true;
 }
