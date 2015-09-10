@@ -14,8 +14,8 @@
 
 typedef enum {
   EMPTY = 128, // internal opcode for consuming arguments.
-  DO, DOING, END, // *Run all expressions inside returning last value.
-  RETURN, // *(value) return early from DO..END with value.
+  DO, DOING, END, // Run all expressions inside returning last value.
+  RETURN, // (value) return early from DO..END with value.
   YIELD, // Pauses the current thread, putting it at the end of the event queue.
   DELAY, // (ms) Pause, but don't resume till after delay timeout.
   WHILE, // *(cond) {body} repeatedly run body while condition is true.

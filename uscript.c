@@ -96,12 +96,13 @@ bool skip(state_t* S, coroutine_t* T) {
       }
       return true;
 
-    case EMPTY: case DOING: case THEN: case ELIF: case ELSE: case END:
+    case EMPTY: case DOING: case RETURN: case END:
+    case THEN: case ELIF: case ELSE:
       printf("Unexpected opcode in skip %s\n", names[op - 128]);
       T->pc = 0;
       return false;
 
-    case RETURN: case WHILE: case WAIT:
+    case WHILE: case WAIT:
     case DEF: case CALL: case TCALL:
       printf("TODO: Implement skip for %s\n", names[op - 128]);
       T->pc = 0;
@@ -143,11 +144,11 @@ bool fetch(state_t* S, coroutine_t* T) {
     case YIELD:
       push(T->v, 0);
       return false;
-    case EMPTY: case DOING: case THEN: case ELIF: case ELSE:
+    case EMPTY: case DOING: case THEN: case ELIF: case ELSE: case RETURN:
       printf("Unexpected opcode in fetch %s\n", names[op - 128]);
       T->pc = 0;
       return false;
-    case END: case RETURN: case WHILE: case WAIT:
+    case END: case WHILE: case WAIT:
     case DEF: case CALL: case TCALL:
       printf("TODO: Implement fetch for %s\n", names[op - 128]);
       T->pc = 0;
@@ -178,12 +179,6 @@ bool step(state_t* S, coroutine_t* T) {
   switch(op) {
     case EMPTY: return fetch(S, T);
     case DO:
-      // If it was an empty do block, we're done.
-      if (peek(T->pc) == END) {
-        shift(T->pc);
-        push(T->v, 0);
-        break;
-      }
       // Transform to Doing and start new fetch.
       push(T->i, DOING);
       return fetch(S, T);
@@ -195,8 +190,24 @@ bool step(state_t* S, coroutine_t* T) {
       }
       // Otherwise preserve Doing and drop last value and start new fetch.
       pop(T->v);
+      if (peek(T->pc) == RETURN) {
+        push(T->i, shift(T->pc));
+        return fetch(S, T);
+      }
       T->i++; // un-consume doing instruction that fetched us
       return fetch(S, T);
+    case RETURN:
+      // Skip to end if we had a return.
+      while (peek(T->pc) != END) {
+        if (!skip(S, T)) return false;
+      }
+      shift(T->pc);
+      break;
+    if (peek(T->pc) == END) {
+      shift(T->pc);
+      push(T->v, 0);
+      break;
+    }
 
     case DELAY:
       T->again = millis() + peek(T->v);
@@ -297,7 +308,7 @@ bool step(state_t* S, coroutine_t* T) {
         if (!skip(S, T)) return false;
       }
       break;
-    case END: case RETURN: case WHILE: case WAIT: case YIELD:
+    case END: case WHILE: case WAIT: case YIELD:
     case ELIF: case ELSE:
     case DEF: case CALL: case TCALL:
       printf("TODO: Implement step for %s\n", names[op - 128]);

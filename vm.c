@@ -7,11 +7,16 @@ state_t S;
 int main() {
   printf("%td\n", sizeof(state_t));
   assert(sizeof(state_t) < 1500);
+  // coroutine_create(&S, (uint8_t[]){
+  //   MUL, ADD,  10, 2, DO, YIELD, ADD, 3, 4, END
+  // });
+  // coroutine_create(&S, (uint8_t[]){
+  //   ADD, ADD,  30, MUL, DO, YIELD, 2, END, 3, 4
+  // });
   coroutine_create(&S, (uint8_t[]){
-    MUL, ADD,  10, 2, DO, YIELD, ADD, 3, 4, END
-  });
-  coroutine_create(&S, (uint8_t[]){
-    ADD, ADD,  30, MUL, DO, YIELD, 2, END, 3, 4
+    ADD,
+      DO, 1, RETURN, 2, 3, END,
+      DO, 1, RETURN, 2, END,
   });
   // coroutine_create(&S, (uint8_t[]){
   //   XOR, 0, 0
