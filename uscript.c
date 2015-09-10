@@ -38,7 +38,7 @@ const char* names[] = {
   "EQ",  // (val, val) equal
   "NEQ", // (val, val) not equal
   "SRAND", // (seed) seed for PRNG
-  "RAND", // (mod) modulus for random value
+  "RAND", // (mod) generate new PRNG and modulus the output
   "IF", "THEN", "ELIF", "ELSE", // if (cond) {body} elif (cond) {body} else {body}
   "WHILE", // (cond) {body} repeatedly run body while condition is true.
   "WAIT", // (cond) repeatedly run condition till it's true.
@@ -71,6 +71,7 @@ bool skip(state_t* S, coroutine_t* T) {
 
     // 1 argument
     case NEG: case NOT: case DR: case AR: case DELAY: case SRAND: case RAND:
+    case WAIT:
       return skip(S, T);
 
     // 0 arguments
@@ -107,7 +108,7 @@ bool skip(state_t* S, coroutine_t* T) {
       T->pc = 0;
       return false;
 
-    case WHILE: case WAIT:
+    case WHILE:
     case DEF: case CALL: case TCALL:
       printf("TODO: Implement skip for %s\n", names[op - 128]);
       T->pc = 0;
@@ -149,11 +150,15 @@ bool fetch(state_t* S, coroutine_t* T) {
     case YIELD:
       push(T->v, 0);
       return false;
+    case WAIT:
+      push(T->i, WAIT);
+      push(T->r, T->pc);
+      return fetch(S, T);
     case EMPTY: case DOING: case THEN: case ELIF: case ELSE: case RETURN:
       printf("Unexpected opcode in fetch %s\n", names[op - 128]);
       T->pc = 0;
       return false;
-    case END: case WHILE: case WAIT:
+    case END: case WHILE:
     case DEF: case CALL: case TCALL:
       printf("TODO: Implement fetch for %s\n", names[op - 128]);
       T->pc = 0;
@@ -178,6 +183,11 @@ bool step(state_t* S, coroutine_t* T) {
   int32_t* v;
   for (v = T->vstack; v <= T->v; v++) {
     printf(" %d", *v);
+  }
+  printf(" ) rStack(");
+  uint8_t** r;
+  for (r = T->rstack; r <= T->r; r++) {
+    printf(" %p", *r);
   }
   printf(" )\n");
   #endif
@@ -328,7 +338,17 @@ bool step(state_t* S, coroutine_t* T) {
         if (!skip(S, T)) return false;
       }
       break;
-    case END: case WHILE: case WAIT: case YIELD:
+    case WAIT:
+      if (!peek(T->v)) {
+        pop(T->v);
+        T->pc = peek(T->r);
+        push(T->i, WAIT);
+        fetch(S, T);
+        return false;
+      }
+      pop(T->r);
+      break;
+    case END: case WHILE: case YIELD:
     case ELIF: case ELSE:
     case DEF: case CALL: case TCALL:
       printf("TODO: Implement step for %s\n", names[op - 128]);
@@ -348,6 +368,7 @@ coroutine_t* coroutine_create(state_t* S, uint8_t* pc) {
   S->coroutines[i].i = S->coroutines[i].istack;
   // v points to space above stack since it's empty.
   S->coroutines[i].v = S->coroutines[i].vstack - 1;
+  S->coroutines[i].r = S->coroutines[i].rstack - 1;
   S->coroutines[i].pc = pc;
   S->coroutines[i].again = 0;
   return S->coroutines + i;

@@ -11,6 +11,9 @@
 #ifndef MAX_VALUES
 #define MAX_VALUES 8       // Max value depth per thread
 #endif
+#ifndef MAX_RSTACK
+#define MAX_RSTACK 8
+#endif
 // These define the capability and size of VM states.
 #ifndef MAX_DEFS
 #define MAX_DEFS 32
@@ -47,7 +50,7 @@ typedef enum {
   EQ,  // (val, val) equal
   NEQ, // (val, val) not equal
   SRAND, // (seed) seed for PRNG
-  RAND, // (mod) modulus for random value
+  RAND, // (mod) generate new PRNG and modulus the output
   IF, THEN, ELIF, ELSE, // if (cond) {body} elif (cond) {body} else {body}
   WHILE, // *(cond) {body} repeatedly run body while condition is true.
   WAIT, // *(cond) repeatedly run condition till it's true.
@@ -58,9 +61,11 @@ typedef enum {
 
 typedef struct {
   uint8_t istack[MAX_INSTRUCTIONS]; // Stack of instructions
-  uint8_t* i; // pointer to current top of instruction stack
   int32_t vstack[MAX_VALUES]; // Stack of values
+  uint8_t* rstack[MAX_RSTACK]; // Stack of program counters
+  uint8_t* i; // pointer to current top of instruction stack
   int32_t* v; // pointer to current top of value stack
+  uint8_t** r; // pointer to current top of return stack
   uint8_t* pc; // pointer to current program counter (next instruction)
   unsigned long again; // startup again after millis() is >= again. (0 disables)
 } coroutine_t;
