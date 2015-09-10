@@ -58,14 +58,26 @@ bool skip(state_t* S, coroutine_t* T) {
   }
   instruction_t op = shift(T->pc);
   switch (op) {
+    // 2 arguments
     case ADD: case SUB: case MUL: case DIV: case MOD: case XOR:
     case GT: case LT: case GTE: case LTE: case EQ: case NEQ:
-    case AND: case OR:
-    case PM: case DW: case AW:
+    case AND: case OR: case PM: case DW: case AW:
       return skip(S, T) && skip(S, T);
-    case NEG: case NOT:
-    case DR: case AR:
+
+    // 1 argument
+    case NEG: case NOT: case DR: case AR: case DELAY:
       return skip(S, T);
+
+    // 0 arguments
+    case YIELD: return true;
+
+    case DO:
+      while (peek(T->pc) != END) {
+        if (!skip(S, T)) return false;
+      }
+      shift(T->pc);
+      return true;
+
     case IF:
       // Skip condition and body
       if (!(skip(S, T) && skip(S, T))) return false;
@@ -81,14 +93,14 @@ bool skip(state_t* S, coroutine_t* T) {
         shift(T->pc);
         if (!skip(S, T)) return false;
       }
-    break;
+      return true;
 
-    case EMPTY: case DOING: case THEN: case ELIF: case ELSE:
+    case EMPTY: case DOING: case THEN: case ELIF: case ELSE: case END:
       printf("Unexpected opcode in skip %s\n", names[op - 128]);
       T->pc = 0;
       return false;
-    case DO: case END: case RETURN: case YIELD: case DELAY:
-    case WHILE: case WAIT:
+
+    case RETURN: case WHILE: case WAIT:
     case DEF: case CALL: case TCALL:
       printf("TODO: Implement skip for %s\n", names[op - 128]);
       T->pc = 0;

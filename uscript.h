@@ -41,10 +41,10 @@ typedef enum {
   LTE, // (val, val) less than or equal
   EQ,  // (val, val) equal
   NEQ, // (val, val) not equal
-  IF, THEN, ELIF, ELSE, // *if (cond) {body} elif (cond) {body} else {body}
-  DEF, // (id, nargs) {body} define an expression
-  CALL, // (id, args...) run expression at target address and pass through value.
-  TCALL, // (id, args...) run expression at target and return value.
+  IF, THEN, ELIF, ELSE, // if (cond) {body} elif (cond) {body} else {body}
+  DEF, // *(id, nargs) {body} define an expression
+  CALL, // *(id, args...) run expression at target address and pass through value.
+  TCALL, // *(id, args...) run expression at target and return value.
 } instruction_t;
 
 typedef struct {
