@@ -140,13 +140,11 @@ bool fetch(state_t* S, coroutine_t* T) {
     case PM: case DW: case AW:
       push(T->i, op);
       push(T->i, EMPTY);
-      push(T->i, EMPTY);
-      return true;
+      return fetch(S, T);
     case NEG: case NOT: case AND: case OR: case IF:
     case DR: case AR: case SRAND: case RAND: case DELAY:
       push(T->i, op);
-      push(T->i, EMPTY);
-      return true;
+      return fetch(S, T);
     case YIELD:
       push(T->v, 0);
       return false;

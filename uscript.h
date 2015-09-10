@@ -53,7 +53,7 @@ typedef enum {
   RAND, // (mod) generate new PRNG and modulus the output
   IF, THEN, ELIF, ELSE, // if (cond) {body} elif (cond) {body} else {body}
   WHILE, // *(cond) {body} repeatedly run body while condition is true.
-  WAIT, // *(cond) repeatedly run condition till it's true.
+  WAIT, // (cond) repeatedly run condition till it's true.
   DEF, // *(id, nargs) {body} define an expression
   CALL, // *(id, args...) run expression at target address and pass through value.
   TCALL, // *(id, args...) run expression at target and return value.
