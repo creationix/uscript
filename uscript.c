@@ -120,6 +120,9 @@ bool fetch(state_t* S, coroutine_t* T) {
   instruction_t op = shift(T->pc);
   printf("%s\n", names[op - 128]);
   switch (op) {
+    case DO:
+      push(T->i, op);
+      return true;
     case ADD: case SUB: case MUL: case DIV: case MOD: case XOR:
     case GT: case LT: case GTE: case LTE: case EQ: case NEQ:
     case PM: case DW: case AW:
@@ -144,7 +147,7 @@ bool fetch(state_t* S, coroutine_t* T) {
       printf("Unexpected opcode in fetch %s\n", names[op - 128]);
       T->pc = 0;
       return false;
-    case DO: case END: case RETURN: case WHILE: case WAIT:
+    case END: case RETURN: case WHILE: case WAIT:
     case DEF: case CALL: case TCALL:
       printf("TODO: Implement fetch for %s\n", names[op - 128]);
       T->pc = 0;
@@ -174,6 +177,29 @@ bool step(state_t* S, coroutine_t* T) {
   instruction_t op = pop(T->i);
   switch(op) {
     case EMPTY: return fetch(S, T);
+    case DO:
+
+      // If it was an empty do block, we're done.
+      if (peek(T->pc) == END) {
+        shift(T->pc);
+        push(T->v, 0);
+        break;
+      }
+
+      // Transform to Doing and start new fetch.
+      push(T->i, DOING);
+      return fetch(S, T);
+    case DOING:
+      // If End if reached, let Doing drop and move on.
+      if (peek(T->pc) == END) {
+        shift(T->pc);
+        break;
+      }
+      // Otherwise preserve Doing and drop last value and start new fetch.
+      pop(T->v);
+      T->i++; // un-consume doing instruction that fetched us
+      return fetch(S, T);
+
     case DELAY: {
       T->again = millis() + pop(T->v);
       return false;
@@ -274,7 +300,7 @@ bool step(state_t* S, coroutine_t* T) {
         if (!skip(S, T)) return false;
       }
       break;
-    case DO: case DOING: case END:
+    case END:
     case RETURN: case YIELD: case WHILE: case WAIT:
     case ELIF: case ELSE:
     case DEF: case CALL: case TCALL:
