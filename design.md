@@ -1,8 +1,8 @@
 # Memory Layout
 
-Program Space: maximum of 2^28 8-bit bytes. (256Mb)
-Object Heap: maximum of 2^13-2 32-bit words. (about 32Kb)
-Buffer Heap: maximum of 2^28 at 32-bit alignment. (1Gb)
+- Program Space: maximum of 2^28 8-bit bytes. (256Mb)
+- Object Heap: maximum of 2^13-2 32-bit words. (about 32Kb)
+- Buffer Heap: maximum of 2^28 at 32-bit alignment. (1Gb)
 
 If we add a virtual memory mapper, flash can be used to reach the higher
 addressing limits on a microcontroller's small ram, but large flash.
@@ -274,91 +274,3 @@ For the `EACH` iterator, it stores (PC, tail)
 
 Since all modules share the same value stack for local variables, arguments are
 passed by convention by having them at the top of the stack.
-
-
-# Samples
-
-```js
-function main() {
-  var a = 4;
-  while (a < 9) {
-    a = a < 4 ? a + 1 :
-        a > 4 ? a - 1 :
-        rand(10);
-    update(a)
-    delay(1000)
-  }
-}
-
-function update(a) {
-  // TODO: Update display
-}
-```
-
-Translates to the following s-expression in the visual editor.
-
-```ujack
-(def (main)
-  (def a 4)
-  (while (< a 9)
-    (set a (? (< a 4) (+ a 1)
-           (? (> a 4) (- a 1)
-           (rand 10))))
-    (update a)
-    (delay 1000)
-  )
-)
-
-(def (update a))
-```
-
-Or the following text format:
-
-```
-main() {
-  let a = 4
-  while a < 9 {
-    a = a < 4 ? a + 1 :
-        a > 4 ? a - 1 :
-        rand(10)
-    update(a)
-    delay(1000)
-  }
-}
-
-update(a) { }
-```
-
-Which compiles to the following assembly:
-
-```jack-asm
-:0
-  VARS 1
-  SET 0 4
-  WHILE LT GET 0 9
-    SET 0
-      CHOOSE LT GET 0 4
-        ADD GET 0 1
-        CHOOSE GT GET 0 4
-          SUB GET 0 1
-          RAND 10
-    RUN :1
-    DELAY 1000
-  LOOP
-  FREE 1
-  DONE
-
-:1
-  DONE
-```
-
---------
-
-
-# Misc.
-
-16 named ports (external functions)
-
-79 opcodes
-
-32 GET opcodes?
