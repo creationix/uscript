@@ -223,6 +223,7 @@ expression trees in the interpreter.
 - UDELAY(us)
 - WAIT(condition)
 - YIELD
+- GC(compact)
 
 These all yield control to other threads till a condition is true.  
 
