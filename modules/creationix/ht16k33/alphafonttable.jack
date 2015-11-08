@@ -1,5 +1,5 @@
 -- Font for alphanumeric LED display.
-[
+export [
   0b00000000 0b00000001
   0b00000000 0b00000010
   0b00000000 0b00000100

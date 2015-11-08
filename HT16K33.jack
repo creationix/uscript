@@ -1,0 +1,39 @@
+-- This file is a driver for controlling HT16K33 ICs when connected to 4-digit
+-- alphanumeric displays (like the Adafruit product with led backpack)
+
+-- First we need to store the font in a buffer as a lookup table.
+font = [
+  0b00000000 0b11110111 // A
+  0b00010010 0b10001111 // B
+  0b00000000 0b00111001 // C
+  0b00010010 0b00001111 // D
+  0b00000000 0b11111001 // E
+  0b00000000 0b01110001 // F
+  0b00000000 0b10111101 // G
+  0b00000000 0b11110110 // H
+  0b00010010 0b00000000 // I
+  0b00000000 0b00011110 // J
+  0b00100100 0b01110000 // K
+  0b00000000 0b00111000 // L
+  0b00000101 0b00110110 // M
+  0b00100001 0b00110110 // N
+  0b00000000 0b00111111 // O
+  0b00000000 0b11110011 // P
+  0b00100000 0b00111111 // Q
+  0b00100000 0b11110011 // R
+  0b00000000 0b11101101 // S
+  0b00010010 0b00000001 // T
+  0b00000000 0b00111110 // U
+  0b00001100 0b00110000 // V
+  0b00101000 0b00110110 // W
+  0b00101101 0b00000000 // X
+  0b00010101 0b00000000 // Y
+  0b00001100 0b00001001 // Z
+]
+
+void Adafruit_LEDBackpack::setBrightness(uint8_t b) {
+  if (b > 15) b = 15;
+  Wire.beginTransmission(i2c_addr);
+  Wire.write(HT16K33_CMD_BRIGHTNESS | b);
+  Wire.endTransmission();
+}

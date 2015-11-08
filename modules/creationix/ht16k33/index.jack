@@ -1,0 +1,41 @@
+
+OSCILLATOR_ON = 0x21
+CMD_BRIGHTNESS = 0xe0
+BLINK_CMD = 0x80
+BLINK_DISPLAYON = 0x01
+BLINK_OFF = 0
+BLINK_2HZ = 1
+BLINK_1HZ = 2
+BLINK_HALFHZ = 3
+
+object(bus, addr) {
+
+  export setBrightness(b) {
+    if b > 15 { b = 15 }
+    istart(bus)
+    iaddr(bus, addr, true)
+    iwrite(bus, CMD_BRIGHTNESS | b)
+    istop(bus)
+  }
+
+  export blinkRate(b) {
+    if b > 3 { b = 0 } -- turn off if not sure
+    istart(bus)
+    iaddr(bus, addr, true)
+    iwrite(bus, BLINK_CMD | BLINK_DISPLAYON | (b << 1));
+    istop(bus)
+  }
+
+  enableOscillator() {
+    istart(bus)
+    iaddr(bus, addr, true)
+    iwrite(bus, OSCILLATOR_ON)
+    istop(bus)
+  }
+
+  begin() {
+    enableOscillator()
+    blinkRate(BLINK_OFF);
+    setBrightness(15)
+  }
+}

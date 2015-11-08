@@ -20,8 +20,8 @@ The second section is for storing the contents of byte arrays.
 The garbage collector will perform a mark and sweep using an algorithm based
 on the picobit GC.
 
-A mark/sweep will be triggered by heap address wrapping around or by a compaction being
-requested.
+A mark/sweep will be triggered by heap address wrapping around or by a
+compaction being requested.
 
 A compaction will compact all byte buffers using reverse pointers in the head
 to update the pointers in the buffer heap objects.
