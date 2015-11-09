@@ -225,7 +225,7 @@ expression trees in the interpreter.
 - YIELD
 - GC(compact)
 
-These all yield control to other threads till a condition is true.  
+These all yield control to other threads till a condition is true.
 
 ## Control Flow
 

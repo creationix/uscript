@@ -7,7 +7,8 @@ In this higher-level language we have a optional textual syntax as well as
 conveniences like symbols, variables, labels, etc.
 
 Programs can be authored in text format or via graphical means and manipulate
-the AST directly.  The AST (Abstract Syntax Tree using s-expressions) and the text formats are interchangeable.
+the AST directly.  The AST (Abstract Syntax Tree using s-expressions) and the
+text formats are interchangeable.
 
 Since I enjoy writing parsers so much, there will probably be several text
 formats that vary from lisp style to C-like to python like.
@@ -18,7 +19,8 @@ can disassemble the bytecode back to AST, but it will be somewhat obfuscated.
 
 # Jack Language Semantics
 
-The core semantics of Jack follow closely to the opcodes in the uscript VM.  However there are a few features added on top that are easy to compile out and
+The core semantics of Jack follow closely to the opcodes in the uscript VM.
+However there are a few features added on top that are easy to compile out and
 make authoring code much nicer.
 
 ## Namespaces
@@ -57,11 +59,13 @@ file using my library will have:
 -- Import a deep symbol
 import creationix.ht16k33
 
-bus = isetup(2, 3)
-const addr = 0x71
+addr = 0x71
 
 -- Use the shortened symbol
-ht16k33.begin(bus, addr)
+main() {
+  bus = isetup(2, 3)
+  ht16k33.begin(bus, addr)
+}
 ```
 
 ### Nested in-file Namespaces
