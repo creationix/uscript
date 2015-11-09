@@ -193,21 +193,6 @@ that does not contain a name.
 export 42
 ```
 
-Functions can be exported this way too.
-
-```jack
-export (a, b, c) {
-  -- ...
-}
-```
-
-It's convention to put a space after the export keyword so it doesn't look like
-a local function named `export()`. TODO: Think of something better, I don't like
-the function export syntax looking like a private function.
-
-It's perfectly to have other code in the same file, the exported function might
-use some private constants or functions, for example.
-
 ## Literals
 
 There are a few types of literals allowed for values in constants and local
@@ -225,18 +210,18 @@ magic = 0xdeadbef
 -- String buffer
 name = "Jack"
 -- Byte array buffer
-fibb = '0x01 0x12 0x35 0x8d'
+fibb = <<< 0x01 0x12 0x35 0x8d >>>
 ```
 
 Also data structures using pairs can be literals with any expression as values.
 
 ```jack
 -- A list from 1 to 5
-count = [1 2 3 4 5]
+count = [ 1, 2, 3, 4, 5 ]
 -- A map from x to x squared
-squares = [1:1 2:4 3:9 4:16]
+squares = [ 1:1, 2:4, 3:9, 4:16 ]
 -- Raw cons pair
-pair = (true,false)
+pair = true:false
 ```
 
 TODO: find better syntax for raw cons pair, it looks too much like function's

@@ -18,6 +18,8 @@
 ")"                   return ')';
 "!"                   return '!';
 "~"                   return '~';
+"<<<"                 return '<<<';
+">>>"                 return '>>>';
 "<<"                  return '<<';
 ">>"                  return '>>';
 "||"                  return '||';
@@ -44,13 +46,16 @@ export\b              return 'EXPORT';
 true\b                return 'TRUE';
 false\b               return 'FALSE';
 if\b                  return 'IF';
+import\b              return 'IMPORT';
+namespace\b           return 'NAMESPACE';
 ([a-zA-Z][a-zA-Z0-9_]*[.])*[a-zA-Z][a-zA-Z0-9_]* return 'IDENT';
-
+["]([^"]|\\.)*["]      return 'STRING';
 <<EOF>>               return 'EOF';
 
 /lex
 
 %left ','
+%left ':'
 %left '='
 %right '?'
 %left '||'
@@ -73,7 +78,7 @@ if\b                  return 'IF';
 
 file
     : declarations EOF
-      {console.log($1);return $1;}
+      {console.log(require('util').inspect($1, {colors:true,depth:null}));return $1;}
     ;
 
 declarations
@@ -90,10 +95,35 @@ declaration
         {$$ = ["CONSTANT",false,$1,$3];}
     | EXPORT e
         {$$ = ["CONSTANT",true,null,$2];}
-    | EXPORT IDENT '(' args ')' '{' statements '}'
-        {$$ = ["FUNCTION",true,$2,$4,$7];}
-    | IDENT '(' args ')' '{' statements '}'
-        {$$ = ["FUNCTION",false,$1,$3,$6];}
+    | EXPORT IDENT arghead statementBlock
+        {$$ = ["FUNCTION",true,$2,$3,$4];}
+    | IDENT arghead statementBlock
+        {$$ = ["FUNCTION",false,$1,$2,$3];}
+    | IMPORT IDENT
+        {$$ = ["IMPORT",$2];}
+    | NAMESPACE IDENT declarationBlock
+        {$$ = ["NAMESPACE",$2,$3];}
+    ;
+
+declarationBlock
+    : '{' '}'
+        {$$ = [];}
+    | '{' declarations '}'
+        {$$ = $2;}
+    ;
+
+statementBlock
+    : '{' '}'
+        {$$ = [];}
+    | '{' statements '}'
+        {$$ = $2;}
+    ;
+
+arghead
+    : '(' ')'
+        {$$ = [];}
+    | '(' args ')'
+        {$$ = $2;}
     ;
 
 args
@@ -113,10 +143,12 @@ statements
 statement
     : IDENT '=' e
         {$$ = ["ASSIGN",$1,$3];}
-    | IF e '{' statements '}'
-        {$$ = ["IF",$2,$4];}
+    | IDENT '=' IDENT '(' expressions ')'
+        {$$ = ["CALL",$3,$5,$1];}
     | IDENT '(' expressions ')'
-        {$$ = ["CALL", $1, $3];}
+        {$$ = ["CALL",$1,$3];}
+    | IF e statementBlock
+        {$$ = ["IF",$2,$3];}
     ;
 
 expressions
@@ -124,6 +156,13 @@ expressions
         {$$ = [$1];}
     | expressions ',' e
         {$$ = $1;$1.push($3);}
+    ;
+
+numbers
+    : NUMBER
+        {$$ = [$1];}
+    | numbers NUMBER
+        {$$ = $1;$1.push($2);}
     ;
 
 e
@@ -174,8 +213,6 @@ e
         {$$ = ["XOR",$1,$3];}
     | '!' e
         {$$ = ["NOT", $2];}
-    | e '?' e ':' e
-        {$$ = ["CHOOSE",$1,$3,$5];}
 
     | '(' e ')'
         {$$ = $2;}
@@ -185,10 +222,16 @@ e
         {$$ = true;}
     | FALSE
         {$$ = false;}
-    | '[' expressions ']'
+    | '<<<' numbers '>>>'
         {$$ = new Buffer($2);}
-    | '[' expressions ',' ']'
-        {$$ = new Buffer($2);}
+    | STRING
+        {$$ = new Buffer(JSON.parse($1));}
     | IDENT
         {$$ = ["IDENT", $1];}
+    | '[' expressions ']'
+        {$$ = ["LIST"].concat($2);}
+    | '[' expressions ',' ']'
+        {$$ = ["LIST"].concat($2);}
+    | e ':' e
+        {$$ = ["PAIR",$1,$3];}
     ;
