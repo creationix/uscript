@@ -165,6 +165,7 @@ Lists/Sets are made using nested pairs:
     (1 (2 (3 (4 false))))
 
 - LLEN(pair) -> length - Count number of values in list.
+- LIDX(pair, index) -> pair - Walk to index and return pair.
 - LGET(pair, index) -> value - Walk to index and return value.
 - LSET(pair, index, value) - Walk to index and replace value.
 - LDEL(pair, index) - Remove value by index.
