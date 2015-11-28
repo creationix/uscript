@@ -78,7 +78,7 @@ namespace\b           return 'NAMESPACE';
 
 file
     : declarations EOF
-      {console.log(require('util').inspect($1, {colors:true,depth:null}));return $1;}
+      {return $1;}
     ;
 
 declarations

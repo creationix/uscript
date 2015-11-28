@@ -1,0 +1,15 @@
+import creationix.ht16k33
+
+pinSDA = 6
+pinSCL = 7
+speed = 100000 -- PLATFORM_I2C_SPEED_SLOW
+addr = 0x70
+
+main() {
+  bus = isetup(pinSDA, pinSCL, speed)
+  ht16k33.begin(bus, addr)
+}
+
+namespace foo {
+  bar = true
+}

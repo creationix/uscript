@@ -84,7 +84,7 @@ performAction: function anonymous(yytext, yyleng, yylineno, yy, yystate /* actio
 var $0 = $$.length - 1;
 switch (yystate) {
 case 1:
-console.log(require('util').inspect($$[$0-1], {colors:true,depth:null}));return $$[$0-1];
+return $$[$0-1];
 break;
 case 2: case 17: case 19: case 25: case 27:
 this.$ = [$$[$0]];
