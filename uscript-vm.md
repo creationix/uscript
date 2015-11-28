@@ -4,12 +4,37 @@
 - Object Heap: maximum of 2^13-2 32-bit words. (about 32Kb)
 - Buffer Heap: maximum of 2^28 at 32-bit alignment. (1Gb)
 
-If we add a virtual memory mapper, flash can be used to reach the higher
-addressing limits on a microcontroller's small ram, but large flash.
-
 For example, we could mount an SD card and read a large audio file in 512Kb
 chunks.  Even without a SD card interface, most the chips we target have much
 larger flash sizes than ram.
+
+Some constant buffers and data structures can be stored in the program image in
+flash to save memory.
+
+For example, there might be 3Mb of buffer data in the image, but only 1k in ram.
+Many libraries will have lookup tables in their code for things like fonts.
+
+Note that with enough flash, we can address up to 1Gb of buffer data, so if SD
+cards were used for the program image, we could store videos, pictures or audio
+files in the program image.
+
+## Flash Layout
+
+The program image has 3 sections, they are objects, buffers, and code.
+
+The objects section is shaped exactly like the object heap, except the values
+are read-only and live in the flash.
+
+Same goes for the buffer space and the buffer-heap.
+
+There are two header integers at the first 6 bytes, The first 32 bits represent
+the number of 32-bit words the buffer space takes.  The next 16 bits represent
+the number of objects in the image.
+
+The rest of the image is program code.
+
+When values point to objects of buffers, if the index is less than the size
+here, it points here, otherwise it points in ram at index minus size.
 
 ## Garbage Collector
 
