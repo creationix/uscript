@@ -27,14 +27,22 @@ are read-only and live in the flash.
 
 Same goes for the buffer space and the buffer-heap.
 
-There are two header integers at the first 6 bytes, The first 32 bits represent
-the number of 32-bit words the buffer space takes.  The next 16 bits represent
-the number of objects in the image.
+There are three header integers at the first 10 bytes, The first 32 bits
+represent the number of 32-bit words the buffer space takes.  The next 32 bits
+represent the program code length.  The next 16 bits represent the number of
+objects in the image.
 
 The rest of the image is program code.
 
 When values point to objects of buffers, if the index is less than the size
 here, it points here, otherwise it points in ram at index minus size.
+
+Same applies to program counters.  If the address is lower than the pc size, it
+is read from flash, otherwise, it's read from RAM.
+
+The compiler can send program as either a complete program image complete with
+data sections, or it can send just code that's run from ram directly (like in a
+repl)
 
 ## Garbage Collector
 
