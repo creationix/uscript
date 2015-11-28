@@ -9,7 +9,7 @@ BLINK_1HZ = 2
 BLINK_HALFHZ = 3
 
 export setBrightness(bus, addr, b) {
-  if b > 15 { b = 15 }
+  --if b > 15 { b = 15 }
   istart(bus)
   iaddr(bus, addr, true)
   iwrite(bus, CMD_BRIGHTNESS | b)
@@ -17,7 +17,7 @@ export setBrightness(bus, addr, b) {
 }
 
 export blinkRate(bus, addr, b) {
-  if b > 3 { b = 0 } -- turn off if not sure
+--  if b > 3 { b = 0 } -- turn off if not sure
   istart(bus)
   iaddr(bus, addr, true)
   iwrite(bus, BLINK_CMD | BLINK_DISPLAYON | (b << 1))
@@ -31,7 +31,7 @@ enableOscillator(bus, addr) {
   istop(bus)
 }
 
-begin(bus, addr) {
+export begin(bus, addr) {
   enableOscillator(bus, addr)
   blinkRate(bus, addr, BLINK_OFF)
   setBrightness(bus, addr, 15)

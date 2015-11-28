@@ -119,8 +119,8 @@ break;
 case 12: case 14: case 16: case 51:
 this.$ = $$[$0-1];
 break;
-case 18:
-this.$ = $$[$0-2];$$[$0-2].push($$[$0-1]);
+case 18: case 26:
+this.$ = $$[$0-2];$$[$0-2].push($$[$0]);
 break;
 case 21:
 this.$ = ["ASSIGN",$$[$0-2],$$[$0]];
@@ -133,9 +133,6 @@ this.$ = ["CALL",$$[$0-3],$$[$0-1]];
 break;
 case 24:
 this.$ = ["IF",$$[$0-1],$$[$0]];
-break;
-case 26:
-this.$ = $$[$0-2];$$[$0-2].push($$[$0]);
 break;
 case 29:
 this.$ = ["ADD",$$[$0-2],$$[$0]];

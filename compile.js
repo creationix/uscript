@@ -20,7 +20,14 @@ function p(val) {
 }
 
 var builtins = {
-  isetup: 3
+  isetup: 3,//(pinSDA, pinSCL, speed) -> i2c
+  istart: 1,//(i2c) - Send a start sequence.
+  istop: 1,//(i2c) - Send a stop sequence.
+  iaddr: 3,//(i2c, addr, direction) - Send address and direction.
+  iwrite: 2,//(i2c, byte)
+  iread: 1,//(i2c) -> byte
+  iawrite: 2,//(i2c, buffer)
+  iaread: 2,//(i2c, len) -> buffer
 };
 var symbols = {};
 
@@ -117,8 +124,12 @@ function find(name) {
 
 var functions = [];
 var nextFn = 0;
-function apply(fn) {
-  if (fn.code) { return fn; }
+function apply(symbol) {
+  var fn = symbols[symbol];
+  if (!fn) return;
+  if ("index" in fn) return fn;
+  console.log("Compiling function " + symbol);
+  p(fn);
   var vars = {};
   var nvars = fn.args.length;
   fn.args.forEach(function (arg, i) {
@@ -159,7 +170,7 @@ function apply(fn) {
     code.push(["free", diff]);
   }
   functions.push(code);
-  return { index: nextFn++ };
+  fn.index = nextFn++;
 
   function walk(expression) {
     if (!Array.isArray(expression)) { return expression; }
@@ -171,31 +182,30 @@ function apply(fn) {
 
   function searchNamespace(namespace, name) {
     var parts = namespace.split(".");
-    while (parts.length) {
-      var symbol = parts.join(".") + "." + name;
+    while (true) {
+      var symbol = parts.concat([name]).join(".");
+      find(symbol);
       if (symbol in symbols) {
         var sym = symbols[symbol];
         if (sym.pub || sym.scope == fn.scope) {
-          return sym;
+          return symbol;
         }
       }
+      if (!parts.length) { break; }
       parts.pop();
     }
   }
 
   function search(name) {
-    var sym = searchNamespace(fn.namespace, name);
-    if (sym) return sym;
-    var namespaces = [name + " in " + fn.namespace];
     var match = name.match(/^([^.]+)(?:\.(.+))?/);
     var alias = fn.imports[fn.namespace + "." + match[1]];
     if (alias) {
-      namespaces.push(match[2] + " in " + alias);
-      find(alias + "." + match[2]);
-      sym = searchNamespace(alias, match[2]);
-      if (sym) return sym;
+      name = alias + "." + match[2];
     }
-    throw new Error("Can't find symbol: " + namespaces.join(" or "));
+    var fullName = searchNamespace(fn.namespace, name);
+    if (fullName) return fullName;
+    p(symbols);
+    throw new Error("Can't find symbol: " + name + " relative to " + fn.namespace);
   }
 
   function resolve(name) {
@@ -203,19 +213,32 @@ function apply(fn) {
       return ["get", vars[name]];
     }
     // TODO: add index for values that need data storage
-    return search(name).val;
+    var name = search(name);
+    return symbols[name].val;
   }
 
   function resolveFn(name) {
-    var sym = search(name);
+    name = search(name);
+    return apply(name);
     p(sym);
   }
 
 }
 
+/*
+a.b.c  d.e.f
+
+a.b.c.d.e.f
+a.b.d.e.f
+a.d.e.f
+d.e.f
+
+
+
+*/
 
 find("creationix.test");
 console.log("Compiling creationix.test.main");
-symbols["creationix.test.main"] = apply(symbols["creationix.test.main"]);
+apply("creationix.test.main");
 p(functions);
 //compile("creationix.test", "modules/creationix/test.jack");

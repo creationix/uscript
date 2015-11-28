@@ -130,7 +130,7 @@ args
     : IDENT
         {$$ = [$1];}
     | args ',' IDENT
-        {$$ = $1;$1.push($2);}
+        {$$ = $1;$1.push($3);}
     ;
 
 statements
