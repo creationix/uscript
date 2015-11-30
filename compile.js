@@ -29,13 +29,28 @@ var builtins = {
   iawrite: 2,//(i2c, buffer)
   iaread: 2,//(i2c, len) -> buffer
 };
+
 var symbols = {};
 
 // File loader, eventually will be replaces with git sync system.
-function load(path) {
+function loadFile(path) {
   path = "modules/" + path.replace(/\./g, "/") + ".jack";
   if (!fs.existsSync(path)) { return; }
   return fs.readFileSync(path, "utf8");
+}
+
+var loaded = {};
+function load(name) {
+  // Only load a given scope once.
+  if (loaded[name]) { return; }
+  loaded[name] = true;
+  var parts = name.split(".");
+  while (parts.length) {
+    var prefix = parts.join(".");
+    extract(prefix);
+    extract(prefix + ".index");
+    parts.pop();
+  }
 }
 
 var extracted = {};
@@ -45,7 +60,7 @@ function extract(scope) {
   extracted[scope] = true;
 
   // Load the code to process
-  var code = load(scope);
+  var code = loadFile(scope);
   // If it doesn't exist, we're done.
   if (!code) { return; }
 
@@ -104,32 +119,18 @@ function extract(scope) {
         process(namespace + "." + statement[1], line);
       });
     }
-    else {
-      p(statement);
-      throw "TODO: handle " + type;
-    }
   }
 }
 
-function find(name) {
-  if (name in symbols) { return; }
-  var parts = name.split(".");
-  while (parts.length) {
-    var prefix = parts.join(".");
-    extract(prefix);
-    extract(prefix + ".index");
-    parts.pop();
-  }
-}
 
 var functions = [];
 var nextFn = 0;
-function apply(symbol) {
+function compile(symbol) {
+  load(symbol);
   var fn = symbols[symbol];
   if (!fn) return;
   if ("index" in fn) return fn;
   console.log("Compiling function " + symbol);
-  p(fn);
   var vars = {};
   var nvars = fn.args.length;
   fn.args.forEach(function (arg, i) {
@@ -142,20 +143,33 @@ function apply(symbol) {
       var name = statement[1];
       var args = statement[2];
       var target = statement[3];
-      if (name in builtins) {
-        if (args.length !== builtins[name]) {
-          throw new Error("Builtin arity mismatch");
-        }
-        code.push([name].concat(args.map(walk)));
-      }
-      else {
-        code.push(["call", resolveFn(name)].concat(args.map(walk)));
-      }
       if (target) {
         if (!(target in vars)) {
           vars[target] = ++nvars;
         }
-        code.push(["set", vars[target], 0]);
+        target = ["set", vars[target]];
+      }
+      if (name in builtins) {
+        if (args.length !== builtins[name]) {
+          throw new Error("Builtin arity mismatch");
+        }
+        if (target) {
+          code.push(target.concat([[name].concat(args.map(walk))]));
+        }
+        else {
+          code.push([name].concat(args.map(walk)));
+        }
+      }
+      else {
+        var start = nvars + 1;
+        args.forEach(function (expression, i) {
+          expression = walk(expression);
+          code.push(["set", i + start, expression]);
+        });
+        code.push(["call", compile(resolveSymbol(fn, name)), start, args.length]);
+        if (target) {
+          code.push(target.concat(["get", start + args.length]));
+        }
       }
     }
     else {
@@ -164,81 +178,61 @@ function apply(symbol) {
     }
   });
 
-  var diff = nvars - fn.args.length;
-  if (diff) {
-    code.unshift(["alloc", diff]);
-    code.push(["free", diff]);
-  }
   functions.push(code);
   fn.index = nextFn++;
+  fn.code = code;
+  p(fn);
+  return fn.index;
 
   function walk(expression) {
     if (!Array.isArray(expression)) { return expression; }
     var type = expression[0];
     if (type == "IDENT") {
-      return resolve(expression[1]);
-    }
-  }
-
-  function searchNamespace(namespace, name) {
-    var parts = namespace.split(".");
-    while (true) {
-      var symbol = parts.concat([name]).join(".");
-      find(symbol);
-      if (symbol in symbols) {
-        var sym = symbols[symbol];
-        if (sym.pub || sym.scope == fn.scope) {
-          return symbol;
-        }
+      var name = expression[1];
+      if (name in vars) {
+        return ["get", vars[name]];
       }
-      if (!parts.length) { break; }
-      parts.pop();
+      // TODO: add index for values that need data storage
+      return symbols[resolveSymbol(fn, name)].val;
     }
   }
-
-  function search(name) {
-    var match = name.match(/^([^.]+)(?:\.(.+))?/);
-    var alias = fn.imports[fn.namespace + "." + match[1]];
-    if (alias) {
-      name = alias + "." + match[2];
-    }
-    var fullName = searchNamespace(fn.namespace, name);
-    if (fullName) return fullName;
-    p(symbols);
-    throw new Error("Can't find symbol: " + name + " relative to " + fn.namespace);
-  }
-
-  function resolve(name) {
-    if (name in vars) {
-      return ["get", vars[name]];
-    }
-    // TODO: add index for values that need data storage
-    var name = search(name);
-    return symbols[name].val;
-  }
-
-  function resolveFn(name) {
-    name = search(name);
-    return apply(name);
-    p(sym);
-  }
-
 }
 
-/*
-a.b.c  d.e.f
+// Resolve a symbol to it's full path.
+// This will load and parse new files on-demand.
+function resolveSymbol(fn, name) {
 
-a.b.c.d.e.f
-a.b.d.e.f
-a.d.e.f
-d.e.f
+  // Apply import alias if it matches
+  var match = name.match(/^([^.]+)(?:\.(.+))?/);
+  var alias = fn.imports[fn.namespace + "." + match[1]];
+  if (alias) {
+    name = alias + "." + match[2];
+  }
+
+  // Look in current all parent scopes for a matching symbol.
+  // Stop on first match.
+  var parts = fn.namespace.split(".");
+  var fullName;
+  while (true) {
+    var symbol = parts.concat([name]).join(".");
+    // Make sure all symbols for this path are loaded already.
+    load(symbol);
+
+    if (symbol in symbols) {
+      // Check for symbol scope, must be public or matching current scope.
+      var sym = symbols[symbol];
+      if (sym.pub || sym.scope == fn.scope) {
+        return symbol;
+      }
+    }
+    if (!parts.length) {
+      throw new Error("Can't find symbol: " + name + " relative to " + fn.namespace);
+    }
+    parts.pop();
+  }
+}
 
 
-
-*/
-
-find("creationix.test");
 console.log("Compiling creationix.test.main");
-apply("creationix.test.main");
-p(functions);
+compile("creationix.test.main");
 //compile("creationix.test", "modules/creationix/test.jack");

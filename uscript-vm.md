@@ -238,11 +238,8 @@ Also we have I2C primitives for implementing protocols easily.
 
 ### Local Variables
 
-- ALLOC(n) - UnShift n slots into local space.
-- FREE(n) - Shift out n slots from local space.
 - SET(i, value) - Store a value in the variable stack.
 - GET(i) -> value - Load a value from the stack.
-- RESULT -> value - Load the return value from the last function call.
 
 ## Statement OpCodes
 
@@ -303,9 +300,8 @@ For the `EACH` iterator, it stores (PC, tail)
 
 ## Function Calls
 
-- CALL(pc) - Jump to a new place in the code and return when done.
-- RETURN(value) - Unwind the callstack and return to the caller storing a value
-  in the return value register.
-
-Since all modules share the same value stack for local variables, arguments are
-passed by convention by having them at the top of the stack.
+- CALL(pc, base, nargs) - Jump to a new place in the code and return when done.
+  Base is the slot index to the first arg, nargs is the number of args.  The
+  return value will go into base + nargs.
+- RETURN(slot) - Unwind the callstack and return to the caller.  The value in
+  slot is copied to the caller's return slot.
