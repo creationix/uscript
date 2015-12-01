@@ -4,8 +4,16 @@ pinSDA = 6
 pinSCL = 7
 speed = 100000 -- PLATFORM_I2C_SPEED_SLOW
 addr = 0x70
+fn() {
+
+}
 
 main() {
+  a = 5
+  b = foo.bar
+  c = fn(b, a)
+  fn(b, a, c)
+  fn(b, a)
   bus = isetup(pinSDA, pinSCL, speed)
   ht16k33.begin(bus, addr)
 }

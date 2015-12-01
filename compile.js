@@ -20,6 +20,12 @@ function p(val) {
 }
 
 var builtins = {
+  add: 2, sub: 2, mul: 2, div: 2, mod: 2, neg: 1,
+  bnot: 1, bxor: 2, band: 2, bor: 2, lshift: 2, rshift: 2,
+  gt: 2, gte: 2, lt: 2, lte: 2, eq: 2, neq: 2,
+  srand: 1, rand: 1,
+  and: 2, or: 2, xor: 2, not: 1,
+  choose: 3,
   isetup: 3,//(pinSDA, pinSCL, speed) -> i2c
   istart: 1,//(i2c) - Send a start sequence.
   istop: 1,//(i2c) - Send a stop sequence.
@@ -129,54 +135,86 @@ function compile(symbol) {
   load(symbol);
   var fn = symbols[symbol];
   if (!fn) return;
-  if ("index" in fn) return fn;
+  if ("index" in fn) return fn.index;
   console.log("Compiling function " + symbol);
-  var vars = {};
-  var nvars = fn.args.length;
+
+  // First assign the arguments to the first n slots per the calling convention.
+  var vars = [];
+  var varSlots = {};
+  var nargs = fn.args.length;
   fn.args.forEach(function (arg, i) {
-    vars[arg] = nvars - i;
+    vars[i] = arg;
+    varSlots[arg] = i;
   });
+
+  function getSlot(name) {
+    var slot = varSlots[name];
+    if (slot) { return slot; }
+    // TODO: add freelist to reuse empty slots
+    slot = vars.length;
+    vars[slot] = name;
+    varSlots[name] = slot;
+    return slot;
+  }
+
   var code = [];
-  fn.ast.forEach(function (statement) {
+  fn.ast.forEach(onStatement);
+
+  function onStatement(statement) {
     var type = statement[0];
     if (type == "CALL") {
       var name = statement[1];
       var args = statement[2];
       var target = statement[3];
       if (target) {
-        if (!(target in vars)) {
-          vars[target] = ++nvars;
-        }
-        target = ["set", vars[target]];
+        target = getSlot(target);
       }
       if (name in builtins) {
         if (args.length !== builtins[name]) {
           throw new Error("Builtin arity mismatch");
         }
         if (target) {
-          code.push(target.concat([[name].concat(args.map(walk))]));
+          code.push(["set", target, [name].concat(args.map(walk))]);
         }
         else {
           code.push([name].concat(args.map(walk)));
         }
       }
       else {
-        var start = nvars + 1;
+        var start = vars.length;
         args.forEach(function (expression, i) {
           expression = walk(expression);
-          code.push(["set", i + start, expression]);
+          if (expression[0] == "get") {
+            code.push(["copy", i + start, expression[1]]);
+          }
+          else {
+            code.push(["set", i + start, expression]);
+          }
         });
-        code.push(["call", compile(resolveSymbol(fn, name)), start, args.length]);
+        var index = compile(resolveSymbol(fn, name));
         if (target) {
-          code.push(target.concat(["get", start + args.length]));
+          code.push(["call", index, start, args.length, target]);
         }
+        else {
+          code.push(["sub", index, start, args.length]);
+        }
+        vars.length = start;
       }
+    }
+    else if (type === "ASSIGN") {
+      code.push(["set", getSlot(statement[1]), walk(statement[2])]);
+    }
+    else if (type === "IF") {
+      p(statement);
+      code.push(["if", walk(statement[1])]);
+      statement[2].forEach(onStatement);
+      code.push(["end"]);
     }
     else {
       p(statement);
       throw "TODO: handle " + type;
     }
-  });
+  }
 
   functions.push(code);
   fn.index = nextFn++;
@@ -186,14 +224,24 @@ function compile(symbol) {
 
   function walk(expression) {
     if (!Array.isArray(expression)) { return expression; }
-    var type = expression[0];
-    if (type == "IDENT") {
+    var type = expression[0].toLowerCase();
+    if (type == "ident") {
       var name = expression[1];
-      if (name in vars) {
-        return ["get", vars[name]];
+      if (name in varSlots) {
+        return ["get", varSlots[name]];
       }
       // TODO: add index for values that need data storage
       return symbols[resolveSymbol(fn, name)].val;
+    }
+    if (type in builtins) {
+      if (expression.length !== builtins[type] + 1) {
+        throw new Error("Builtin arity mismatch");
+      }
+      return [type, expression.slice(1).map(walk)];
+    }
+    else {
+      p(expression);
+      throw new Error("TODO: handle " + type);
     }
   }
 }
