@@ -1,4 +1,4 @@
-/* jshint node:true*/
+/* jshint node:true, esnext:true*/
 "use strict";
 var fs = require('fs');
 var input = "./grammar.jison";
@@ -38,35 +38,44 @@ var builtins = {
 
 var symbols = {};
 
-// File loader, eventually will be replaces with git sync system.
-function loadFile(path) {
+// File loader, eventually will be replaced with git sync system.
+function* loadFile(path) {
   path = "modules/" + path.replace(/\./g, "/") + ".jack";
-  if (!fs.existsSync(path)) { return; }
-  return fs.readFileSync(path, "utf8");
+  return yield function (cb) {
+    fs.readFile(path, "utf8", function (err, data) {
+      if (err) {
+        if (err.code === "ENOENT") {
+          return cb();
+        }
+        return cb(err);
+      }
+      return cb(null, data);
+    });
+  };
 }
 
 var loaded = {};
-function load(name) {
+function* load(name) {
   // Only load a given scope once.
   if (loaded[name]) { return; }
   loaded[name] = true;
   var parts = name.split(".");
   while (parts.length) {
     var prefix = parts.join(".");
-    extract(prefix);
-    extract(prefix + ".index");
+    yield* extract(prefix);
+    yield* extract(prefix + ".index");
     parts.pop();
   }
 }
 
 var extracted = {};
-function extract(scope) {
+function* extract(scope) {
   // Only extract a given scope once.
   if (extracted[scope]) return;
   extracted[scope] = true;
 
   // Load the code to process
-  var code = loadFile(scope);
+  var code = yield* loadFile(scope);
   // If it doesn't exist, we're done.
   if (!code) { return; }
 
@@ -131,11 +140,11 @@ function extract(scope) {
 
 var functions = [];
 var nextFn = 0;
-function compile(symbol) {
-  load(symbol);
+function* compile(symbol) {
+  yield* load(symbol);
   var fn = symbols[symbol];
-  if (!fn) return;
-  if ("index" in fn) return fn.index;
+  if (!fn) { return; }
+  if ("index" in fn) { return fn.index; }
   console.log("Compiling function " + symbol);
 
   // First assign the arguments to the first n slots per the calling convention.
@@ -158,9 +167,15 @@ function compile(symbol) {
   }
 
   var code = [];
-  fn.ast.forEach(onStatement);
+  yield* eachStatement(fn.ast);
 
-  function onStatement(statement) {
+  function* eachStatement(list) {
+    for (var i = 0, l = list.length; i < l; i++) {
+      yield* onStatement(list[i]);
+    }
+  }
+
+  function* onStatement(statement) {
     var type = statement[0];
     if (type == "CALL") {
       var name = statement[1];
@@ -182,16 +197,17 @@ function compile(symbol) {
       }
       else {
         var start = vars.length;
-        args.forEach(function (expression, i) {
-          expression = walk(expression);
+        for (var i = 0, l = args.length; i < l; i++) {
+          var expression = args[i];
+          expression = yield* walk(expression);
           if (expression[0] == "get") {
             code.push(["copy", i + start, expression[1]]);
           }
           else {
             code.push(["set", i + start, expression]);
           }
-        });
-        var index = compile(resolveSymbol(fn, name));
+        }
+        var index = yield* compile(yield* resolveSymbol(fn, name));
         if (target) {
           code.push(["call", index, start, args.length, target]);
         }
@@ -202,12 +218,12 @@ function compile(symbol) {
       }
     }
     else if (type === "ASSIGN") {
-      code.push(["set", getSlot(statement[1]), walk(statement[2])]);
+      code.push(["set", getSlot(statement[1]), yield* walk(statement[2])]);
     }
     else if (type === "IF") {
       p(statement);
-      code.push(["if", walk(statement[1])]);
-      statement[2].forEach(onStatement);
+      code.push(["if", yield* walk(statement[1])]);
+      yield* eachStatement(statement[2]);
       code.push(["end"]);
     }
     else {
@@ -216,13 +232,14 @@ function compile(symbol) {
     }
   }
 
+  code.push(["end"]);
   functions.push(code);
   fn.index = nextFn++;
   fn.code = code;
   p(fn);
   return fn.index;
 
-  function walk(expression) {
+  function* walk(expression) {
     if (!Array.isArray(expression)) { return expression; }
     var type = expression[0].toLowerCase();
     if (type == "ident") {
@@ -231,7 +248,7 @@ function compile(symbol) {
         return ["get", varSlots[name]];
       }
       // TODO: add index for values that need data storage
-      return symbols[resolveSymbol(fn, name)].val;
+      return symbols[yield* resolveSymbol(fn, name)].val;
     }
     if (type in builtins) {
       if (expression.length !== builtins[type] + 1) {
@@ -248,7 +265,7 @@ function compile(symbol) {
 
 // Resolve a symbol to it's full path.
 // This will load and parse new files on-demand.
-function resolveSymbol(fn, name) {
+function* resolveSymbol(fn, name) {
 
   // Apply import alias if it matches
   var match = name.match(/^([^.]+)(?:\.(.+))?/);
@@ -264,7 +281,7 @@ function resolveSymbol(fn, name) {
   while (true) {
     var symbol = parts.concat([name]).join(".");
     // Make sure all symbols for this path are loaded already.
-    load(symbol);
+    yield* load(symbol);
 
     if (symbol in symbols) {
       // Check for symbol scope, must be public or matching current scope.
@@ -280,7 +297,8 @@ function resolveSymbol(fn, name) {
   }
 }
 
-
-console.log("Compiling creationix.test.main");
-compile("creationix.test.main");
-//compile("creationix.test", "modules/creationix/test.jack");
+require('gen-run')(function* () {
+  console.log("Compiling creationix.test.main");
+  yield* compile("creationix.test.main");
+  p(functions);
+});
