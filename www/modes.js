@@ -24,7 +24,7 @@ var BUILTINS = {
   MSET: 3, MGET: 2, MDEL: 2,
   // GPIO operations
   MODE: 2, WRITE: 2, READ: 1, PWRITE: 2, AREAD: 1,
-  // I2C operations
+  // I2C operations2
   ISETUP: 3, ISTART: 1, ISTOP: 1, IADDR: 3, IWRITE: 2, IREAD: 1,
   // Local variables
   LET: 2, SET: 2, GET: 1,
@@ -44,140 +44,167 @@ var BUILTINS = {
   DEF: 2, PRINT: 1,
 };
 
-function parser(state, type, token) {
+function parser(state2, type, token) {
   "use strict";
-  if (!state.stack.length) return "error";
-  var top = state.stack[state.stack.length - 1];
-  var mode = top.mode;
-  console.log(mode, state.stack.length, top.left, type, token);
+  var stack = state2.stack;
+  if (!stack.length) return "error";
+  var top = stack[stack.length - 1];
+  // console.log(type, token, stack.length, top);
 
-  if (top.mode === "FUN") {
-    if (type !== "variable") return "error";
-    if (top.fns[token] !== undefined ||
-        top.defs[token] !== undefined ||
-        top.vars[token] !== undefined) {
-      type = "error";
+  function cloneScope() {
+    var scope = {};
+    var keys = Object.keys(top.scope);
+    for (var i = 0, l = keys.length; i < l; i++) {
+      var key = keys[i];
+      scope[key] = top.scope[key];
     }
-    else {
-      type = "builtin";
-    }
-    top.fns[top.name = token] = 0;
-    top.mode = "PARAMS";
-    return type;
+    return scope;
   }
 
-  if (top.mode === "PARAMS") {
-    if (type === "variable") {
-      if (top.fns[token] !== undefined ||
-          top.defs[token] !== undefined ||
-          top.vars[token] !== undefined) {
-        type = "error";
-      }
-      top.vars[token] = true;
-      top.fns[top.name] = ++top.left;
-      return type;
-    }
+  // Handle the function name token
+  if (top.mode === "function") {
+    // The token after FUN must be a new, unused variable
+    if (type !== "variable" || top.scope[token] !== undefined) return "error";
+    // Prepare to consume args list
+    top.mode = "args";
+    top.name = token;
+    top.args = [];
+    return "builtin";
+  }
+
+  // Handle the function args list and trailing DO
+  if (top.mode === "args") {
     if (type === "keyword" && token === "DO") {
-      top.mode = "DO";
+      top.scope[top.name] = top.args.length;
+      for (var i = 0, l = top.args.length; i < l; i++) {
+        top.scope[top.args[i]] = "LET";
+      }
+      delete top.args;
+      top.mode = "block";
+      top.expectToken = "END";
+      top.expectType = "keyword";
       return type;
     }
+    if (type !== "variable" || top.scope[token] !== undefined) return "error";
+    top.args.push(token);
+    return "variable";
   }
-  if (top.mode === "CALL") {
+
+  function pop() {
+    // Check for export values
+    var name, value;
+    if (top.name) {
+      name = top.name;
+      value = top.scope[name];
+    }
+    // Clean up the old stack frame
+    stack.pop();
+    top = stack[stack.length - 1];
+
+    // Export the value if there was one
+    if (name) {
+      top.scope[name] = value;
+    }
+  }
+
+  // Ensure the first token after DEF and LET are unused variables.
+  if (top.type === "DEF" || top.type === "LET" || top.type === "SET") {
+    if (type !== "variable") return "error";
+  }
+
+  // Handle a block closer
+  if (typeof top.left === "number" && token !== top.expectToken) {
     top.left--;
-    if (top.def) {
-      delete top.def;
-      if (top.fns[token] !== undefined ||
-          top.defs[token] !== undefined ||
-          top.vars[token] !== undefined) {
-        type = "error";
-      }
-      else {
-        type = "variable";
-      }
-      top.defs[token] = true;
-    }
-    if (top.let) {
-      delete top.let;
-      if (top.fns[token] !== undefined ||
-          top.defs[token] !== undefined ||
-          top.vars[token] !== undefined) {
-        type = "error";
-      }
-      else {
-        type = "builtin";
-      }
-      top.vars[token] = true;
-    }
+    if (top.left < 0) return "error";
   }
 
-  if (type === "keyword") {
-    if (token === "FUN" || token === "DO") {
-      state.stack.push( {
-        mode: token,
-        fns: Object.create(top.fns),
-        defs: Object.create(top.defs),
-        vars: Object.create(top.vars),
-      });
-      return type;
+  if (type === "variable") {
+    if (top.type === "DEF" || top.type === "LET") {
+      top.scope[token] = top.scope[token] === undefined ? top.type: "error";
+      top.name = token;
     }
-    if (BUILTINS[token] > 0) {
-      state.stack.push(top = {
-        mode: "CALL",
-        left: BUILTINS[token],
-        fns: top.fns,
-        defs: top.defs,
-        vars: top.vars,
-      });
-      if (token === "DEF") {
-        top.def = true;
-      }
-      else if (token === "LET") {
-        top.let = true;
-      }
-      return type;
-    }
-  }
+    var kind = top.scope[token];
 
-  else if (type === "variable") {
-    // Function call
-    if (top.fns[token] !== undefined) {
+    // Figure out which kind of variable this is.
+    if (kind === "LET") type = "variable";
+    else if (kind === "DEF" && top.type !== "SET") type = "variable-2";
+    else if (typeof kind === "number" && top.type !== "SET") {
       type = "builtin";
-      // Indent for function calls with non-zero arity.
-      if (top.fns[token]) {
-        state.stack.push({
-          mode: "CALL",
-          left: top.fns[token],
-          fns: Object.create(top.fns),
-          defs: Object.create(top.defs),
-          vars: Object.create(top.vars),
-        });
-        return type;
+    }
+    else type = "error";
+
+    if (top.type) delete top.type;
+    if (type === "builtin" && kind > 0) {
+      stack.push({
+        mode: "fixed",
+        scope: cloneScope(),
+        left: kind,
+      });
+      return type;
+    }
+  }
+  else if (type === "bracket") {
+    if (token === "(" || token === "[" || token === "{" || token === "<") {
+      stack.push(top = {
+        mode: "block",
+        scope: cloneScope(),
+        expectType: "bracket",
+        expectToken: {
+          "(":")",
+          "[":"]",
+          "{":"}",
+          "<":">",
+        }[token],
+      });
+      if (token === "(") {
+        top.left = 2;
       }
+      return type;
     }
-    // Constants
-    else if (top.defs[token] !== undefined) {
-      type = "variable-2";
+    if (top.mode !== "block" || top.expectType !== "bracket") {
+      return "error";
     }
-    // Params and local variables
-    else if (top.vars[token] !== undefined) {
-      type = "variable";
+  }
+
+  else if (type === "keyword") {
+    if (token === "FUN") {
+      stack.push({
+        mode: "function",
+        scope: cloneScope(),
+      });
+      return type;
     }
-    else {
+    else if (token === "DO") {
+      stack.push({
+        mode: "block",
+        scope: cloneScope(),
+        expectToken: "END",
+        expectType: "keyword",
+      });
+      return type;
+    }
+    else if (BUILTINS[token]) {
+      stack.push({
+        mode: "fixed",
+        scope: cloneScope(),
+        left: BUILTINS[token],
+        type: token
+      });
+      return type;
+    }
+  }
+
+  if (top.mode === "block" && type === top.expectType && token === top.expectToken) {
+    if (typeof top.left === "number" && top.left !== 0) {
       type = "error";
     }
+    pop();
   }
 
-
-  if (top.mode === "DO" && type === "keyword" && token === "END") {
-    console.log("POP", state.stack.pop());
-    top = state.stack[state.stack - 1];
+  // Clean out any filled fixed items.
+  while (top.mode === "fixed" && !top.left) {
+    pop();
   }
-
-  while (top && top.mode === "CALL" && !top.left) {
-    console.log("POP2", state.stack.pop());
-    top = state.stack[state.stack - 1];
-  }
-
   return type;
 }
 
@@ -198,44 +225,26 @@ CodeMirror.defineMode("uscript-asm", function (cm) {
       return {
         stack: [
           {
-            mode: "DO",
-            defs: {},
-            fns: {},
-            vars: {},
+            mode: "block",
+            scope: {},
           }
         ],
       };
     },
-    // copyState: function (state) {
-    //   var key;
-    //   var defs = {};
-    //   for (key in state.defs) defs[key] = state.defs;
-    //   var fns = {};
-    //   for (key in state.fns) fns[key] = state.fns;
-    //   var params = {};
-    //   for (key in state.params) params[key] = state.params;
-    //   return {
-    //     defs: defs,
-    //     fns: fns,
-    //     params: params,
-    //     depth: state.depth,
-    //   };
-    // },
+    copyState: function (state) {
+      return JSON.parse(JSON.stringify(state));
+    },
     lineComment: "--",
-    electricInput: /end$/i,
+    electricInput: /.$/i,
     fold: "uscript",
     indent: function (state, textAfter) {
-      var depth = 0;
+      var back = 0;
       var match;
-      while ((match = textAfter.match(/^[^"]*(do|end|[-][-].*|"([^"]|\\.)*")/i))) {
-        match = match[1].toUpperCase();
-        if (match == "DO") depth++;
-        else if (match == "END") depth--;
+      while ((match = textAfter.match(/^\s*([\)\]\}>]|end\b)/i))) {
+        back++;
         textAfter = textAfter.substring(match.length);
       }
-      if (depth === 0) return cm.Pass;
-      if (depth > 0) depth = 0;
-      return (depth + state.stack.length) * cm.indentUnit;
+      return (state.stack.length - 1 - back) * cm.indentUnit;
     },
     token: function (stream, state) {
       if (stream.eatSpace()) return;
