@@ -1,0 +1,81 @@
+<!doctype html>
+<head>
+  <meta charset="utf8">
+  <script src="codemirror-5.9/lib/codemirror.js"></script>
+  <script src="codemirror-5.9/addon/search/searchcursor.js"></script>
+  <script src="codemirror-5.9/addon/search/search.js"></script>
+  <script src="codemirror-5.9/addon/dialog/dialog.js"></script>
+  <script src="codemirror-5.9/addon/edit/matchbrackets.js"></script>
+  <script src="codemirror-5.9/addon/edit/closebrackets.js"></script>
+  <script src="codemirror-5.9/addon/comment/comment.js"></script>
+  <script src="codemirror-5.9/addon/wrap/hardwrap.js"></script>
+
+  <script src="codemirror-5.9/addon/fold/foldcode.js"></script>
+  <script src="codemirror-5.9/addon/fold/foldgutter.js"></script>
+  <script src="codemirror-5.9/addon/fold/indent-fold.js"></script>
+  <script src="codemirror-5.9/addon/fold/brace-fold.js"></script>
+  <script src="codemirror-5.9/keymap/sublime.js"></script>
+  <script src="modes.js"></script>
+  <link rel="stylesheet" href="codemirror-5.9/lib/codemirror.css">
+  <link rel="stylesheet" href="codemirror-5.9/theme/ambiance.css">
+  <link rel="stylesheet" href="codemirror-5.9/theme/ambiance-mobile.css">
+  <link rel="stylesheet" href="codemirror-5.9/addon/fold/foldgutter.css">
+  <style>
+  body {
+    margin: 0;
+    font-size: 16pt;
+    background-color: #000;
+  }
+  .CodeMirror {
+    width: 100%;
+    height: 100%;
+  }
+  </style>
+</head>
+<body>
+  <textarea>
+
+fun setBrightness bus addr b do
+  -- Make sure brightness is no greater than 15
+  if gt b 15 then
+    set b 15
+  end
+
+  -- Send the I2C command to set the brightness
+  istart bus
+  iaddr bus addr true
+  iwrite bus bor cmd_brightness get 2
+  istop bus
+
+end
+
+  </textarea>
+<script>
+  var editor = CodeMirror.fromTextArea(document.querySelector("textarea"), {
+    mode: "uscript-asm",
+    lineNumbers: false,
+    keyMap: "sublime",
+    autoCloseBrackets: true,
+    matchBrackets: true,
+    showCursorWhenSelecting: true,
+    tabSize: 2,
+    extraKeys: {"Ctrl-Q": function(cm){ cm.foldCode(cm.getCursor()); }},
+    foldGutter: true,
+    lineNumbers: true,
+    gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"],
+    theme: "ambiance",
+  });
+  var elem = document.querySelector(".CodeMirror");
+  // elem.ondblclick = function () {
+  //   if (elem.requestFullscreen) {
+  //     elem.requestFullscreen();
+  //   } else if (elem.msRequestFullscreen) {
+  //     elem.msRequestFullscreen();
+  //   } else if (elem.mozRequestFullScreen) {
+  //     elem.mozRequestFullScreen();
+  //   } else if (elem.webkitRequestFullscreen) {
+  //     elem.webkitRequestFullscreen();
+  //   }
+  // };
+</script>
+</body>

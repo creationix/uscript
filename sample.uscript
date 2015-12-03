@@ -1,0 +1,96 @@
+def cmd_brightness 0xe0 -- I2C address for setting the brightness
+def blink_cmd 0x80
+def blink_displayon 0x01
+def blink_off 0
+def oscillator_on 0x21
+
+def pinSDA 6
+def pinSCL 7
+def speed 100000 -- PLATFORM_I2C_SPEED_SLOW
+def address 0x70
+
+
+fun setBrightness bus addr b do
+  -- Make sure brightness is no greater than 15
+  if gt b 15 then
+    set b 15
+  end
+
+  -- Send the I2C command to set the brightness
+  istart bus
+  iaddr bus addr true
+  iwrite bus bor cmd_brightness get 2
+  istop bus
+
+end
+
+fun blinkRate bus addr b do
+	-- turn off if not sure
+  if gt b 3 then
+    set b blink_off
+  end
+
+  istart bus
+  iaddr bus addr true
+  iwrite bus bor
+  	bor blink_cmd blink_displayon
+    lshift b 1
+  istop bus
+end
+
+fun enableOscillator bus addr do
+  istart bus
+  iaddr bus addr true
+  iwrite bus oscillator_on
+  istop bus
+end
+
+
+fun begin bus addr do
+  enableOscillator bus addr
+  blinkRate bus addr blink_off
+  setBrightness bus addr 15
+end
+
+begin
+  isetup pinSDA pinSCL speed
+  address
+
+-- This string literal...
+"Hello World\n"
+-- is the same as this buffer literal.
+<0x48 0x65 0x6c 0x6c 0x6f
+ 0x20
+ 0x57 0x6f 0x72 0x6c 0x64
+ 0x0a>
+
+-- This character literal...
+'a'
+-- is the same as this number literal.
+0x61
+
+-- This list literal...
+[1 2 3 4]
+-- is the same as these pair literals.
+(1
+	(2
+  	(3
+    	(4 false)
+    )
+  )
+)
+-- It's a linked list.
+
+-- This map literal...
+{ @name: "Tim"
+  @age: 33
+  @programmer: true }
+-- is the same as these pair literals.
+((@name "Tim")
+	((@age 33)
+  	((@programmer true)
+    	false
+    )
+  )
+)
+-- It's a linked list containing key-value pairs.
