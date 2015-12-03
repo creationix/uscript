@@ -1,6 +1,11 @@
 <!doctype html>
 <head>
   <meta charset="utf8">
+  <link rel="stylesheet" href="codemirror-5.9/lib/codemirror.css">
+  <link rel="stylesheet" href="codemirror-5.9/theme/ambiance.css">
+  <link rel="stylesheet" href="codemirror-5.9/theme/ambiance-mobile.css">
+  <link rel="stylesheet" href="codemirror-5.9/addon/fold/foldgutter.css">
+  <link rel="stylesheet" href="style.css">
   <script src="codemirror-5.9/lib/codemirror.js"></script>
   <script src="codemirror-5.9/addon/search/searchcursor.js"></script>
   <script src="codemirror-5.9/addon/search/search.js"></script>
@@ -9,114 +14,16 @@
   <script src="codemirror-5.9/addon/edit/closebrackets.js"></script>
   <script src="codemirror-5.9/addon/comment/comment.js"></script>
   <script src="codemirror-5.9/addon/wrap/hardwrap.js"></script>
-
   <script src="codemirror-5.9/addon/fold/foldcode.js"></script>
   <script src="codemirror-5.9/addon/fold/foldgutter.js"></script>
   <script src="codemirror-5.9/addon/fold/indent-fold.js"></script>
   <script src="codemirror-5.9/addon/fold/brace-fold.js"></script>
   <script src="codemirror-5.9/keymap/sublime.js"></script>
+  <script src="opcodes.js"></script>
+  <script src="parser.js"></script>
   <script src="modes.js"></script>
-  <link rel="stylesheet" href="codemirror-5.9/lib/codemirror.css">
-  <link rel="stylesheet" href="codemirror-5.9/theme/ambiance.css">
-  <link rel="stylesheet" href="codemirror-5.9/theme/ambiance-mobile.css">
-  <link rel="stylesheet" href="codemirror-5.9/addon/fold/foldgutter.css">
-  <style>
-  body {
-    margin: 0;
-    font-size: 16pt;
-    background-color: #000;
-  }
-  .CodeMirror {
-    width: 100%;
-    height: 100%;
-  }
-  </style>
+  <script src="editor.js"></script>
 </head>
 <body>
-  <textarea>
-    -- This string literal...
-    "Hello World\n"
-    -- is the same as this buffer literal.
-    <0x48 0x65 0x6c 0x6c 0x6f
-     0x20
-     0x57 0x6f 0x72 0x6c 0x64
-     0x0a>
-
-    -- This character literal...
-    'a'
-    -- is the same as this number literal.
-    0x61
-
-    -- This list literal...
-    [1 2 3 4]
-    -- is the same as these pair literals.
-    (1
-      (2
-        (3
-          (4 false)
-        )
-      )
-    )
-    -- It's a linked list.
-
-    -- This map literal...
-    { @name: "Tim"
-      @age: 33
-      @programmer: true }
-    -- is the same as these pair literals.
-    ((@name "Tim")
-      ((@age 33)
-        ((@programmer true)
-          false
-        )
-      )
-    )
-    -- It's a linked list containing key-value pairs.
-</textarea>
-<script>
-  var editor = CodeMirror.fromTextArea(document.querySelector("textarea"), {
-    mode: "uscript-asm",
-    lineNumbers: false,
-    keyMap: "sublime",
-    matchBrackets: true,
-    showCursorWhenSelecting: true,
-    tabSize: 2,
-    extraKeys: {
-      "Ctrl-Q": function(cm) {
-        cm.foldCode(cm.getCursor());
-      },
-      "Ctrl-I": reindent,
-    },
-    foldGutter: true,
-    lineNumbers: true,
-    gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"],
-    theme: "ambiance",
-    autoCloseBrackets: {
-      pairs: "()[]{}<>",
-      explode: "()[]{}<>",
-    },
-  });
-
-  function reindent() {
-    for (var i = 0, l = editor.lineCount(); i < l; i++) {
-      editor.indentLine(i);
-    }
-  }
-
-  reindent();
-
-
-  var elem = document.querySelector(".CodeMirror");
-  // elem.ondblclick = function () {
-  //   if (elem.requestFullscreen) {
-  //     elem.requestFullscreen();
-  //   } else if (elem.msRequestFullscreen) {
-  //     elem.msRequestFullscreen();
-  //   } else if (elem.mozRequestFullScreen) {
-  //     elem.mozRequestFullScreen();
-  //   } else if (elem.webkitRequestFullscreen) {
-  //     elem.webkitRequestFullscreen();
-  //   }
-  // };
-</script>
+  <textarea></textarea>
 </body>
