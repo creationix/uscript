@@ -12,9 +12,8 @@ def address 0x70
 
 fun setBrightness bus addr b do
   -- Make sure brightness is no greater than 15
-  if gt b 15 then
+  if gt b 15
     set b 15
-  end
 
   -- Send the I2C command to set the brightness
   istart bus
@@ -26,9 +25,8 @@ end
 
 fun blinkRate bus addr b do
 	-- turn off if not sure
-  if gt b 3 then
+  if gt b 3
     set b blink_off
-  end
 
   istart bus
   iaddr bus addr true

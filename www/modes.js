@@ -31,72 +31,153 @@ var BUILTINS = {
   // Pausing statements
   DELAY: 1, UDELAY: 1, WAIT: 1, YIELD: 0,
   // Control Flow
-  IF: 0, THEN: 0, ELSE: 0, ELIF: 0,
+  IF: 2,
   // Loops / Iterators
-  WHILE: 1, DOWHILE: 1, FOR: 3, EACH: 1,
+  WHILE: 2, DOWHILE: 2, FOR: 4, EACH: 2,
   // Loop control flow
   BREAK: 0, CONTINUE: 0,
   // Function calling and definition
-  FUN: 1, DO: 0, RETURN: 1, END: 0,
+  FUN: undefined, RETURN: 1,
+  // block
+  DO: undefined, END: 0,
   // Macros
   DEF: 2, PRINT: 1,
 };
 
 function parser(state, type, token) {
   "use strict";
-  if (state.depth < 0) return "error";
-  if (type === "keyword" && (token === "DEF" || token === "FUN")) {
-    state.mode = token;
+  if (!state.stack.length) return "error";
+  var top = state.stack[state.stack.length - 1];
+  var mode = top.mode;
+  console.log(mode, state.stack.length, top.left, type, token);
+
+  if (top.mode === "FUN") {
+    if (type !== "variable") return "error";
+    if (top.fns[token] !== undefined ||
+        top.defs[token] !== undefined ||
+        top.vars[token] !== undefined) {
+      type = "error";
+    }
+    else {
+      type = "builtin";
+    }
+    top.fns[top.name = token] = 0;
+    top.mode = "PARAMS";
     return type;
   }
-  if (type === "keyword") {
-    if (token === "DO" || token === "THEN") {
-      console.log(token);
-      state.depth++;
+
+  if (top.mode === "PARAMS") {
+    if (type === "variable") {
+      if (top.fns[token] !== undefined ||
+          top.defs[token] !== undefined ||
+          top.vars[token] !== undefined) {
+        type = "error";
+      }
+      top.vars[token] = true;
+      top.fns[top.name] = ++top.left;
+      return type;
     }
-    else if (token === "ELIF" || token === "END") {
-      console.log(token);
-      state.depth--;
+    if (type === "keyword" && token === "DO") {
+      top.mode = "DO";
+      return type;
+    }
+  }
+  if (top.mode === "CALL") {
+    top.left--;
+    if (top.def) {
+      delete top.def;
+      if (top.fns[token] !== undefined ||
+          top.defs[token] !== undefined ||
+          top.vars[token] !== undefined) {
+        type = "error";
+      }
+      else {
+        type = "variable";
+      }
+      top.defs[token] = true;
+    }
+    if (top.let) {
+      delete top.let;
+      if (top.fns[token] !== undefined ||
+          top.defs[token] !== undefined ||
+          top.vars[token] !== undefined) {
+        type = "error";
+      }
+      else {
+        type = "builtin";
+      }
+      top.vars[token] = true;
     }
   }
 
-  if (type === "keyword" && token === "END") {
-    console.log("END", state.depth);
-    if (!state.depth) state.params = {};
-    if (state.depth < 0) return "error";
-    return type;
-  }
-  if (state.mode === "DEF") {
-    state.mode = undefined;
-    if (type !== "variable") return "error";
-    if (state.defs[token] || state.params[token] || state.fns[token]) return "error";
-    state.defs[token] = true;
-    return type;
-  }
-  if (state.mode === "FUN") {
-    state.mode = "ARGS";
-    state.depth = 0;
-    if (type !== "variable") return "error";
-    if (state.defs[token] || state.params[token] || state.fns[token]) return "error";
-    state.fns[token] = true;
-    return "builtin";
-  }
-  if (state.mode === "ARGS") {
-    if (type === "keyword" && token === "DO") {
-      state.mode = undefined;
+  if (type === "keyword") {
+    if (token === "FUN" || token === "DO") {
+      state.stack.push( {
+        mode: token,
+        fns: Object.create(top.fns),
+        defs: Object.create(top.defs),
+        vars: Object.create(top.vars),
+      });
       return type;
     }
-    if (type !== "variable") return "error";
-    if (state.defs[token] || state.params[token] || state.fns[token]) return "error";
-    state.params[token] = true;
-    return "variable-2";
+    if (BUILTINS[token] > 0) {
+      state.stack.push(top = {
+        mode: "CALL",
+        left: BUILTINS[token],
+        fns: top.fns,
+        defs: top.defs,
+        vars: top.vars,
+      });
+      if (token === "DEF") {
+        top.def = true;
+      }
+      else if (token === "LET") {
+        top.let = true;
+      }
+      return type;
+    }
   }
-  if (type === "variable") {
-    if (state.params[token]) return "variable-2";
-    if (state.fns[token]) return "builtin";
-    if (state.defs[token]) return "variable";
-    return "error";
+
+  else if (type === "variable") {
+    // Function call
+    if (top.fns[token] !== undefined) {
+      type = "builtin";
+      // Indent for function calls with non-zero arity.
+      if (top.fns[token]) {
+        state.stack.push({
+          mode: "CALL",
+          left: top.fns[token],
+          fns: Object.create(top.fns),
+          defs: Object.create(top.defs),
+          vars: Object.create(top.vars),
+        });
+        return type;
+      }
+    }
+    // Constants
+    else if (top.defs[token] !== undefined) {
+      type = "variable-2";
+    }
+    // Params and local variables
+    else if (top.vars[token] !== undefined) {
+      type = "variable";
+    }
+    else {
+      type = "error";
+    }
   }
+
+
+  if (top.mode === "DO" && type === "keyword" && token === "END") {
+    console.log("POP", state.stack.pop());
+    top = state.stack[state.stack - 1];
+  }
+
+  while (top && top.mode === "CALL" && !top.left) {
+    console.log("POP2", state.stack.pop());
+    top = state.stack[state.stack - 1];
+  }
+
   return type;
 }
 
@@ -115,40 +196,46 @@ CodeMirror.defineMode("uscript-asm", function (cm) {
   return {
     startState: function () {
       return {
-        defs: {},
-        params: {},
-        fns: {},
-        depth: 0,
+        stack: [
+          {
+            mode: "DO",
+            defs: {},
+            fns: {},
+            vars: {},
+          }
+        ],
       };
     },
-    copyState: function (state) {
-      var key;
-      var defs = {};
-      for (key in state.defs) defs[key] = state.defs;
-      var fns = {};
-      for (key in state.fns) fns[key] = state.fns;
-      var params = {};
-      for (key in state.params) params[key] = state.params;
-      return {
-        defs: defs,
-        fns: fns,
-        params: params,
-        depth: state.depth,
-      };
-    },
+    // copyState: function (state) {
+    //   var key;
+    //   var defs = {};
+    //   for (key in state.defs) defs[key] = state.defs;
+    //   var fns = {};
+    //   for (key in state.fns) fns[key] = state.fns;
+    //   var params = {};
+    //   for (key in state.params) params[key] = state.params;
+    //   return {
+    //     defs: defs,
+    //     fns: fns,
+    //     params: params,
+    //     depth: state.depth,
+    //   };
+    // },
     lineComment: "--",
     electricInput: /end$/i,
     fold: "uscript",
     indent: function (state, textAfter) {
-      var depth = state.depth;
+      var depth = 0;
       var match;
-      while ((match = textAfter.match(/^[^"]*(do|then|end|[-][-].*|"([^"]|\\.)*")/))) {
-        match = match[0].toUpperCase();
-        if (match == "DO" || match == "THEN") depth++;
+      while ((match = textAfter.match(/^[^"]*(do|end|[-][-].*|"([^"]|\\.)*")/i))) {
+        match = match[1].toUpperCase();
+        if (match == "DO") depth++;
         else if (match == "END") depth--;
         textAfter = textAfter.substring(match.length);
       }
-      return depth * cm.indentUnit;
+      if (depth === 0) return cm.Pass;
+      if (depth > 0) depth = 0;
+      return (depth + state.stack.length) * cm.indentUnit;
     },
     token: function (stream, state) {
       if (stream.eatSpace()) return;
@@ -208,35 +295,30 @@ CodeMirror.registerHelper("fold", "uscript", function(cm, start) {
     }
   }
 
-  var startToken = "{", endToken = "}", startCh = findOpening("{");
-  if (startCh == null) {
-    startToken = "[", endToken = "]";
-    startCh = findOpening("[");
-  }
-  if (startCh == null) {
-    startToken = "(", endToken = ")";
-    startCh = findOpening("(");
-  }
-  var skipToken;
-  if (startCh == null) {
-    startToken = "do", endToken = "end";
-    skipToken = "then";
-    startCh = findOpening("do");
-  }
-  if (startCh == null) {
-    startToken = "then", endToken = "end";
-    skipToken = "do";
-    startCh = findOpening("then");
+  var pairs = [
+    ["do","end"],
+    ["{","}"],
+    ["[","]"],
+    ["(",")"],
+    ["<",">"],
+  ];
+  var startToken, endToken;
+  for (var i = 0, l = pairs.length; i < l; i++) {
+    var s = findOpening(pairs[i][0]);
+    if (s !== undefined && (startCh === undefined || s < startCh)) {
+      startCh = s;
+      startToken = pairs[i][0];
+      endToken = pairs[i][1];
+    }
   }
 
-  if (startCh == null) return;
+  if (startCh === null) return;
   var count = 1, lastLine = cm.lastLine(), end, endCh;
   outer: for (var i = line; i <= lastLine; ++i) {
     var text = cm.getLine(i), pos = i == line ? startCh : 0;
     for (;;) {
-      var nextOpen = text.indexOf(startToken, pos), nextClose = text.indexOf(endToken, pos);
-      if (nextOpen < 0) nextOpen = text.indexOf(skipToken, pos);
-
+      var nextOpen = text.indexOf(startToken, pos);
+      var nextClose = text.indexOf(endToken, pos);
       if (nextOpen < 0) nextOpen = text.length;
       if (nextClose < 0) nextClose = text.length;
       pos = Math.min(nextOpen, nextClose);

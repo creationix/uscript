@@ -19,6 +19,17 @@ function p(val) {
   console.log(inspect(val, {colors:true,depth:null}));
 }
 
+var SET = Symbol("SET"),
+    PRINT = Symbol("PRINT"),
+    IF = Symbol("IF"),
+    END = Symbol("END");
+
+var opcodes = {
+  set: SET,
+  print: PRINT,
+};
+
+
 var builtins = {
   add: 2, sub: 2, mul: 2, div: 2, mod: 2, neg: 1,
   bnot: 1, bxor: 2, band: 2, bor: 2, lshift: 2, rshift: 2,
@@ -34,25 +45,11 @@ var builtins = {
   iread: 1,//(i2c) -> byte
   iawrite: 2,//(i2c, buffer)
   iaread: 2,//(i2c, len) -> buffer
+  print: 1,
 };
 
 var symbols = {};
 
-// File loader, eventually will be replaced with git sync system.
-function* loadFile(path) {
-  path = "modules/" + path.replace(/\./g, "/") + ".jack";
-  return yield function (cb) {
-    fs.readFile(path, "utf8", function (err, data) {
-      if (err) {
-        if (err.code === "ENOENT") {
-          return cb();
-        }
-        return cb(err);
-      }
-      return cb(null, data);
-    });
-  };
-}
 
 var loaded = {};
 function* load(name) {
@@ -189,10 +186,11 @@ function* compile(symbol) {
           throw new Error("Builtin arity mismatch");
         }
         if (target) {
-          code.push(["set", target, [name].concat(args.map(walk))]);
+          code.push(SET, target);
         }
-        else {
-          code.push([name].concat(args.map(walk)));
+        code.push(opcodes[name]);
+        for (var i = 0, l = args.length; i < l; i++) {
+          code.push(yield* walk(args[i]));
         }
       }
       else {
@@ -201,30 +199,30 @@ function* compile(symbol) {
           var expression = args[i];
           expression = yield* walk(expression);
           if (expression[0] == "get") {
-            code.push(["copy", i + start, expression[1]]);
+            code.push(COPY, i + start, expression[1]);
           }
           else {
-            code.push(["set", i + start, expression]);
+            code.push(SET, i + start, expression);
           }
         }
         var index = yield* compile(yield* resolveSymbol(fn, name));
         if (target) {
-          code.push(["call", index, start, args.length, target]);
+          code.push(CALL, index, start, args.length, target);
         }
         else {
-          code.push(["sub", index, start, args.length]);
+          code.push(SUB, index, start, args.length);
         }
         vars.length = start;
       }
     }
     else if (type === "ASSIGN") {
-      code.push(["set", getSlot(statement[1]), yield* walk(statement[2])]);
+      code.push(SET, getSlot(statement[1]), yield* walk(statement[2]));
     }
     else if (type === "IF") {
-      p(statement);
-      code.push(["if", yield* walk(statement[1])]);
+      code.push(IF);
+      yield* walk(statement[1]);
       yield* eachStatement(statement[2]);
-      code.push(["end"]);
+      code.push(END);
     }
     else {
       p(statement);
@@ -232,7 +230,7 @@ function* compile(symbol) {
     }
   }
 
-  code.push(["end"]);
+  code.push(END);
   functions.push(code);
   fn.index = nextFn++;
   fn.code = code;
@@ -248,13 +246,16 @@ function* compile(symbol) {
         return ["get", varSlots[name]];
       }
       // TODO: add index for values that need data storage
-      return symbols[yield* resolveSymbol(fn, name)].val;
+      code.push(symbols[yield* resolveSymbol(fn, name)].val);
     }
     if (type in builtins) {
       if (expression.length !== builtins[type] + 1) {
         throw new Error("Builtin arity mismatch");
       }
-      return [type, expression.slice(1).map(walk)];
+      code.push(type);
+      for (var i = 1, l = expression.length; i < l; i++) {
+        yield* walk(expression[i]);
+      }
     }
     else {
       p(expression);
@@ -298,7 +299,5 @@ function* resolveSymbol(fn, name) {
 }
 
 require('gen-run')(function* () {
-  console.log("Compiling creationix.test.main");
-  yield* compile("creationix.test.main");
-  p(functions);
+  yield* compile("creationix.test-ops.main");
 });
