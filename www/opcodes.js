@@ -34,7 +34,7 @@
   // Local variables
   let: 2, set: 2, get: 1,
   // Pausing statements
-  delay: 1, udelay: 1, wait: 1, yield: 0,
+  wait: 1, yield: 0,
   // Control Flow
   if: 2,
   // Loops / Iterators
@@ -47,6 +47,10 @@
   do: undefined, end: 0,
   // Constants
   def: 2,
+  // Misc
+  reset: 0, free: 0,
+  // Timing
+  millis: 0, micros: 0, delay: 1, udelay: 1,
   // Terminal I/O
   readline: 0, writeline: 1, print: 1, getchar: 0, putchar: 1,
 });

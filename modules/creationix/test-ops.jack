@@ -1,0 +1,11 @@
+
+
+main() {
+  a = true
+  b = false
+  c = 42
+  d = 0xdead
+  e = "Strings are cool"
+  f = <<< 1 2 3 4 5 >>>
+  g = ["Hello", "World"]
+}
