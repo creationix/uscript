@@ -23,16 +23,16 @@ void setup() {
   Serial.println();
   Serial.print("Connecting to ");
   Serial.println(ssid);
-  
+
   WiFi.begin(ssid, password);
-  
+
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
 
   Serial.println("");
-  Serial.println("WiFi connected");  
+  Serial.println("WiFi connected");
   Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
 
@@ -87,6 +87,13 @@ void loop() {
       delay(1000);
     }
     Serial.println("Connected!");
+    // Send the chip ID and protocol version as 5-bytes
+    int id = ESP.getChipId();
+    client.write((char) USCRIPT_VERSION);
+    client.write((char) (id >> 24) & 0xff);
+    client.write((char) (id >> 16) & 0xff);
+    client.write((char) (id >> 8) & 0xff);
+    client.write((char) id & 0xff);
   }
 
 
@@ -95,26 +102,4 @@ void loop() {
   while (client.available()) {
     handle(client.read());
   }
-
 }
-
-
-
-//  uint8_t code[] = {
-//  Do,
-//    Mode, 13, 1,
-//    Forever, Do,
-//      Write, 13, 1,
-//      Delay, 0x47, 0x68,
-//      Write, 13, 0,
-//      Delay, 0x47, 0x68,
-//    End,
-//  End
-//  };
-//
-
-
-
-
-
-

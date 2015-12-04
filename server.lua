@@ -2,10 +2,16 @@
 
 local list = {
   "Mode", -- (pin, mode)
+  "Read", -- (pin)
   "Write", -- (pin, value)
+  "Aread", -- (pin)
+  "Pwrite", -- (pin, value)
   "Delay", -- (ms)
   "Forever", -- (action)
   "Do", "End", -- do ... end
+  "Add", "Sub", "Mul", "Div", "Mod", "Neg",
+  "And", "Or", "Xor", "Not",
+  "Gt", "Gte", "Lt", "Lte", "Eq", "Neq",
 }
 local op = {};
 for i = 1, #list do

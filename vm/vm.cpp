@@ -1,8 +1,6 @@
-#include <stdint.h>
 #include "vm.h"
 
 extern int isAlive();
-
 
 #ifdef ARDUINO
 #include "Arduino.h"
@@ -18,6 +16,21 @@ static void pinMode(int pin, int mode) {
 static void digitalWrite(int pin, int value) {
   printf("digitalWrite(%d, %d)\n", pin, value);
 }
+
+static int digitalRead(int pin) {
+  printf("digitalRead(%d)\n", pin);
+  return 0;
+}
+
+static void analogWrite(int pin, int value) {
+  printf("analogWrite(%d, %d)\n", pin, value);
+}
+
+static int analogRead(int pin) {
+  printf("analogRead(%d)\n", pin);
+  return 0;
+}
+
 
 static void delay(int ms) {
   struct timeval t;
@@ -49,11 +62,26 @@ uint8_t* eval(uint8_t* pc, int32_t* value) {
       pinMode(pin, *value);
       return pc;
     }
+    case Read:
+      pc = eval(pc, value);
+      *value = digitalRead(*value);
+      return pc;
     case Write: {
       int32_t pin;
       pc = eval(pc, &pin);
       pc = eval(pc, value);
       digitalWrite(pin, *value);
+      return pc;
+    }
+    case Aread:
+      pc = eval(pc, value);
+      *value = analogRead(*value);
+      return pc;
+    case Pwrite: {
+      int32_t pin;
+      pc = eval(pc, &pin);
+      pc = eval(pc, value);
+      analogWrite(pin, *value);
       return pc;
     }
     case Delay:
@@ -76,6 +104,112 @@ uint8_t* eval(uint8_t* pc, int32_t* value) {
     case End:
       *value = -1;
       return 0;
+    case Add: {
+      int32_t num;
+      pc = eval(pc, &num);
+      pc = eval(pc, value);
+      *value = num + *value;
+      return pc;
+    }
+    case Sub: {
+      int32_t num;
+      pc = eval(pc, &num);
+      pc = eval(pc, value);
+      *value = num - *value;
+      return pc;
+    }
+    case Mul: {
+      int32_t num;
+      pc = eval(pc, &num);
+      pc = eval(pc, value);
+      *value = num * *value;
+      return pc;
+    }
+    case Div: {
+      int32_t num;
+      pc = eval(pc, &num);
+      pc = eval(pc, value);
+      *value = num / *value;
+      return pc;
+    }
+    case Mod: {
+      int32_t num;
+      pc = eval(pc, &num);
+      pc = eval(pc, value);
+      *value = num % *value;
+      return pc;
+    }
+    case Neg:
+      pc = eval(pc, value);
+      *value = -(*value);
+      return pc;
+    case And: {
+      int32_t num;
+      pc = eval(pc, &num);
+      pc = eval(pc, value);
+      *value = num && *value;
+      return pc;
+    }
+    case Or: {
+      int32_t num;
+      pc = eval(pc, &num);
+      pc = eval(pc, value);
+      *value = num || *value;
+      return pc;
+    }
+    case Xor: {
+      int32_t num;
+      pc = eval(pc, &num);
+      pc = eval(pc, value);
+      *value = (num && !*value) || (!num && *value);
+      return pc;
+    }
+    case Not:
+      pc = eval(pc, value);
+      *value = !(*value);
+      return pc;
+    case Gt: {
+      int32_t num;
+      pc = eval(pc, &num);
+      pc = eval(pc, value);
+      *value = num > *value;
+      return pc;
+    }
+    case Gte: {
+      int32_t num;
+      pc = eval(pc, &num);
+      pc = eval(pc, value);
+      *value = num >= *value;
+      return pc;
+    }
+    case Lt: {
+      int32_t num;
+      pc = eval(pc, &num);
+      pc = eval(pc, value);
+      *value = num < *value;
+      return pc;
+    }
+    case Lte: {
+      int32_t num;
+      pc = eval(pc, &num);
+      pc = eval(pc, value);
+      *value = num <= *value;
+      return pc;
+    }
+    case Eq: {
+      int32_t num;
+      pc = eval(pc, &num);
+      pc = eval(pc, value);
+      *value = num == *value;
+      return pc;
+    }
+    case Neq: {
+      int32_t num;
+      pc = eval(pc, &num);
+      pc = eval(pc, value);
+      *value = num != *value;
+      return pc;
+    }
   }
   return pc;
 
