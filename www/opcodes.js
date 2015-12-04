@@ -26,9 +26,19 @@
   // Map operations
   mset: 3, mget: 2, mdel: 2,
   // GPIO operations
-  mode: 2, write: 2, read: 1, pwrite: 2, aread: 1,
-  // I2C operations2
-  isetup: 3, istart: 1, istop: 1, iaddr: 3, iwrite: 2, iread: 1,
+  mode: 2,       // pinMode(pin, mode)
+  write: 2,      // digitalWrite(pin, value)
+  read: 1,       // digitalRead(pin)
+  pwrite: 2,     // analogWrite(pin, value)
+  aread: 1,      // analogRead(pin)
+  // I2C operations
+  ibegin: 2,     // Wiring.begin(sda, scl)
+  ifrom: 3,      // Wiring.requestFrom(address, quantity, stop)
+  istart: 1,     // Wiring.beginTransmission(address)
+  istop: 1,      // Wiring.endTransmission(stop)
+  iwrite: 1,     // Wiring.write(byte or buffer)
+  iavailable: 0, // Wiring.available()
+  iread: 0,      // Wiring.read()
   // Neopixel (ws2812)
   neopix: 2,
   // Local variables
@@ -48,7 +58,7 @@
   // Constants
   def: 2,
   // Misc
-  reset: 0, free: 0,
+  reset: 0, free: 0, id: 0,
   // Timing
   millis: 0, micros: 0, delay: 1, udelay: 1,
   // Terminal I/O
