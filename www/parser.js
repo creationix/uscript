@@ -22,28 +22,28 @@
     // Handle the function name token
     if (top.mode === "function") {
       // The token after FUN must be a new, unused variable
-      if (type !== "variable" || top.scope[token] !== undefined) return "error";
+      if (type !== "ident" || top.scope[token] !== undefined) return "error";
       // Prepare to consume args list
       top.mode = "args";
       top.name = token;
       top.args = [];
-      return "builtin";
+      return "function";
     }
 
     // Handle the function args list and trailing DO
     if (top.mode === "args") {
-      if (type === "keyword" && token === "DO") {
+      if (type === "opcode" && token === "do") {
         top.scope[top.name] = top.args.length;
         for (var i = 0, l = top.args.length; i < l; i++) {
-          top.scope[top.args[i]] = "LET";
+          top.scope[top.args[i]] = "let";
         }
         delete top.args;
         top.mode = "block";
-        top.expectToken = "END";
-        top.expectType = "keyword";
+        top.expectToken = "end";
+        top.expectType = "opcode";
         return type;
       }
-      if (type !== "variable" || top.scope[token] !== undefined) return "error";
+      if (type !== "ident" || top.scope[token] !== undefined) return "error";
       top.args.push(token);
       return "variable";
     }
@@ -66,9 +66,9 @@
     }
 
     // Ensure the first token after DEF and LET are unused variables.
-    if (top.type === "DEF" || top.type === "LET" || top.type === "SET" ||
-        top.type === "FOR" || top.type === "EACH") {
-      if (type !== "variable") return "error";
+    if (top.type === "def" || top.type === "let" || top.type === "set" ||
+        top.type === "for" || top.type === "each") {
+      if (type !== "ident") return "error";
     }
 
     // Handle a block closer
@@ -77,27 +77,27 @@
       if (top.left < 0) return "error";
     }
 
-    if (type === "variable") {
-      if (top.type === "DEF" || top.type === "LET" || top.type === "FOR" ||
-          top.type === "EACH") {
+    if (type === "ident") {
+      if (top.type === "def" || top.type === "let" || top.type === "for" ||
+          top.type === "each") {
         top.scope[token] = top.scope[token] === undefined ? (
-          top.type === "DEF" ? "DEF" : "LET") : "error";
-        if (top.type === "DEF" || top.type === "LET") {
+          top.type === "def" ? "def" : "let") : "error";
+        if (top.type === "def" || top.type === "let") {
           top.name = token;
         }
       }
       var kind = top.scope[token];
 
       // Figure out which kind of variable this is.
-      if (kind === "LET") type = "variable";
-      else if (kind === "DEF" && top.type !== "SET") type = "variable-2";
-      else if (typeof kind === "number" && top.type !== "SET") {
-        type = "builtin";
+      if (kind === "let") type = "variable";
+      else if (kind === "def" && top.type !== "set") type = "definition";
+      else if (typeof kind === "number" && top.type !== "set") {
+        type = "function";
       }
       else type = "error";
 
       if (top.type) delete top.type;
-      if (type === "builtin" && kind > 0) {
+      if (type === "function" && kind > 0) {
         stack.push({
           mode: "fixed",
           scope: cloneScope(),
@@ -129,20 +129,20 @@
       }
     }
 
-    else if (type === "keyword") {
-      if (token === "FUN") {
+    else if (type === "opcode") {
+      if (token === "fun") {
         stack.push({
           mode: "function",
           scope: cloneScope(),
         });
         return type;
       }
-      else if (token === "DO") {
+      else if (token === "do") {
         stack.push({
           mode: "block",
           scope: cloneScope(),
-          expectToken: "END",
-          expectType: "keyword",
+          expectToken: "end",
+          expectType: "opcode",
         });
         return type;
       }

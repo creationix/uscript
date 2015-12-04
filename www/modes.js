@@ -3,15 +3,19 @@ CodeMirror.defineMode("uscript-asm", function (cm) {
   "use strict";
   var opcodes = window.opcodes;
   var parser = window.parser;
-  var opcode = new RegExp("^(" + Object.keys(opcodes).join("|") + ")\\b", "i");
-  var number = /^([-]?0[bB][01]+|[-]?0[oO][07]+|[-]?0[xX][0-9a-fA-f]+|[-]?[1-9][0-9]*|0)\b/;
-  var boolean = /^(true|false)\b/;
-  var comment = /^[-][-]/;
-  var symbol = /^@[a-z_]\w*/i;
-  var ident = /^[a-z_]\w*/i;
-  var bracket = /^[(){}\[\]<>:]/i;
-  var string = /^"(?:[^"]|\\.)*"/;
-  var char = /^'(?:[^']|\\.)'/;
+  var patterns = window.patterns;
+  var typeMap = {
+    opcode: "keyword",
+    number: "number",
+    boolean: "atom",
+    symbol: "property",
+    variable: "variable",
+    definition: "variable-2",
+    function: "builtin",
+    bracket: "bracket",
+    char: "string-2",
+    string: "string",
+  };
 
   return {
     startState: function () {
@@ -33,7 +37,7 @@ CodeMirror.defineMode("uscript-asm", function (cm) {
     indent: function (state, textAfter) {
       var back = 0;
       var match;
-      while ((match = textAfter.match(/^\s*([\)\]\}>]|end\b)/i))) {
+      while ((match = textAfter.match(patterns.closers))) {
         back++;
         textAfter = textAfter.substring(match.length);
       }
@@ -41,38 +45,26 @@ CodeMirror.defineMode("uscript-asm", function (cm) {
     },
     token: function (stream, state) {
       if (stream.eatSpace()) return;
-      if (stream.match(comment)) {
+      if (stream.match(patterns.comment)) {
         stream.skipToEnd();
         return "comment";
       }
-      if (stream.match(opcode)) {
-        return parser(state, "keyword", stream.current().toUpperCase());
+      var names = Object.keys(patterns);
+      var type;
+      for (var i = 0, l = names.length; i < l; i++) {
+        var name = names[i];
+        if (stream.match(patterns[name])) {
+          type = parser(state, name, stream.current());
+          break;
+        }
       }
-      if (stream.match(number)) {
-        return parser(state, "number", stream.current());
+      if (!type) {
+        if (stream.match(/\S+/)) {
+          return "error";
+        }
+        return stream.next();
       }
-      if (stream.match(boolean)) {
-        return parser(state, "atom", stream.current());
-      }
-      if (stream.match(symbol)) {
-        return parser(state, "property", stream.current());
-      }
-      if (stream.match(ident)) {
-        return parser(state, "variable", stream.current());
-      }
-      if (stream.match(bracket)) {
-        return parser(state, "bracket", stream.current());
-      }
-      if (stream.match(char)) {
-        return parser(state, "string-2", stream.current());
-      }
-      if (stream.match(string)) {
-        return parser(state, "string", stream.current());
-      }
-      if (stream.match(/\S+/)) {
-        return "error";
-      }
-      stream.next();
+      return typeMap[type] || type;
     }
   };
 });

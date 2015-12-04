@@ -4,49 +4,49 @@
   catch (err) { window.opcodes = opcodes; }
 })({
   // Integer operations
-  NEG: 1, ADD: 2, SUB: 2, MUL: 2, DIV: 2, MOD: 2,
+  neg: 1, add: 2, sub: 2, mul: 2, div: 2, mod: 2,
   // Bitwise operations
-  BNOT: 1, BXOR: 2, BAND: 2, BOR: 2, LSHIFT: 2, RSHIFT: 2,
+  bnot: 1, bxor: 2, band: 2, bor: 2, lshift: 2, rshift: 2,
   // Comparison operations
-  GT: 2, GTE: 2, LT: 2, LTE: 2, EQ: 2, NEQ: 2,
+  gt: 2, gte: 2, lt: 2, lte: 2, eq: 2, neq: 2,
   // Logical operations
-  NOT: 1, AND: 2, OR: 2, XOR: 2, CHOOSE: 3,
+  not: 1, and: 2, or: 2, xor: 2, choose: 3,
   // Pseudo random number generator
-  SRAND: 1, RAND: 1,
+  srand: 1, rand: 1,
   // Garbage Collection
-  GC: 1,
+  gc: 1,
   // Buffer operations
-  LEN: 1, PEEK: 2, POKE: 3, FILL: 4, COPY: 5, INDEX: 2, FIND: 2,
+  len: 1, peek: 2, poke: 3, fill: 4, copy: 5, index: 2, find: 2,
   // Pair operations
-  HEAD: 1, TAIL: 1, SETHEAD: 2, SETTAIL: 2,
+  head: 1, tail: 1, sethead: 2, settail: 2,
   // List operations
-  LLEN: 1, LIDX: 2, LGET: 2, LSET: 3, LDEL: 2,
+  llen: 1, lidx: 2, lget: 2, lset: 3, ldel: 2,
   // Set operations
-  SHAS: 2, SDEL: 2, SADD: 2,
+  shas: 2, sdel: 2, sadd: 2,
   // Map operations
-  MSET: 3, MGET: 2, MDEL: 2,
+  mset: 3, mget: 2, mdel: 2,
   // GPIO operations
-  MODE: 2, WRITE: 2, READ: 1, PWRITE: 2, AREAD: 1,
+  mode: 2, write: 2, read: 1, pwrite: 2, aread: 1,
   // I2C operations2
-  ISETUP: 3, ISTART: 1, ISTOP: 1, IADDR: 3, IWRITE: 2, IREAD: 1,
+  isetup: 3, istart: 1, istop: 1, iaddr: 3, iwrite: 2, iread: 1,
   // Neopixel (ws2812)
-  NEOPIX: 2,
+  neopix: 2,
   // Local variables
-  LET: 2, SET: 2, GET: 1,
+  let: 2, set: 2, get: 1,
   // Pausing statements
-  DELAY: 1, UDELAY: 1, WAIT: 1, YIELD: 0,
+  delay: 1, udelay: 1, wait: 1, yield: 0,
   // Control Flow
-  IF: 2,
+  if: 2,
   // Loops / Iterators
-  WHILE: 2, DOWHILE: 2, FOR: 5, EACH: 3,
+  while: 2, dowhile: 2, for: 5, each: 3,
   // Loop control flow
-  BREAK: 0, CONTINUE: 0,
+  break: 0, continue: 0,
   // Function calling and definition
-  FUN: undefined, RETURN: 1,
+  fun: undefined, return: 1,
   // block
-  DO: undefined, END: 0,
+  do: undefined, end: 0,
   // Constants
-  DEF: 2,
+  def: 2,
   // Terminal I/O
-  READLINE: 0, WRITELINE: 1, PRINT: 1, GETCHAR: 0, PUTCHAR: 1,
+  readline: 0, writeline: 1, print: 1, getchar: 0, putchar: 1,
 });
