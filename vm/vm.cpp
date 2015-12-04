@@ -1,18 +1,18 @@
 #include <stdint.h>
+#include "vm.h"
+
+extern int isAlive();
+
+
+#ifdef ARDUINO
+#include "Arduino.h"
+#else
 #include <stdio.h>
 #include <sys/select.h>
 #include <sys/time.h>
 
-typedef enum {
-  Mode = 128, // (pin, mode)
-  Write, // (pin, value)
-  Delay, // (ms)
-  Forever, // (action)
-  Do, End, // do ... end
-} opcode_t;
-
-static void setMode(int pin, int mode) {
-  printf("setMode(%d, %d)\n", pin, mode);
+static void pinMode(int pin, int mode) {
+  printf("pinMode(%d, %d)\n", pin, mode);
 }
 
 static void digitalWrite(int pin, int value) {
@@ -25,6 +25,7 @@ static void delay(int ms) {
   t.tv_usec = (ms % 1000) * 1000;
   select(0, NULL, NULL, NULL, &t);
 }
+#endif
 
 // 0mxxxxxx mxxxxxxx* - integer
 // 1xxxxxxx - opcode
@@ -45,7 +46,7 @@ uint8_t* eval(uint8_t* pc, int32_t* value) {
       int32_t pin;
       pc = eval(pc, &pin);
       pc = eval(pc, value);
-      setMode(pin, *value);
+      pinMode(pin, *value);
       return pc;
     }
     case Write: {
@@ -62,7 +63,7 @@ uint8_t* eval(uint8_t* pc, int32_t* value) {
     case Forever: {
       uint8_t* start = pc;
       // TODO: add way to exit loop.
-      while (1) {
+      while (isAlive()) {
         pc = eval(start, value);
       }
       return pc;
@@ -79,7 +80,7 @@ uint8_t* eval(uint8_t* pc, int32_t* value) {
   return pc;
 
 }
-
+/*
 int main() {
   uint8_t code[] = {
   Do,
@@ -97,3 +98,4 @@ int main() {
   uint8_t* pc = eval(code, &result);
   return *pc == (uint8_t)EOF;
 }
+*/

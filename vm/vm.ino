@@ -1,17 +1,17 @@
-/*
- *  This sketch sends data via HTTP GET requests to data.sparkfun.com service.
- *
- *  You need to get streamId and privateKey at data.sparkfun.com and paste them
- *  below. Or just customize this script to talk to other HTTP servers.
- *
- */
-
 #include <ESP8266WiFi.h>
+#include <string.h>
+#include "vm.h"
 
-const char* ssid     = "creationix";
+const char* ssid     = "creationix-mobile";
 const char* password = "noderocks";
 
-const char* host = "192.168.1.140";
+const char* host = "192.168.43.221";
+
+WiFiClient client;
+
+int isAlive() {
+  return client.connected() && !client.available();
+}
 
 void setup() {
   Serial.begin(115200);
@@ -35,46 +35,86 @@ void setup() {
   Serial.println("WiFi connected");  
   Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
+
 }
 
-int value = 0;
+int mode = 1;
+uint8_t* code;
+uint8_t* pc;
+int len;
+void handle(char c) {
+  Serial.print("handle char: ");
+  Serial.println((int)c);
+  if (mode == 1) {
+    len = c << 8;
+    mode = 2;
+  }
+  else if (mode == 2) {
+    len |= c;
+    mode = 3;
+    code = (uint8_t*)malloc(len);
+    pc = code;
+    Serial.print("Got length header: ");
+    Serial.println(len);
+  }
+  else {
+    *pc++ = c;
+    if (!--len) {
+      Serial.println("Runing code");
+      int32_t result;
+      pc = eval(code, &result);
+      free(code);
+      mode = 1;
+    }
+  }
+}
 
+int second = 0;
 void loop() {
-  delay(5000);
-  ++value;
 
-  Serial.print("connecting to ");
-  Serial.println(host);
-  
-  // Use WiFiClient class to create TCP connections
-  WiFiClient client;
-  if (!client.connect(host, 1337)) {
-    Serial.println("connection failed");
-    return;
+  if (!second || !client.connected()) {
+    if (second) {
+      Serial.println();
+      Serial.println("disconnecting from server.");
+      client.stop();
+    }
+    second = 1;
+    delay(1000);
+    Serial.print("connecting to ");
+    Serial.println(host);
+    while (!client.connect(host, 1337)) {
+      Serial.println("connection failed");
+      delay(1000);
+    }
+    Serial.println("Connected!");
   }
-  
-  // We now create a URI for the request
-  String url = "/input/";
-  url += "?private_key=";
-  url += "&value=";
-  url += value;
-  
-  Serial.print("Requesting URL: ");
-  Serial.println(url);
-  
-  // This will send the request to the server
-  client.print(String("GET ") + url + " HTTP/1.1\r\n" +
-               "Host: " + host + "\r\n" + 
-               "Connection: close\r\n\r\n");
-  delay(10);
-  
-  // Read all the lines of the reply from server and print them to Serial
-  while(client.available()){
-    String line = client.readStringUntil('\r');
-    Serial.print(line);
+
+
+  // if there are incoming bytes available
+  // from the server, read them and print them:
+  while (client.available()) {
+    handle(client.read());
   }
-  
-  Serial.println();
-  Serial.println("closing connection");
+
 }
+
+
+
+//  uint8_t code[] = {
+//  Do,
+//    Mode, 13, 1,
+//    Forever, Do,
+//      Write, 13, 1,
+//      Delay, 0x47, 0x68,
+//      Write, 13, 0,
+//      Delay, 0x47, 0x68,
+//    End,
+//  End
+//  };
+//
+
+
+
+
+
 
