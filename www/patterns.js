@@ -3,15 +3,15 @@
   catch (err) { window.patterns = def(window.opcodes); }
 })(function (opcodes) {
   return {
-    opcode: new RegExp("^(" + Object.keys(opcodes).join("|") + ")\\b", "i"),
-    number: /^([-]?0[bB][01]+|[-]?0[oO][07]+|[-]?0[xX][0-9a-fA-f]+|[-]?[1-9][0-9]*|0)\b/,
+    opcode: new RegExp("^(" + Object.keys(opcodes).sort().join("|") + ")\\b"),
+    number: /^[-]?(?:0b[01]+|0o[07]+|0x[0-9a-f]+|[1-9][0-9]*|0)\b/i,
     boolean: /^(true|false)\b/,
     comment: /^[-][-]/,
-    symbol: /^@[a-z_]\w*/i,
-    ident: /^[a-z_]\w*/i,
-    bracket: /^[(){}\[\]<>:]/i,
+    symbol: /^@[a-z_$]\w*/i,
+    ident: /^[a-z_$]\w*/i,
+    bracket: /^[(){}\[\]<>:]/,
     string: /^"(?:[^"]|\\.)*"/,
     char: /^'(?:[^']|\\.)'/,
-    closers: /^\s*([\)\]\}>]|end\b)/i,
+    closers: /^\s*([\)\]\}>]|end\b)/,
   };
 });

@@ -48,7 +48,7 @@
   // Control Flow
   if: 2,
   // Loops / Iterators
-  while: 2, dowhile: 2, for: 5, each: 3,
+  forever: 1, while: 2, dowhile: 2, for: 5, each: 3,
   // Loop control flow
   break: 0, continue: 0,
   // Function calling and definition

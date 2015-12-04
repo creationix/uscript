@@ -9,3 +9,4 @@ var patterns = require('./www/patterns');
 
 p(parser);
 p(opcodes);
+p(patterns);
