@@ -2,6 +2,7 @@
 
 -- USCRIPT_VERSION 1
 local list = {
+  "Do", "End", -- do ... end
   "Mode", -- (pin, mode)
   "Read", -- (pin)
   "Write", -- (pin, value)
@@ -34,7 +35,6 @@ local list = {
   "If", -- (condition, action)
   "ElseIf", -- (condition, action)
   "Else", -- (action)
-  "Do", "End", -- do ... end
   "Add", "Sub", "Mul", "Div", "Mod", "Neg",
   "Band", "Bor", "Bxor", "Bnot", "Lshift", "Rshift",
   "And", "Or", "Xor", "Not", "Choose",

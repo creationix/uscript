@@ -12,26 +12,30 @@ extern int isAlive();
 #include <sys/select.h>
 #include <sys/time.h>
 
+static int pins[17];
+
 static void pinMode(int pin, int mode) {
   printf("pinMode(%d, %d)\n", pin, mode);
 }
 
 static void digitalWrite(int pin, int value) {
+  pins[pin] = !!value;
   printf("digitalWrite(%d, %d)\n", pin, value);
 }
 
 static int digitalRead(int pin) {
   printf("digitalRead(%d)\n", pin);
-  return 0;
+  return !!pins[pin];
 }
 
 static void analogWrite(int pin, int value) {
+  pins[pin] = value;
   printf("analogWrite(%d, %d)\n", pin, value);
 }
 
 static int analogRead(int pin) {
   printf("analogRead(%d)\n", pin);
-  return 0;
+  return pins[pin];
 }
 
 static void delay(int ms) {
@@ -106,7 +110,12 @@ static uint32_t deadbeef_beef = 0xdeadbeef;
 static intptr_t globals[100];
 
 uint8_t* eval(intptr_t* stack, uint8_t* pc, intptr_t* value) {
+  // printf("%s> stack: %p  pc: %p  op: %02x\n", value ? "run" : "skip", stack, pc, *pc);
   if (!(*pc & 0x80)) {
+    if (!value) {
+      if (*pc++ & 0x40) while (*pc++ & 0x80);
+      return pc;
+    }
     *value = *pc & 0x3f;
     if (*pc++ & 0x40) {
       do {
@@ -199,7 +208,7 @@ uint8_t* eval(intptr_t* stack, uint8_t* pc, intptr_t* value) {
       uint8_t* start = pc;
       pc = eval(stack, pc, 0);
       *value = (intptr_t)malloc(pc - start);
-      memcpy((uint8_t*)*value, start, pc-start);
+      memcpy((uint8_t*)*value, start, pc - start);
       return pc;
     }
     case Call: {
@@ -246,7 +255,7 @@ uint8_t* eval(intptr_t* stack, uint8_t* pc, intptr_t* value) {
     case Free: {
       if (!value) return eval(stack, pc, 0);
       pc = eval(stack, pc, value);
-      free(value);
+      free((uint8_t*)*value);
       *value = 0;
       return pc;
     }
@@ -358,7 +367,7 @@ uint8_t* eval(intptr_t* stack, uint8_t* pc, intptr_t* value) {
     }
     case Do:
       while (*pc != End) { pc = eval(stack, pc, value); }
-      return pc;
+      return pc + 1;
     case Add: {
       if (!value) return eval(stack, eval(stack, pc, 0), 0);
       intptr_t num;

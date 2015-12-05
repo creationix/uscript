@@ -2,7 +2,8 @@
 
 #define USCRIPT_VERSION 1
 typedef enum {
-  Mode = 128, // pinMode(pin, mode)
+  Do = 128, End, // do ... end
+  Mode, // pinMode(pin, mode)
   Read, // digitalRead(pin)
   Write, // digitalWrite(pin, value)
   Aread, // analogRead(pin)
@@ -34,7 +35,6 @@ typedef enum {
   If, // (condition, action)
   ElseIf, // (condition, action)
   Else, // (action)
-  Do, End, // do ... end
   Add, Sub, Mul, Div, Mod, Neg,
   Band, Bor, Bxor, Bnot, Lshift, Rshift,
   And, Or, Xor, Not, Choose,
