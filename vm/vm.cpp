@@ -31,13 +31,33 @@ static int analogRead(int pin) {
   return 0;
 }
 
-
 static void delay(int ms) {
   struct timeval t;
   t.tv_sec = ms / 1000;
   t.tv_usec = (ms % 1000) * 1000;
   select(0, NULL, NULL, NULL, &t);
 }
+
+class FakeESP {
+  public:
+    void restart() {
+      printf("ESP.restart()\n");
+    }
+    int getChipId() {
+      printf("ESP.getChipId()\n");
+      return 0;
+    }
+    int getFlashChipId() {
+      printf("ESP.getFlashChipId()\n");
+      return 0;
+    }
+    int getCycleCount() {
+      printf("ESP.getCycleCount()\n");
+      return 0;
+    }
+};
+FakeESP ESP;
+
 #endif
 
 // 0mxxxxxx mxxxxxxx* - integer
@@ -56,6 +76,7 @@ uint8_t* eval(uint8_t* pc, int32_t* value) {
   }
   switch ((opcode_t) *pc++) {
     case Mode: {
+      if (!value) return eval(eval(pc, 0), 0);
       int32_t pin;
       pc = eval(pc, &pin);
       pc = eval(pc, value);
@@ -63,10 +84,12 @@ uint8_t* eval(uint8_t* pc, int32_t* value) {
       return pc;
     }
     case Read:
+      if (!value) return eval(pc, 0);
       pc = eval(pc, value);
       *value = digitalRead(*value);
       return pc;
     case Write: {
+      if (!value) return eval(eval(pc, 0), 0);
       int32_t pin;
       pc = eval(pc, &pin);
       pc = eval(pc, value);
@@ -74,10 +97,12 @@ uint8_t* eval(uint8_t* pc, int32_t* value) {
       return pc;
     }
     case Aread:
+      if (!value) return eval(pc, 0);
       pc = eval(pc, value);
       *value = analogRead(*value);
       return pc;
     case Pwrite: {
+      if (!value) return eval(eval(pc, 0), 0);
       int32_t pin;
       pc = eval(pc, &pin);
       pc = eval(pc, value);
@@ -85,26 +110,68 @@ uint8_t* eval(uint8_t* pc, int32_t* value) {
       return pc;
     }
     case Delay:
+      if (!value) return eval(pc, 0);
       pc = eval(pc, value);
       delay(*value);
       return pc;
     case Forever: {
+      if (!value) return eval(pc, 0);
       uint8_t* start = pc;
-      // TODO: add way to exit loop.
-      while (isAlive()) {
+      do {
         pc = eval(start, value);
+      } while (isAlive());
+      return pc;
+    }
+    case While: {
+      if (!value) return eval(eval(pc, 0), 0);
+      uint8_t* cond = pc;
+      do {
+        pc = eval(cond, value);
+        if (!*value) {
+          pc = eval(pc, 0);
+          break;
+        }
+        pc = eval(pc, value);
+      } while (isAlive());
+      return pc;
+    }
+    case Wait: {
+      if (!value) return eval(pc, 0);
+      uint8_t* cond = pc;
+      do {
+        pc = eval(cond, value);
+      } while (isAlive() && !*value);
+      return pc;
+    }
+    case If: {
+      if (value) goto start;
+
+      pc = eval(pc, 0);
+      skip:
+      while (*pc == ElseIf) pc = eval(eval(++pc, 0), 0);
+      if (*pc == Else) pc = eval(++pc, 0);
+      return pc;
+
+      start:
+      pc = eval(pc, value);
+      if (*value) {
+        pc = eval(pc, value);
+        goto skip;
+      }
+      if (*pc == ElseIf) {
+        pc++;
+        goto start;
+      }
+      if (*pc == Else) {
+        return eval(++pc, value);
       }
       return pc;
     }
     case Do:
-      while (*pc != End) {
-        pc = eval(pc, value);
-      }
+      while (*pc != End) { pc = eval(pc, value); }
       return pc;
-    case End:
-      *value = -1;
-      return 0;
     case Add: {
+      if (!value) return eval(eval(pc, 0), 0);
       int32_t num;
       pc = eval(pc, &num);
       pc = eval(pc, value);
@@ -112,6 +179,7 @@ uint8_t* eval(uint8_t* pc, int32_t* value) {
       return pc;
     }
     case Sub: {
+      if (!value) return eval(eval(pc, 0), 0);
       int32_t num;
       pc = eval(pc, &num);
       pc = eval(pc, value);
@@ -119,6 +187,7 @@ uint8_t* eval(uint8_t* pc, int32_t* value) {
       return pc;
     }
     case Mul: {
+      if (!value) return eval(eval(pc, 0), 0);
       int32_t num;
       pc = eval(pc, &num);
       pc = eval(pc, value);
@@ -126,6 +195,7 @@ uint8_t* eval(uint8_t* pc, int32_t* value) {
       return pc;
     }
     case Div: {
+      if (!value) return eval(eval(pc, 0), 0);
       int32_t num;
       pc = eval(pc, &num);
       pc = eval(pc, value);
@@ -133,6 +203,7 @@ uint8_t* eval(uint8_t* pc, int32_t* value) {
       return pc;
     }
     case Mod: {
+      if (!value) return eval(eval(pc, 0), 0);
       int32_t num;
       pc = eval(pc, &num);
       pc = eval(pc, value);
@@ -140,35 +211,40 @@ uint8_t* eval(uint8_t* pc, int32_t* value) {
       return pc;
     }
     case Neg:
+      if (!value) return eval(pc, 0);
       pc = eval(pc, value);
       *value = -(*value);
       return pc;
     case And: {
-      int32_t num;
-      pc = eval(pc, &num);
-      pc = eval(pc, value);
-      *value = num && *value;
-      return pc;
+      if (!value) return eval(eval(pc, 0), 0);
+      return eval(eval(pc, value), *value ? value : 0);
     }
     case Or: {
-      int32_t num;
-      pc = eval(pc, &num);
-      pc = eval(pc, value);
-      *value = num || *value;
-      return pc;
+      if (!value) return eval(eval(pc, 0), 0);
+      return eval(eval(pc, value), *value ? 0 : value);
     }
     case Xor: {
+      if (!value) return eval(eval(pc, 0), 0);
       int32_t num;
       pc = eval(pc, &num);
       pc = eval(pc, value);
-      *value = (num && !*value) || (!num && *value);
+      *value = num ?
+        (*value ? 0 : num) :
+        (*value ? *value : 0);
       return pc;
     }
     case Not:
+      if (!value) return eval(pc, 0);
       pc = eval(pc, value);
       *value = !(*value);
       return pc;
+    case Choose:
+      if (!value) return eval(eval(eval(pc, 0), 0), 0);
+      pc = eval(pc, value);
+      if (value) return eval(eval(pc, value), 0);
+      return eval(eval(pc, 0), value);
     case Gt: {
+      if (!value) return eval(eval(pc, 0), 0);
       int32_t num;
       pc = eval(pc, &num);
       pc = eval(pc, value);
@@ -176,6 +252,7 @@ uint8_t* eval(uint8_t* pc, int32_t* value) {
       return pc;
     }
     case Gte: {
+      if (!value) return eval(eval(pc, 0), 0);
       int32_t num;
       pc = eval(pc, &num);
       pc = eval(pc, value);
@@ -183,6 +260,7 @@ uint8_t* eval(uint8_t* pc, int32_t* value) {
       return pc;
     }
     case Lt: {
+      if (!value) return eval(eval(pc, 0), 0);
       int32_t num;
       pc = eval(pc, &num);
       pc = eval(pc, value);
@@ -190,6 +268,7 @@ uint8_t* eval(uint8_t* pc, int32_t* value) {
       return pc;
     }
     case Lte: {
+      if (!value) return eval(eval(pc, 0), 0);
       int32_t num;
       pc = eval(pc, &num);
       pc = eval(pc, value);
@@ -197,6 +276,7 @@ uint8_t* eval(uint8_t* pc, int32_t* value) {
       return pc;
     }
     case Eq: {
+      if (!value) return eval(eval(pc, 0), 0);
       int32_t num;
       pc = eval(pc, &num);
       pc = eval(pc, value);
@@ -204,32 +284,42 @@ uint8_t* eval(uint8_t* pc, int32_t* value) {
       return pc;
     }
     case Neq: {
+      if (!value) return eval(pc, 0);
       int32_t num;
       pc = eval(pc, &num);
       pc = eval(pc, value);
       *value = num != *value;
       return pc;
     }
+    case Srand: {
+      if (!value) return eval(pc, 0);
+      // TODO: Implement deadbeef Rand
+      return eval(pc, value);
+    }
+    case Rand: {
+      if (!value) return eval(pc, 0);
+      // TODO: Implement deadbeef Rand
+      return eval(pc, value);
+    }
+    case Restart:
+      if (value) ESP.restart();
+      return pc;
+    case ChipId:
+      if (value) *value = ESP.getChipId();
+      return pc;
+    case FlashChipId:
+      if (value) *value = ESP.getFlashChipId();
+      return pc;
+    case CycleCount:
+      if (value) *value = ESP.getCycleCount();
+      return pc;
+
+    // Invalid cases (cannot start an expression)
+    case End: case ElseIf: case Else:
+      *value = -(*(pc - 1));
+      return 0;
+
   }
   return pc;
 
 }
-/*
-int main() {
-  uint8_t code[] = {
-  Do,
-    Mode, 13, 1,
-    Forever, Do,
-      Write, 13, 1,
-      Delay, 0x47, 0x68,
-      Write, 13, 0,
-      Delay, 0x47, 0x68,
-    End,
-  End
-  };
-
-  int32_t result;
-  uint8_t* pc = eval(code, &result);
-  return *pc == (uint8_t)EOF;
-}
-*/
