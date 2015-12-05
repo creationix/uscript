@@ -52,4 +52,6 @@ typedef struct {
   uint8_t data[];
 } buffer_t;
 
+buffer_t* copyBuffer(int len, uint8_t* data);
+
 uint8_t* eval(intptr_t* stack, uint8_t* pc, intptr_t* value);

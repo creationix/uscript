@@ -66,3 +66,9 @@ int main() {
 
   return 0;
 }
+
+buffer_t* copyBuffer(int len, uint8_t* data) {
+  buffer_t* buf = (buffer_t*)malloc(sizeof(buffer_t) + len);
+  memcpy(buf->data, data, len);
+  return buf;
+}

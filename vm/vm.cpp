@@ -7,6 +7,14 @@ extern int isAlive();
 #ifdef ARDUINO
 #include "Arduino.h"
 #include "Wire.h"
+
+static void printNumber(intptr_t num) {
+  printf("%ld\n", num);
+}
+
+static void printBuffer(buffer_t* buf) {
+  printf("%.*s\n", buf->len, buf->data);
+}
 #else
 #include <stdio.h>
 #include <sys/select.h>
@@ -99,6 +107,15 @@ public:
 };
 FakeWire Wire;
 
+static void printNumber(intptr_t num) {
+  printf("%ld\n", num);
+}
+
+static void printBuffer(buffer_t* buf) {
+  printf("%.*s\n", buf->len, buf->data);
+}
+
+
 #endif
 
 // 0mxxxxxx mxxxxxxx* - integer
@@ -129,13 +146,13 @@ uint8_t* eval(intptr_t* stack, uint8_t* pc, intptr_t* value) {
     case Print:
       if (!value) return eval(stack, pc, 0);
       pc = eval(stack, pc, value);
-      printf("%ld\n", *value);
+      printNumber(*value);
       return pc;
     case Aprint:
       if (!value) return eval(stack, pc, 0);
       buffer_t* buf;
       pc = eval(stack, pc, (intptr_t*)&buf);
-      printf("%.*s\n", buf->len, buf->data);
+      printBuffer(buf);
       return pc;
     case String: {
       uint8_t* start = pc;
