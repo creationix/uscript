@@ -15,6 +15,8 @@ typedef enum {
   Iavailable, // Wiring.available()
   Iread, // Wiring.read()
   Delay, // delay(ms)
+  Gget, // (index)
+  Gset, // (index, value)
   Get, // (index)
   Set, // (index, value)
   Incr, Decr, // (index)
@@ -35,4 +37,4 @@ typedef enum {
   Restart, ChipId, FlashChipId, CycleCount,
 } opcode_t;
 
-uint8_t* eval(uint8_t* pc, int32_t* value);
+uint8_t* eval(int32_t* stack, uint8_t* pc, int32_t* value);

@@ -65,7 +65,8 @@ void handle(char c) {
     if (!--len) {
       Serial.println("Runing code");
       int32_t result;
-      pc = eval(code, &result);
+      int32_t stack[100];
+      pc = eval(stack, code, &result);
       free(code);
       mode = 1;
     }

@@ -97,9 +97,9 @@ FakeWire Wire;
 static uint32_t deadbeef_seed;
 static uint32_t deadbeef_beef = 0xdeadbeef;
 
-int32_t globals[1024];
+static int32_t globals[100];
 
-uint8_t* eval(uint8_t* pc, int32_t* value) {
+uint8_t* eval(int32_t* stack, uint8_t* pc, int32_t* value) {
   if (!(*pc & 0x80)) {
     *value = *pc & 0x3f;
     if (*pc++ & 0x40) {
@@ -112,69 +112,69 @@ uint8_t* eval(uint8_t* pc, int32_t* value) {
   }
   switch ((opcode_t) *pc++) {
     case Mode: {
-      if (!value) return eval(eval(pc, 0), 0);
+      if (!value) return eval(stack, eval(stack, pc, 0), 0);
       int32_t pin;
-      pc = eval(pc, &pin);
-      pc = eval(pc, value);
+      pc = eval(stack, pc, &pin);
+      pc = eval(stack, pc, value);
       pinMode(pin, *value);
       return pc;
     }
     case Read:
-      if (!value) return eval(pc, 0);
-      pc = eval(pc, value);
+      if (!value) return eval(stack, pc, 0);
+      pc = eval(stack, pc, value);
       *value = digitalRead(*value);
       return pc;
     case Write: {
-      if (!value) return eval(eval(pc, 0), 0);
+      if (!value) return eval(stack, eval(stack, pc, 0), 0);
       int32_t pin;
-      pc = eval(pc, &pin);
-      pc = eval(pc, value);
+      pc = eval(stack, pc, &pin);
+      pc = eval(stack, pc, value);
       digitalWrite(pin, *value);
       return pc;
     }
     case Aread:
-      if (!value) return eval(pc, 0);
-      pc = eval(pc, value);
+      if (!value) return eval(stack, pc, 0);
+      pc = eval(stack, pc, value);
       *value = analogRead(*value);
       return pc;
     case Pwrite: {
-      if (!value) return eval(eval(pc, 0), 0);
+      if (!value) return eval(stack, eval(stack, pc, 0), 0);
       int32_t pin;
-      pc = eval(pc, &pin);
-      pc = eval(pc, value);
+      pc = eval(stack, pc, &pin);
+      pc = eval(stack, pc, value);
       analogWrite(pin, *value);
       return pc;
     }
     case Ibegin: {
-      if (!value) return eval(eval(pc, 0), 0);
+      if (!value) return eval(stack, eval(stack, pc, 0), 0);
       int32_t sda;
-      pc = eval(pc, &sda);
-      pc = eval(pc, value);
+      pc = eval(stack, pc, &sda);
+      pc = eval(stack, pc, value);
       Wire.begin(sda, *value);
       return pc;
     }
     case Ifrom: {
-      if (!value) return eval(eval(eval(pc, 0), 0), 0);
+      if (!value) return eval(stack, eval(stack, eval(stack, pc, 0), 0), 0);
       int32_t address, quantity, stop;
-      pc = eval(pc, &address);
-      pc = eval(pc, &quantity);
-      pc = eval(pc, &stop);
+      pc = eval(stack, pc, &address);
+      pc = eval(stack, pc, &quantity);
+      pc = eval(stack, pc, &stop);
       *value = Wire.requestFrom(address, quantity, stop);
       return pc;
     }
     case Istart:
-      if (!value) return eval(pc, 0);
-      pc = eval(pc, value);
+      if (!value) return eval(stack, pc, 0);
+      pc = eval(stack, pc, value);
       Wire.beginTransmission(*value);
       return pc;
     case Istop:
-      if (!value) return eval(pc, 0);
-      pc = eval(pc, value);
+      if (!value) return eval(stack, pc, 0);
+      pc = eval(stack, pc, value);
       *value = Wire.endTransmission(*value);
       return pc;
     case Iwrite:
-      if (!value) return eval(pc, 0);
-      pc = eval(pc, value);
+      if (!value) return eval(stack, pc, 0);
+      pc = eval(stack, pc, value);
       *value = Wire.write(*value);
       return pc;
     case Iavailable:
@@ -184,92 +184,105 @@ uint8_t* eval(uint8_t* pc, int32_t* value) {
       if (value) *value = Wire.read();
       return pc;
     case Delay:
-      if (!value) return eval(pc, 0);
-      pc = eval(pc, value);
+      if (!value) return eval(stack, pc, 0);
+      pc = eval(stack, pc, value);
       delay(*value);
       return pc;
-    case Get:
-      if (!value) return eval(pc, 0);
-      pc = eval(pc, value);
+    case Gget:
+      if (!value) return eval(stack, pc, 0);
+      pc = eval(stack, pc, value);
       *value = globals[*value];
       return pc;
-    case Set: {
-      if (!value) return eval(eval(pc, 0), 0);
+    case Gset: {
+      if (!value) return eval(stack, eval(stack, pc, 0), 0);
       int32_t num;
-      pc = eval(pc, &num);
-      pc = eval(pc, value);
+      pc = eval(stack, pc, &num);
+      pc = eval(stack, pc, value);
       globals[num] = *value;
       return pc;
     }
+    case Get:
+      if (!value) return eval(stack, pc, 0);
+      pc = eval(stack, pc, value);
+      *value = stack[*value];
+      return pc;
+    case Set: {
+      if (!value) return eval(stack, eval(stack, pc, 0), 0);
+      int32_t num;
+      pc = eval(stack, pc, &num);
+      pc = eval(stack, pc, value);
+      stack[num] = *value;
+      return pc;
+    }
     case Incr:
-      if (!value) return eval(pc, 0);
-      pc = eval(pc, value);
-      *value = ++globals[*value];
+      if (!value) return eval(stack, pc, 0);
+      pc = eval(stack, pc, value);
+      *value = ++stack[*value];
       return pc;
     case Decr:
-      if (!value) return eval(pc, 0);
-      pc = eval(pc, value);
-      *value = --globals[*value];
+      if (!value) return eval(stack, pc, 0);
+      pc = eval(stack, pc, value);
+      *value = --stack[*value];
       return pc;
     case IncrMod: {
-      if (!value) return eval(eval(pc, 0), 0);
+      if (!value) return eval(stack, eval(stack, pc, 0), 0);
       int32_t index;
-      pc = eval(pc, &index);
-      pc = eval(pc, value);
-      *value = globals[index] = (globals[index] + 1) % *value;
+      pc = eval(stack, pc, &index);
+      pc = eval(stack, pc, value);
+      *value = stack[index] = (stack[index] + 1) % *value;
       return pc;
     }
     case DecrMod: {
-      if (!value) return eval(eval(pc, 0), 0);
+      if (!value) return eval(stack, eval(stack, pc, 0), 0);
       int32_t index;
-      pc = eval(pc, &index);
-      pc = eval(pc, value);
-      *value = globals[index] = (globals[index] + *value - 1) % *value;
+      pc = eval(stack, pc, &index);
+      pc = eval(stack, pc, value);
+      *value = stack[index] = (stack[index] + *value - 1) % *value;
       return pc;
     }
-    if (!value) return eval(pc, 0);
+    if (!value) return eval(stack, pc, 0);
     case Forever: {
-      if (!value) return eval(pc, 0);
+      if (!value) return eval(stack, pc, 0);
       uint8_t* start = pc;
       do {
-        pc = eval(start, value);
+        pc = eval(stack, start, value);
       } while (isAlive());
       return pc;
     }
     case While: {
-      if (!value) return eval(eval(pc, 0), 0);
+      if (!value) return eval(stack, eval(stack, pc, 0), 0);
       uint8_t* cond = pc;
       do {
-        pc = eval(cond, value);
+        pc = eval(stack, cond, value);
         if (!*value) {
-          pc = eval(pc, 0);
+          pc = eval(stack, pc, 0);
           break;
         }
-        pc = eval(pc, value);
+        pc = eval(stack, pc, value);
       } while (isAlive());
       return pc;
     }
     case Wait: {
-      if (!value) return eval(pc, 0);
+      if (!value) return eval(stack, pc, 0);
       uint8_t* cond = pc;
       do {
-        pc = eval(cond, value);
+        pc = eval(stack, cond, value);
       } while (isAlive() && !*value);
       return pc;
     }
     case If: {
       if (value) goto start;
 
-      pc = eval(pc, 0);
+      pc = eval(stack, pc, 0);
       skip:
-      while (*pc == ElseIf) pc = eval(eval(++pc, 0), 0);
-      if (*pc == Else) pc = eval(++pc, 0);
+      while (*pc == ElseIf) pc = eval(stack, eval(stack, ++pc, 0), 0);
+      if (*pc == Else) pc = eval(stack, ++pc, 0);
       return pc;
 
       start:
-      pc = eval(pc, value);
+      pc = eval(stack, pc, value);
       if (*value) {
-        pc = eval(pc, value);
+        pc = eval(stack, pc, value);
         goto skip;
       }
       if (*pc == ElseIf) {
@@ -277,193 +290,193 @@ uint8_t* eval(uint8_t* pc, int32_t* value) {
         goto start;
       }
       if (*pc == Else) {
-        return eval(++pc, value);
+        return eval(stack, ++pc, value);
       }
       return pc;
     }
     case Do:
-      while (*pc != End) { pc = eval(pc, value); }
+      while (*pc != End) { pc = eval(stack, pc, value); }
       return pc;
     case Add: {
-      if (!value) return eval(eval(pc, 0), 0);
+      if (!value) return eval(stack, eval(stack, pc, 0), 0);
       int32_t num;
-      pc = eval(pc, &num);
-      pc = eval(pc, value);
+      pc = eval(stack, pc, &num);
+      pc = eval(stack, pc, value);
       *value = num + *value;
       return pc;
     }
     case Sub: {
-      if (!value) return eval(eval(pc, 0), 0);
+      if (!value) return eval(stack, eval(stack, pc, 0), 0);
       int32_t num;
-      pc = eval(pc, &num);
-      pc = eval(pc, value);
+      pc = eval(stack, pc, &num);
+      pc = eval(stack, pc, value);
       *value = num - *value;
       return pc;
     }
     case Mul: {
-      if (!value) return eval(eval(pc, 0), 0);
+      if (!value) return eval(stack, eval(stack, pc, 0), 0);
       int32_t num;
-      pc = eval(pc, &num);
-      pc = eval(pc, value);
+      pc = eval(stack, pc, &num);
+      pc = eval(stack, pc, value);
       *value = num * *value;
       return pc;
     }
     case Div: {
-      if (!value) return eval(eval(pc, 0), 0);
+      if (!value) return eval(stack, eval(stack, pc, 0), 0);
       int32_t num;
-      pc = eval(pc, &num);
-      pc = eval(pc, value);
+      pc = eval(stack, pc, &num);
+      pc = eval(stack, pc, value);
       *value = num / *value;
       return pc;
     }
     case Mod: {
-      if (!value) return eval(eval(pc, 0), 0);
+      if (!value) return eval(stack, eval(stack, pc, 0), 0);
       int32_t num;
-      pc = eval(pc, &num);
-      pc = eval(pc, value);
+      pc = eval(stack, pc, &num);
+      pc = eval(stack, pc, value);
       *value = num % *value;
       return pc;
     }
     case Neg:
-      if (!value) return eval(pc, 0);
-      pc = eval(pc, value);
+      if (!value) return eval(stack, pc, 0);
+      pc = eval(stack, pc, value);
       *value = -(*value);
       return pc;
 
     case Band: {
-      if (!value) return eval(eval(pc, 0), 0);
+      if (!value) return eval(stack, eval(stack, pc, 0), 0);
       int32_t num;
-      pc = eval(pc, &num);
-      pc = eval(pc, value);
+      pc = eval(stack, pc, &num);
+      pc = eval(stack, pc, value);
       *value = num & *value;
       return pc;
     }
     case Bor: {
-      if (!value) return eval(eval(pc, 0), 0);
+      if (!value) return eval(stack, eval(stack, pc, 0), 0);
       int32_t num;
-      pc = eval(pc, &num);
-      pc = eval(pc, value);
+      pc = eval(stack, pc, &num);
+      pc = eval(stack, pc, value);
       *value = num | *value;
       return pc;
     }
     case Bxor: {
-      if (!value) return eval(eval(pc, 0), 0);
+      if (!value) return eval(stack, eval(stack, pc, 0), 0);
       int32_t num;
-      pc = eval(pc, &num);
-      pc = eval(pc, value);
+      pc = eval(stack, pc, &num);
+      pc = eval(stack, pc, value);
       *value = num ^ *value;
       return pc;
     }
     case Bnot:
-      if (!value) return eval(pc, 0);
-      pc = eval(pc, value);
+      if (!value) return eval(stack, pc, 0);
+      pc = eval(stack, pc, value);
       *value = ~*value;
       return pc;
     case Lshift: {
-      if (!value) return eval(eval(pc, 0), 0);
+      if (!value) return eval(stack, eval(stack, pc, 0), 0);
       int32_t num;
-      pc = eval(pc, &num);
-      pc = eval(pc, value);
+      pc = eval(stack, pc, &num);
+      pc = eval(stack, pc, value);
       *value = num << *value;
       return pc;
     }
     case Rshift: {
-      if (!value) return eval(eval(pc, 0), 0);
+      if (!value) return eval(stack, eval(stack, pc, 0), 0);
       int32_t num;
-      pc = eval(pc, &num);
-      pc = eval(pc, value);
+      pc = eval(stack, pc, &num);
+      pc = eval(stack, pc, value);
       *value = num >> *value;
       return pc;
     }
     case And: {
-      if (!value) return eval(eval(pc, 0), 0);
-      return eval(eval(pc, value), *value ? value : 0);
+      if (!value) return eval(stack, eval(stack, pc, 0), 0);
+      return eval(stack, eval(stack, pc, value), *value ? value : 0);
     }
     case Or: {
-      if (!value) return eval(eval(pc, 0), 0);
-      return eval(eval(pc, value), *value ? 0 : value);
+      if (!value) return eval(stack, eval(stack, pc, 0), 0);
+      return eval(stack, eval(stack, pc, value), *value ? 0 : value);
     }
     case Xor: {
-      if (!value) return eval(eval(pc, 0), 0);
+      if (!value) return eval(stack, eval(stack, pc, 0), 0);
       int32_t num;
-      pc = eval(pc, &num);
-      pc = eval(pc, value);
+      pc = eval(stack, pc, &num);
+      pc = eval(stack, pc, value);
       *value = num ?
         (*value ? 0 : num) :
         (*value ? *value : 0);
       return pc;
     }
     case Not:
-      if (!value) return eval(pc, 0);
-      pc = eval(pc, value);
+      if (!value) return eval(stack, pc, 0);
+      pc = eval(stack, pc, value);
       *value = !(*value);
       return pc;
     case Choose:
-      if (!value) return eval(eval(eval(pc, 0), 0), 0);
-      pc = eval(pc, value);
-      if (value) return eval(eval(pc, value), 0);
-      return eval(eval(pc, 0), value);
+      if (!value) return eval(stack, eval(stack, eval(stack, pc, 0), 0), 0);
+      pc = eval(stack, pc, value);
+      if (value) return eval(stack, eval(stack, pc, value), 0);
+      return eval(stack, eval(stack, pc, 0), value);
     case Gt: {
-      if (!value) return eval(eval(pc, 0), 0);
+      if (!value) return eval(stack, eval(stack, pc, 0), 0);
       int32_t num;
-      pc = eval(pc, &num);
-      pc = eval(pc, value);
+      pc = eval(stack, pc, &num);
+      pc = eval(stack, pc, value);
       *value = num > *value;
       return pc;
     }
     case Gte: {
-      if (!value) return eval(eval(pc, 0), 0);
+      if (!value) return eval(stack, eval(stack, pc, 0), 0);
       int32_t num;
-      pc = eval(pc, &num);
-      pc = eval(pc, value);
+      pc = eval(stack, pc, &num);
+      pc = eval(stack, pc, value);
       *value = num >= *value;
       return pc;
     }
     case Lt: {
-      if (!value) return eval(eval(pc, 0), 0);
+      if (!value) return eval(stack, eval(stack, pc, 0), 0);
       int32_t num;
-      pc = eval(pc, &num);
-      pc = eval(pc, value);
+      pc = eval(stack, pc, &num);
+      pc = eval(stack, pc, value);
       *value = num < *value;
       return pc;
     }
     case Lte: {
-      if (!value) return eval(eval(pc, 0), 0);
+      if (!value) return eval(stack, eval(stack, pc, 0), 0);
       int32_t num;
-      pc = eval(pc, &num);
-      pc = eval(pc, value);
+      pc = eval(stack, pc, &num);
+      pc = eval(stack, pc, value);
       *value = num <= *value;
       return pc;
     }
     case Eq: {
-      if (!value) return eval(eval(pc, 0), 0);
+      if (!value) return eval(stack, eval(stack, pc, 0), 0);
       int32_t num;
-      pc = eval(pc, &num);
-      pc = eval(pc, value);
+      pc = eval(stack, pc, &num);
+      pc = eval(stack, pc, value);
       *value = num == *value;
       return pc;
     }
     case Neq: {
-      if (!value) return eval(pc, 0);
+      if (!value) return eval(stack, pc, 0);
       int32_t num;
-      pc = eval(pc, &num);
-      pc = eval(pc, value);
+      pc = eval(stack, pc, &num);
+      pc = eval(stack, pc, value);
       *value = num != *value;
       return pc;
     }
     case Srand: {
-      if (!value) return eval(pc, 0);
-      pc = eval(pc, value);
+      if (!value) return eval(stack, pc, 0);
+      pc = eval(stack, pc, value);
       deadbeef_seed = *value;
       deadbeef_beef = 0xdeadbeef;
       return pc;
     }
     case Rand: {
-      if (!value) return eval(pc, 0);
+      if (!value) return eval(stack, pc, 0);
       // From http://inglorion.net/software/deadbeef_rand/
       deadbeef_seed = (deadbeef_seed << 7) ^ ((deadbeef_seed >> 25) + deadbeef_beef);
       deadbeef_beef = (deadbeef_beef << 7) ^ ((deadbeef_beef >> 25) + 0xdeadbeef);
-      pc = eval(pc, value);
+      pc = eval(stack, pc, value);
       *value = deadbeef_seed % *value;
       return pc;
     }
