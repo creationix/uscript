@@ -4,6 +4,7 @@ extern int isAlive();
 
 #ifdef ARDUINO
 #include "Arduino.h"
+#include "Wire.h"
 #else
 #include <stdio.h>
 #include <sys/select.h>
@@ -39,24 +40,54 @@ static void delay(int ms) {
 }
 
 class FakeESP {
-  public:
-    void restart() {
-      printf("ESP.restart()\n");
-    }
-    int getChipId() {
-      printf("ESP.getChipId()\n");
-      return 0;
-    }
-    int getFlashChipId() {
-      printf("ESP.getFlashChipId()\n");
-      return 0;
-    }
-    int getCycleCount() {
-      printf("ESP.getCycleCount()\n");
-      return 0;
-    }
+public:
+  void restart() {
+    printf("ESP.restart()\n");
+  }
+  int getChipId() {
+    printf("ESP.getChipId()\n");
+    return 0;
+  }
+  int getFlashChipId() {
+    printf("ESP.getFlashChipId()\n");
+    return 0;
+  }
+  int getCycleCount() {
+    printf("ESP.getCycleCount()\n");
+    return 0;
+  }
 };
 FakeESP ESP;
+class FakeWire {
+public:
+  void begin(int sda, int scl) {
+    printf("begin(%d, %d)\n", sda, scl);
+  }
+  int requestFrom(int address, int quantity, int stop) {
+    printf("requestFrom(%d, %d, %d)\n", address, quantity, stop);
+    return 0;
+  }
+  void beginTransmission(int address) {
+    printf("beginTransmission(%d)\n", address);
+  }
+  int endTransmission(int stop) {
+    printf("endTransmission(%d)\n", stop);
+    return 0;
+  }
+  int write(int byte) {
+    printf("write(%d)\n", byte);
+    return 0;
+  }
+  int available() {
+    printf("available()\n");
+    return 0;
+  }
+  int read() {
+    printf("read()\n");
+    return 0;
+  }
+};
+FakeWire Wire;
 
 #endif
 
@@ -112,6 +143,44 @@ uint8_t* eval(uint8_t* pc, int32_t* value) {
       analogWrite(pin, *value);
       return pc;
     }
+    case Ibegin: {
+      if (!value) return eval(eval(pc, 0), 0);
+      int32_t sda;
+      pc = eval(pc, &sda);
+      pc = eval(pc, value);
+      Wire.begin(sda, *value);
+      return pc;
+    }
+    case Ifrom: {
+      if (!value) return eval(eval(eval(pc, 0), 0), 0);
+      int32_t address, quantity, stop;
+      pc = eval(pc, &address);
+      pc = eval(pc, &quantity);
+      pc = eval(pc, &stop);
+      *value = Wire.requestFrom(address, quantity, stop);
+      return pc;
+    }
+    case Istart:
+      if (!value) return eval(pc, 0);
+      pc = eval(pc, value);
+      Wire.beginTransmission(*value);
+      return pc;
+    case Istop:
+      if (!value) return eval(pc, 0);
+      pc = eval(pc, value);
+      *value = Wire.endTransmission(*value);
+      return pc;
+    case Iwrite:
+      if (!value) return eval(pc, 0);
+      pc = eval(pc, value);
+      *value = Wire.write(*value);
+      return pc;
+    case Iavailable:
+      if (value) *value = Wire.available();
+      return pc;
+    case Iread:
+      if (value) *value = Wire.read();
+      return pc;
     case Delay:
       if (!value) return eval(pc, 0);
       pc = eval(pc, value);

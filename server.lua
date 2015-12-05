@@ -1,11 +1,19 @@
 
 
+-- USCRIPT_VERSION 1
 local list = {
   "Mode", -- (pin, mode)
   "Read", -- (pin)
   "Write", -- (pin, value)
   "Aread", -- (pin)
   "Pwrite", -- (pin, value)
+  "Ibegin", -- Wiring.begin(sda, scl)
+  "Ifrom", -- Wiring.requestFrom(address, quantity, stop)
+  "Istart", -- Wiring.beginTransmission(address)
+  "Istop", -- Wiring.endTransmission(stop)
+  "Iwrite", -- Wiring.write(byte)
+  "Iavailable", -- Wiring.available()
+  "Iread", -- Wiring.read()
   "Delay", -- (ms)
   "Forever", -- (action)
   "While", -- (condition, action)
