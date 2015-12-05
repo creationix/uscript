@@ -201,6 +201,32 @@ uint8_t* eval(uint8_t* pc, int32_t* value) {
       globals[num] = *value;
       return pc;
     }
+    case Incr:
+      if (!value) return eval(pc, 0);
+      pc = eval(pc, value);
+      *value = ++globals[*value];
+      return pc;
+    case Decr:
+      if (!value) return eval(pc, 0);
+      pc = eval(pc, value);
+      *value = --globals[*value];
+      return pc;
+    case IncrMod: {
+      if (!value) return eval(eval(pc, 0), 0);
+      int32_t index;
+      pc = eval(pc, &index);
+      pc = eval(pc, value);
+      *value = globals[index] = (globals[index] + 1) % *value;
+      return pc;
+    }
+    case DecrMod: {
+      if (!value) return eval(eval(pc, 0), 0);
+      int32_t index;
+      pc = eval(pc, &index);
+      pc = eval(pc, value);
+      *value = globals[index] = (globals[index] + *value - 1) % *value;
+      return pc;
+    }
     if (!value) return eval(pc, 0);
     case Forever: {
       if (!value) return eval(pc, 0);

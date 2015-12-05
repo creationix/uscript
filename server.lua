@@ -17,6 +17,8 @@ local list = {
   "Delay", -- (ms)
   "Get", -- (index)
   "Set", -- (index, value)
+  "Incr", "Decr", -- (index)
+  "IncrMod", "DecrMod", -- (index, mod)
   "Forever", -- (action)
   "While", -- (condition, action)
   "Wait", -- (condition)
@@ -37,27 +39,85 @@ for i = 1, #list do
   op[list[i]] = i + 127
 end
 
-local code1 = string.char(
-  op.Do,
-  op.Mode, 13, 1,
-  op.Forever, op.Do,
-    op.Write, 13, 1,
-    op.Delay, 0x47, 0x68, -- 1000
-    op.Write, 13, 0,
-    op.Delay, 0x47, 0x68, -- 1000
-  op.End,
-op.End)
+-- GPIO map for nodemcu
+local pin = {
+  [0] = 16,
+  [1] = 5,
+  [2] = 4,
+  [3] = 0,
+  [4] = 2,
+  [5] = 14,
+  [6] = 12,
+  [7] = 13,
+  [8] = 15,
+  [9] = 3,
+  [10] = 1,
+  [11] = 9,
+  [12] = 10,
+}
 
-local code2 = string.char(
-  op.Do,
-  op.Mode, 13, 1,
-  op.Forever, op.Do,
-    op.Write, 13, 1,
-    op.Delay, 60,
-    op.Write, 13, 0,
-    op.Delay, 60,
-  op.End,
-op.End)
+local codes = {
+  -- string.char(op.Do,
+  --   op.Mode, 13, 1,
+  --   op.Forever, op.Do,
+  --     op.Write, 13, 1,
+  --     op.Delay, 0x47, 0x68, -- 1000
+  --     op.Write, 13, 0,
+  --     op.Delay, 0x47, 0x68, -- 1000
+  --   op.End,
+  -- op.End),
+  -- string.char(op.Do,
+  --   op.Mode, 13, 1,
+  --   op.Forever, op.Do,
+  --     op.Write, 13, 1,
+  --     op.Delay, 60,
+  --     op.Write, 13, 0,
+  --     op.Delay, 60,
+  --   op.End,
+  -- op.End),
+  string.char(op.Do,
+    -- Set output mode for LED pins
+    op.Mode, pin[5], 1, -- blue
+    op.Mode, pin[6], 1, -- green
+    op.Mode, pin[7], 1, -- red
+    -- Use 8 as ground
+    op.Mode, pin[8], 1, -- ground
+    op.Write, pin[8], 0,
+
+    -- Set input with pull-up for buttons
+    op.Mode, pin[1], 0, -- blue button
+    op.Write, pin[1], 1,
+    op.Mode, pin[2], 0, -- yellow button
+    op.Write, pin[2], 1,
+
+    op.Set, 0, 0, -- Set variable to zero
+    op.Forever, op.Do,
+      op.If, op.Read, pin[1],
+        op.IncrMod, 0, 6, -- Increment variable looping around at 6
+      op.If, op.Read, pin[2],
+        op.DecrMod, 0, 6, -- Decrement variable looping around at 6
+
+      -- i  R G B
+      -- 0  1 0 0
+      -- 1  1 1 0
+      -- 2  0 1 0
+      -- 3  0 1 1
+      -- 4  0 0 1
+      -- 5  1 0 1
+      op.Write, pin[7], op.Or,
+        op.Lte, op.Get, 0, 1,
+        op.Gte, op.Get, 0, 5,
+      op.Write, pin[6], op.And,
+        op.Gte, op.Get, 0, 1,
+        op.Lte, op.Get, 0, 3,
+      op.Write, pin[5],
+        op.Gte, op.Get, 0, 3,
+
+      op.Delay,
+        0x47, 0x68, -- 1000
+    op.End,
+  op.End)
+}
 
 local uv = require('uv')
 
@@ -66,8 +126,7 @@ require('coro-net').createServer({
   port = 1337
 }, function (read, write, socket)
   p(socket:getpeername())
-  local codes = {code1, code2}
-  local i = 1
+  local i = 0
   uv.new_timer():start(0, 10000, function ()
     coroutine.wrap(function ()
       i = (i % #codes) + 1

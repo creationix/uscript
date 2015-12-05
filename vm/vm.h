@@ -17,6 +17,8 @@ typedef enum {
   Delay, // delay(ms)
   Get, // (index)
   Set, // (index, value)
+  Incr, Decr, // (index)
+  IncrMod, DecrMod, // (index, mod)
   Forever, // (action)
   While, // (condition, action)
   Wait, // (condition)
