@@ -68,59 +68,82 @@ local pin = {
   [12] = 10,
 }
 
+local colorFuzz = string.char(op.Do,
+
+  op.Ibegin, pin[2], pin[1],
+
+  -- Turn the oscillator on
+  op.Istart, 0x40, 0x70, -- Wiring.beginTransmission(0x70)
+  op.Iwrite, 0x21, -- Wiring.write(OSCILLATOR_ON)
+  op.Istop, 0, -- Wiring.stop(0)
+
+  -- Turn off blink
+  op.Istart, 0x40, 0x70, -- Wiring.beginTransmission(0x70)
+  op.Iwrite, 0x41, 0x01, -- Wiring.write(0x81)
+  op.Istop, 0, -- Wiring.stop(0)
+
+  -- Set brightness to 15
+  op.Istart, 0x40, 0x70, -- Wiring.beginTransmission(0x70)
+  op.Iwrite, 0x41, 0x6f, -- Wiring.write(0xef)
+  op.Istop, 0, -- Wiring.stop(0)
+
+  op.Set, 0, 0,
+
+  op.Forever, op.Do,
+
+    op.Istart, 0x40, 0x70, -- Wiring.beginTransmission(0x70)
+    op.Iwrite, op.IncrMod, 0, 16,
+    op.Iwrite, op.Rand, 0x42, 0x00, -- Wiring.write(0xa0)
+    op.Istop, 0, -- Wiring.stop(0)
+
+    op.Delay, 6,
+
+  op.End,
+op.End)
+
+local danceBot = string.char(op.Do,
+  op.Mode, pin[5], 1, -- orange
+  op.Mode, pin[6], 1, -- yellow
+  op.Mode, pin[7], 1, -- green
+  op.Mode, pin[8], 1, -- blue
+
+  op.Write, pin[5], 0,
+  op.Write, pin[6], 0,
+  op.Write, pin[7], 0,
+  op.Write, pin[8], 0,
+
+  op.Forever, op.Do,
+
+    -- left forward
+    op.Write, pin[5], 1,
+    op.Delay, 0x44, 0x00,
+
+    -- left backwards
+    op.Write, pin[5], 0,
+    op.Write, pin[6], 1,
+    op.Delay, 0x44, 0x00,
+
+
+    -- left forward
+    op.Write, pin[6], 0,
+    op.Write, pin[7], 1,
+    op.Delay, 0x44, 0x00,
+
+    -- left backwards
+    op.Write, pin[7], 0,
+    op.Write, pin[8], 1,
+    op.Delay, 0x44, 0x00,
+
+    op.Write, pin[8], 0,
+  op.End,
+op.End)
+
+local wheeler = "\001\000\241\207\157"
+
 local codes = {
-  -- string.char(op.Do,
-  --   op.Mode, 13, 1,
-  --   op.Forever, op.Do,
-  --     op.Write, 13, 1,
-  --     op.Delay, 0x47, 0x68, -- 1000
-  --     op.Write, 13, 0,
-  --     op.Delay, 0x47, 0x68, -- 1000
-  --   op.End,
-  -- op.End),
-  -- string.char(op.Do,
-  --   op.Mode, 13, 1,
-  --   op.Forever, op.Do,
-  --     op.Write, 13, 1,
-  --     op.Delay, 60,
-  --     op.Write, 13, 0,
-  --     op.Delay, 60,
-  --   op.End,
-  -- op.End),
-  ["\001\000\241\207\157"]  = string.char(op.Do,
+  --[wheeler]  = danceBot,
+  [wheeler]  = colorFuzz,
 
-    op.Ibegin, pin[2], pin[1],
-
-    -- Turn the oscillator on
-    op.Istart, 0x40, 0x70, -- Wiring.beginTransmission(0x70)
-    op.Iwrite, 0x21, -- Wiring.write(OSCILLATOR_ON)
-    op.Istop, 0, -- Wiring.stop(0)
-
-    -- Turn off blink
-    op.Istart, 0x40, 0x70, -- Wiring.beginTransmission(0x70)
-    op.Iwrite, 0x41, 0x01, -- Wiring.write(0x81)
-    op.Istop, 0, -- Wiring.stop(0)
-
-    -- Set brightness to 15
-    op.Istart, 0x40, 0x70, -- Wiring.beginTransmission(0x70)
-    op.Iwrite, 0x41, 0x6f, -- Wiring.write(0xef)
-    op.Istop, 0, -- Wiring.stop(0)
-
-    op.Set, 0, 0,
-
-    op.Forever, op.Do,
-
-      op.Istart, 0x40, 0x70, -- Wiring.beginTransmission(0x70)
-      op.Iwrite, op.IncrMod, 0, 16,
-      op.Iwrite, op.Rand, 0x42, 0x00, -- Wiring.write(0xa0)
-      op.Istop, 0, -- Wiring.stop(0)
-
-      op.Delay, 6,
-
-    op.End,
-
-
-  op.End),
   ["\001\000\166?="] = string.char(op.Do,
 
     op.Ibegin, pin[2], pin[1],
@@ -150,7 +173,7 @@ local codes = {
       op.Iwrite, op.Rand, 0x42, 0x00, -- Wiring.write(0xa0)
       op.Istop, 0, -- Wiring.stop(0)
 
-      --op.Delay, 6,
+      op.Delay, 60,
 
     op.End,
 
@@ -225,8 +248,6 @@ local codes = {
     op.End,
   op.End)
 }
-
-local uv = require('uv')
 
 require('coro-net').createServer({
   host = "0.0.0.0",
