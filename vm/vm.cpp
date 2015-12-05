@@ -1,4 +1,6 @@
 #include "vm.h"
+#include <stdlib.h>
+#include <string.h>
 
 extern int isAlive();
 
@@ -56,6 +58,10 @@ public:
     printf("ESP.getCycleCount()\n");
     return 0;
   }
+  int getFreeHeap() {
+    printf("ESP.getFreeHeap()\n");
+    return 0;
+  }
 };
 FakeESP ESP;
 class FakeWire {
@@ -97,9 +103,9 @@ FakeWire Wire;
 static uint32_t deadbeef_seed;
 static uint32_t deadbeef_beef = 0xdeadbeef;
 
-static int32_t globals[100];
+static intptr_t globals[100];
 
-uint8_t* eval(int32_t* stack, uint8_t* pc, int32_t* value) {
+uint8_t* eval(intptr_t* stack, uint8_t* pc, intptr_t* value) {
   if (!(*pc & 0x80)) {
     *value = *pc & 0x3f;
     if (*pc++ & 0x40) {
@@ -113,7 +119,7 @@ uint8_t* eval(int32_t* stack, uint8_t* pc, int32_t* value) {
   switch ((opcode_t) *pc++) {
     case Mode: {
       if (!value) return eval(stack, eval(stack, pc, 0), 0);
-      int32_t pin;
+      intptr_t pin;
       pc = eval(stack, pc, &pin);
       pc = eval(stack, pc, value);
       pinMode(pin, *value);
@@ -126,7 +132,7 @@ uint8_t* eval(int32_t* stack, uint8_t* pc, int32_t* value) {
       return pc;
     case Write: {
       if (!value) return eval(stack, eval(stack, pc, 0), 0);
-      int32_t pin;
+      intptr_t pin;
       pc = eval(stack, pc, &pin);
       pc = eval(stack, pc, value);
       digitalWrite(pin, *value);
@@ -139,7 +145,7 @@ uint8_t* eval(int32_t* stack, uint8_t* pc, int32_t* value) {
       return pc;
     case Pwrite: {
       if (!value) return eval(stack, eval(stack, pc, 0), 0);
-      int32_t pin;
+      intptr_t pin;
       pc = eval(stack, pc, &pin);
       pc = eval(stack, pc, value);
       analogWrite(pin, *value);
@@ -147,7 +153,7 @@ uint8_t* eval(int32_t* stack, uint8_t* pc, int32_t* value) {
     }
     case Ibegin: {
       if (!value) return eval(stack, eval(stack, pc, 0), 0);
-      int32_t sda;
+      intptr_t sda;
       pc = eval(stack, pc, &sda);
       pc = eval(stack, pc, value);
       Wire.begin(sda, *value);
@@ -155,7 +161,7 @@ uint8_t* eval(int32_t* stack, uint8_t* pc, int32_t* value) {
     }
     case Ifrom: {
       if (!value) return eval(stack, eval(stack, eval(stack, pc, 0), 0), 0);
-      int32_t address, quantity, stop;
+      intptr_t address, quantity, stop;
       pc = eval(stack, pc, &address);
       pc = eval(stack, pc, &quantity);
       pc = eval(stack, pc, &stop);
@@ -188,6 +194,62 @@ uint8_t* eval(int32_t* stack, uint8_t* pc, int32_t* value) {
       pc = eval(stack, pc, value);
       delay(*value);
       return pc;
+    case Func: {
+      if (!value) return eval(stack, pc, 0);
+      uint8_t* start = pc;
+      pc = eval(stack, pc, 0);
+      *value = (intptr_t)malloc(pc - start);
+      memcpy((uint8_t*)*value, start, pc-start);
+      return pc;
+    }
+    case Call: {
+      if (!value) return eval(stack, eval(stack, pc, 0), 0);
+      uint8_t* ptr;
+      pc = eval(stack, pc, (intptr_t*)&ptr);
+      pc = eval(stack, pc, value);
+      eval(stack + *value, ptr, value);
+      return pc;
+    }
+    case Alloc: {
+      if (!value) return eval(stack, pc, 0);
+      pc = eval(stack, pc, value);
+      buffer_t* buf = (buffer_t*)malloc(sizeof(buffer_t) + *value);
+      buf->len = *value;
+      *value = (intptr_t)buf;
+      return pc;
+    }
+    case Aget: {
+      if (!value) return eval(stack, eval(stack, pc, 0), 0);
+      buffer_t* buf;
+      pc = eval(stack, pc, (intptr_t*)&buf);
+      pc = eval(stack, pc, value);
+      *value = buf->data[*value];
+      return pc;
+    }
+    case Aset: {
+      if (!value) return eval(stack, eval(stack, eval(stack, pc, 0), 0), 0);
+      buffer_t* buf;
+      intptr_t index;
+      pc = eval(stack, pc, (intptr_t*)&buf);
+      pc = eval(stack, pc, &index);
+      pc = eval(stack, pc, value);
+      buf->data[index] = *value;
+      return pc;
+    }
+    case Alen: {
+      if (!value) return eval(stack, pc, 0);
+      buffer_t* buf;
+      pc = eval(stack, pc, (intptr_t*)&buf);
+      *value = buf->len;
+      return pc;
+    }
+    case Free: {
+      if (!value) return eval(stack, pc, 0);
+      pc = eval(stack, pc, value);
+      free(value);
+      *value = 0;
+      return pc;
+    }
     case Gget:
       if (!value) return eval(stack, pc, 0);
       pc = eval(stack, pc, value);
@@ -195,7 +257,7 @@ uint8_t* eval(int32_t* stack, uint8_t* pc, int32_t* value) {
       return pc;
     case Gset: {
       if (!value) return eval(stack, eval(stack, pc, 0), 0);
-      int32_t num;
+      intptr_t num;
       pc = eval(stack, pc, &num);
       pc = eval(stack, pc, value);
       globals[num] = *value;
@@ -208,7 +270,7 @@ uint8_t* eval(int32_t* stack, uint8_t* pc, int32_t* value) {
       return pc;
     case Set: {
       if (!value) return eval(stack, eval(stack, pc, 0), 0);
-      int32_t num;
+      intptr_t num;
       pc = eval(stack, pc, &num);
       pc = eval(stack, pc, value);
       stack[num] = *value;
@@ -226,7 +288,7 @@ uint8_t* eval(int32_t* stack, uint8_t* pc, int32_t* value) {
       return pc;
     case IncrMod: {
       if (!value) return eval(stack, eval(stack, pc, 0), 0);
-      int32_t index;
+      intptr_t index;
       pc = eval(stack, pc, &index);
       pc = eval(stack, pc, value);
       *value = stack[index] = (stack[index] + 1) % *value;
@@ -234,7 +296,7 @@ uint8_t* eval(int32_t* stack, uint8_t* pc, int32_t* value) {
     }
     case DecrMod: {
       if (!value) return eval(stack, eval(stack, pc, 0), 0);
-      int32_t index;
+      intptr_t index;
       pc = eval(stack, pc, &index);
       pc = eval(stack, pc, value);
       *value = stack[index] = (stack[index] + *value - 1) % *value;
@@ -299,7 +361,7 @@ uint8_t* eval(int32_t* stack, uint8_t* pc, int32_t* value) {
       return pc;
     case Add: {
       if (!value) return eval(stack, eval(stack, pc, 0), 0);
-      int32_t num;
+      intptr_t num;
       pc = eval(stack, pc, &num);
       pc = eval(stack, pc, value);
       *value = num + *value;
@@ -307,7 +369,7 @@ uint8_t* eval(int32_t* stack, uint8_t* pc, int32_t* value) {
     }
     case Sub: {
       if (!value) return eval(stack, eval(stack, pc, 0), 0);
-      int32_t num;
+      intptr_t num;
       pc = eval(stack, pc, &num);
       pc = eval(stack, pc, value);
       *value = num - *value;
@@ -315,7 +377,7 @@ uint8_t* eval(int32_t* stack, uint8_t* pc, int32_t* value) {
     }
     case Mul: {
       if (!value) return eval(stack, eval(stack, pc, 0), 0);
-      int32_t num;
+      intptr_t num;
       pc = eval(stack, pc, &num);
       pc = eval(stack, pc, value);
       *value = num * *value;
@@ -323,7 +385,7 @@ uint8_t* eval(int32_t* stack, uint8_t* pc, int32_t* value) {
     }
     case Div: {
       if (!value) return eval(stack, eval(stack, pc, 0), 0);
-      int32_t num;
+      intptr_t num;
       pc = eval(stack, pc, &num);
       pc = eval(stack, pc, value);
       *value = num / *value;
@@ -331,7 +393,7 @@ uint8_t* eval(int32_t* stack, uint8_t* pc, int32_t* value) {
     }
     case Mod: {
       if (!value) return eval(stack, eval(stack, pc, 0), 0);
-      int32_t num;
+      intptr_t num;
       pc = eval(stack, pc, &num);
       pc = eval(stack, pc, value);
       *value = num % *value;
@@ -345,7 +407,7 @@ uint8_t* eval(int32_t* stack, uint8_t* pc, int32_t* value) {
 
     case Band: {
       if (!value) return eval(stack, eval(stack, pc, 0), 0);
-      int32_t num;
+      intptr_t num;
       pc = eval(stack, pc, &num);
       pc = eval(stack, pc, value);
       *value = num & *value;
@@ -353,7 +415,7 @@ uint8_t* eval(int32_t* stack, uint8_t* pc, int32_t* value) {
     }
     case Bor: {
       if (!value) return eval(stack, eval(stack, pc, 0), 0);
-      int32_t num;
+      intptr_t num;
       pc = eval(stack, pc, &num);
       pc = eval(stack, pc, value);
       *value = num | *value;
@@ -361,7 +423,7 @@ uint8_t* eval(int32_t* stack, uint8_t* pc, int32_t* value) {
     }
     case Bxor: {
       if (!value) return eval(stack, eval(stack, pc, 0), 0);
-      int32_t num;
+      intptr_t num;
       pc = eval(stack, pc, &num);
       pc = eval(stack, pc, value);
       *value = num ^ *value;
@@ -374,7 +436,7 @@ uint8_t* eval(int32_t* stack, uint8_t* pc, int32_t* value) {
       return pc;
     case Lshift: {
       if (!value) return eval(stack, eval(stack, pc, 0), 0);
-      int32_t num;
+      intptr_t num;
       pc = eval(stack, pc, &num);
       pc = eval(stack, pc, value);
       *value = num << *value;
@@ -382,7 +444,7 @@ uint8_t* eval(int32_t* stack, uint8_t* pc, int32_t* value) {
     }
     case Rshift: {
       if (!value) return eval(stack, eval(stack, pc, 0), 0);
-      int32_t num;
+      intptr_t num;
       pc = eval(stack, pc, &num);
       pc = eval(stack, pc, value);
       *value = num >> *value;
@@ -398,7 +460,7 @@ uint8_t* eval(int32_t* stack, uint8_t* pc, int32_t* value) {
     }
     case Xor: {
       if (!value) return eval(stack, eval(stack, pc, 0), 0);
-      int32_t num;
+      intptr_t num;
       pc = eval(stack, pc, &num);
       pc = eval(stack, pc, value);
       *value = num ?
@@ -418,7 +480,7 @@ uint8_t* eval(int32_t* stack, uint8_t* pc, int32_t* value) {
       return eval(stack, eval(stack, pc, 0), value);
     case Gt: {
       if (!value) return eval(stack, eval(stack, pc, 0), 0);
-      int32_t num;
+      intptr_t num;
       pc = eval(stack, pc, &num);
       pc = eval(stack, pc, value);
       *value = num > *value;
@@ -426,7 +488,7 @@ uint8_t* eval(int32_t* stack, uint8_t* pc, int32_t* value) {
     }
     case Gte: {
       if (!value) return eval(stack, eval(stack, pc, 0), 0);
-      int32_t num;
+      intptr_t num;
       pc = eval(stack, pc, &num);
       pc = eval(stack, pc, value);
       *value = num >= *value;
@@ -434,7 +496,7 @@ uint8_t* eval(int32_t* stack, uint8_t* pc, int32_t* value) {
     }
     case Lt: {
       if (!value) return eval(stack, eval(stack, pc, 0), 0);
-      int32_t num;
+      intptr_t num;
       pc = eval(stack, pc, &num);
       pc = eval(stack, pc, value);
       *value = num < *value;
@@ -442,7 +504,7 @@ uint8_t* eval(int32_t* stack, uint8_t* pc, int32_t* value) {
     }
     case Lte: {
       if (!value) return eval(stack, eval(stack, pc, 0), 0);
-      int32_t num;
+      intptr_t num;
       pc = eval(stack, pc, &num);
       pc = eval(stack, pc, value);
       *value = num <= *value;
@@ -450,7 +512,7 @@ uint8_t* eval(int32_t* stack, uint8_t* pc, int32_t* value) {
     }
     case Eq: {
       if (!value) return eval(stack, eval(stack, pc, 0), 0);
-      int32_t num;
+      intptr_t num;
       pc = eval(stack, pc, &num);
       pc = eval(stack, pc, value);
       *value = num == *value;
@@ -458,7 +520,7 @@ uint8_t* eval(int32_t* stack, uint8_t* pc, int32_t* value) {
     }
     case Neq: {
       if (!value) return eval(stack, pc, 0);
-      int32_t num;
+      intptr_t num;
       pc = eval(stack, pc, &num);
       pc = eval(stack, pc, value);
       *value = num != *value;
@@ -491,6 +553,9 @@ uint8_t* eval(int32_t* stack, uint8_t* pc, int32_t* value) {
       return pc;
     case CycleCount:
       if (value) *value = ESP.getCycleCount();
+      return pc;
+    case GetFree:
+      if (value) *value = ESP.getFreeHeap();
       return pc;
 
     // Invalid cases (cannot start an expression)

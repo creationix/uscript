@@ -15,6 +15,13 @@ typedef enum {
   Iavailable, // Wiring.available()
   Iread, // Wiring.read()
   Delay, // delay(ms)
+  Func, // (body)
+  Call, // (ptr, shift)
+  Alloc, // (size)
+  Aget, // (ptr, offset)
+  Aset, // (ptr, offset, value)
+  Alen, // (ptr)
+  Free, // (ptr)
   Gget, // (index)
   Gset, // (index, value)
   Get, // (index)
@@ -34,7 +41,12 @@ typedef enum {
   Gt, Gte, Lt, Lte, Eq, Neq,
   Srand, // deadbeef_srand(seed)
   Rand, // deadbeef_rand(modulus)
-  Restart, ChipId, FlashChipId, CycleCount,
+  Restart, ChipId, FlashChipId, CycleCount, GetFree,
 } opcode_t;
 
-uint8_t* eval(int32_t* stack, uint8_t* pc, int32_t* value);
+typedef struct {
+  int len;
+  uint8_t data[];
+} buffer_t;
+
+uint8_t* eval(intptr_t* stack, uint8_t* pc, intptr_t* value);

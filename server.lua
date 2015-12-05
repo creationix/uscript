@@ -15,6 +15,13 @@ local list = {
   "Iavailable", -- Wiring.available()
   "Iread", -- Wiring.read()
   "Delay", -- (ms)
+  "Func", -- (body)
+  "Call", -- (ptr, shift)
+  "Alloc", -- (size)
+  "Aget", -- (ptr)
+  "Aset", -- (ptr)
+  "Alen", -- (ptr)
+  "Free", -- (ptr)
   "Gget", -- (index)
   "Gset", -- (index, value)
   "Get", -- (index)
@@ -34,7 +41,7 @@ local list = {
   "Gt", "Gte", "Lt", "Lte", "Eq", "Neq",
   "Srand", -- (seed)
   "Rand", -- (modulus)
-  "Restart", "ChipId", "FlashChipId", "CycleCount",
+  "Restart", "ChipId", "FlashChipId", "CycleCount", "GetFree",
 }
 local op = {};
 for i = 1, #list do
