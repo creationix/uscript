@@ -3,9 +3,9 @@
 -- USCRIPT_VERSION 1
 local list = {
   "Do", "End", -- do ... end
-  "Print", -- (num)
+  "PrintNum", -- (num)
   "Aprint", -- (ptr)
-  "String", -- null terminated string
+  "Buffer", -- null terminated string
   "Mode", -- (pin, mode)
   "Read", -- (pin)
   "Write", -- (pin, value)

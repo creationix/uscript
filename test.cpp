@@ -1,5 +1,5 @@
 #include <assert.h>
-#include "vm.cpp"
+#include "vm/vm.cpp"
 
 enum nodemcu_pins {
   D0 = 16,
@@ -32,9 +32,9 @@ int main() {
 
   eval(stack, (uint8_t[]){Call, 0, Func, Do,
     // Store the string "Hi" as a pointer in slot 0
-    Gset, 0, String, 2,'H','i',
+    Gset, 0, Buffer, 2,'H','i',
     // Print the length of the string
-    Print, Alen, Gget, 0,
+    PrintNum, Alen, Gget, 0,
     // Print the string
     Aprint, Gget, 0,
     // Free the string and clear the slot.

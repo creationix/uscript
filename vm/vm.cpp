@@ -143,7 +143,7 @@ uint8_t* eval(intptr_t* stack, uint8_t* pc, intptr_t* value) {
     return pc;
   }
   switch ((opcode_t) *pc++) {
-    case Print:
+    case PrintNum:
       if (!value) return eval(stack, pc, 0);
       pc = eval(stack, pc, value);
       printNumber(*value);
@@ -154,7 +154,7 @@ uint8_t* eval(intptr_t* stack, uint8_t* pc, intptr_t* value) {
       pc = eval(stack, pc, (intptr_t*)&buf);
       printBuffer(buf);
       return pc;
-    case String: {
+    case Buffer: {
       uint8_t* start = pc;
       int len = 0;
       do {

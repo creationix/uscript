@@ -3,9 +3,9 @@
 #define USCRIPT_VERSION 1
 typedef enum {
   Do = 128, End, // do ... end
-  Print, // (num)
+  PrintNum, // (num)
   Aprint, // (ptr)
-  String, // length prefixed bytes
+  Buffer, // length prefixed bytes
   Mode, // pinMode(pin, mode)
   Read, // digitalRead(pin)
   Write, // digitalWrite(pin, value)
