@@ -114,7 +114,7 @@ local codes = {
         op.Gte, op.Get, 0, 3,
 
       op.Delay,
-        0x47, 0x68, -- 1000
+        0x43, 0x74, -- 500
     op.End,
   op.End)
 }

@@ -2,13 +2,13 @@
 #include <string.h>
 #include "vm.h"
 
-/*const char* ssid     = "creationix-mobile";
+const char* ssid     = "creationix-mobile";
 const char* password = "noderocks";
-const char* host = "192.168.43.221";*/
+const char* host = "192.168.43.221";
 
-const char* ssid     = "rackbook";
+/*const char* ssid     = "rackbook";
 const char* password = "159978e273";
-const char* host = "10.42.0.1";
+const char* host = "10.42.0.1";*/
 
 WiFiClient client;
 
