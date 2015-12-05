@@ -287,6 +287,52 @@ uint8_t* eval(uint8_t* pc, int32_t* value) {
       pc = eval(pc, value);
       *value = -(*value);
       return pc;
+
+    case Band: {
+      if (!value) return eval(eval(pc, 0), 0);
+      int32_t num;
+      pc = eval(pc, &num);
+      pc = eval(pc, value);
+      *value = num & *value;
+      return pc;
+    }
+    case Bor: {
+      if (!value) return eval(eval(pc, 0), 0);
+      int32_t num;
+      pc = eval(pc, &num);
+      pc = eval(pc, value);
+      *value = num | *value;
+      return pc;
+    }
+    case Bxor: {
+      if (!value) return eval(eval(pc, 0), 0);
+      int32_t num;
+      pc = eval(pc, &num);
+      pc = eval(pc, value);
+      *value = num ^ *value;
+      return pc;
+    }
+    case Bnot:
+      if (!value) return eval(pc, 0);
+      pc = eval(pc, value);
+      *value = ~*value;
+      return pc;
+    case Lshift: {
+      if (!value) return eval(eval(pc, 0), 0);
+      int32_t num;
+      pc = eval(pc, &num);
+      pc = eval(pc, value);
+      *value = num << *value;
+      return pc;
+    }
+    case Rshift: {
+      if (!value) return eval(eval(pc, 0), 0);
+      int32_t num;
+      pc = eval(pc, &num);
+      pc = eval(pc, value);
+      *value = num >> *value;
+      return pc;
+    }
     case And: {
       if (!value) return eval(eval(pc, 0), 0);
       return eval(eval(pc, value), *value ? value : 0);

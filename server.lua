@@ -23,6 +23,7 @@ local list = {
   "Else", -- (action)
   "Do", "End", -- do ... end
   "Add", "Sub", "Mul", "Div", "Mod", "Neg",
+  "Band", "Bor", "Bxor", "Bnot", "Lshift", "Rshift",
   "And", "Or", "Xor", "Not", "Choose",
   "Gt", "Gte", "Lt", "Lte", "Eq", "Neq",
   "Srand", -- (seed)

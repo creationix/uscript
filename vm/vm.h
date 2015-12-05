@@ -2,11 +2,11 @@
 
 #define USCRIPT_VERSION 1
 typedef enum {
-  Mode = 128, // (pin, mode)
-  Read, // (pin)
-  Write, // (pin, value)
-  Aread, // (pin)
-  Pwrite, // (pin, value)
+  Mode = 128, // pinMode(pin, mode)
+  Read, // digitalRead(pin)
+  Write, // digitalWrite(pin, value)
+  Aread, // analogRead(pin)
+  Pwrite, // analogWrite(pin, value)
   Ibegin, // Wiring.begin(sda, scl)
   Ifrom, // Wiring.requestFrom(address, quantity, stop)
   Istart, // Wiring.beginTransmission(address)
@@ -14,7 +14,7 @@ typedef enum {
   Iwrite, // Wiring.write(byte)
   Iavailable, // Wiring.available()
   Iread, // Wiring.read()
-  Delay, // (ms)
+  Delay, // delay(ms)
   Forever, // (action)
   While, // (condition, action)
   Wait, // (condition)
@@ -23,10 +23,11 @@ typedef enum {
   Else, // (action)
   Do, End, // do ... end
   Add, Sub, Mul, Div, Mod, Neg,
+  Band, Bor, Bxor, Bnot, Lshift, Rshift,
   And, Or, Xor, Not, Choose,
   Gt, Gte, Lt, Lte, Eq, Neq,
-  Srand, // (seed)
-  Rand, // (modulus)
+  Srand, // deadbeef_srand(seed)
+  Rand, // deadbeef_rand(modulus)
   Restart, ChipId, FlashChipId, CycleCount,
 } opcode_t;
 
