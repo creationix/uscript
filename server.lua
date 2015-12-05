@@ -3,6 +3,9 @@
 -- USCRIPT_VERSION 1
 local list = {
   "Do", "End", -- do ... end
+  "Print", -- (num)
+  "Aprint", -- (ptr)
+  "String", -- null terminated string
   "Mode", -- (pin, mode)
   "Read", -- (pin)
   "Write", -- (pin, value)
@@ -17,7 +20,7 @@ local list = {
   "Iread", -- Wiring.read()
   "Delay", -- (ms)
   "Func", -- (body)
-  "Call", -- (ptr, shift)
+  "Call", -- (shift, ptr)
   "Alloc", -- (size)
   "Aget", -- (ptr)
   "Aset", -- (ptr)

@@ -29,30 +29,40 @@ intptr_t value;
 #define num(n) (0x40|(n)>>7),((n)&0x7f)
 
 int main() {
-  eval(stack, (uint8_t[]){
-    Gset, 0, Func, Do,
-      Mode, D7, 1,
-      Forever, Do,
-        Write, D7,
-          Not, Read, D7,
-        Delay, num(200),
-      End,
-    End, 0,
-  }, &value);
-  printf("Created and stored a fn %p\n\n", (uint8_t*)value);
 
-  alive = 3;
-  eval(stack, (uint8_t[]){Do,
-    Call, Gget, 0, 16,
+  eval(stack, (uint8_t[]){Call, 0, Func, Do,
+    // Store the string "Hi" as a pointer in slot 0
+    Gset, 0, String, 2,'H','i',
+    // Print the length of the string
+    Print, Alen, Gget, 0,
+    // Print the string
+    Aprint, Gget, 0,
+    // Free the string and clear the slot.
     Gset, 0, Free, Gget, 0,
   End}, &value);
 
-  // eval(stack, (uint8_t[]){Do,
-  //   Mode, 13, 1,
-  //   Write, 13, 1,
-  //   Delay, num(1000),
-  //   Write, 13, 0,
-  //   Delay, num(1000),
-  // End}, &value);
+  printf("\n\n");
+
+  alive = 3;
+  eval(stack, (uint8_t[]){Call, 0, Func, Do,
+    Gset, 0, Func, Do,
+      Mode, D7, 1,
+      Write, D7, 0,
+      Forever, Do,
+        Delay, num(333),
+        Write, D7,
+          Not, Read, D7,
+      End,
+    End,
+    Call, 0, Gget, 0,
+  End}, &value);
+
+  printf("\n\n");
+
+  eval(stack, (uint8_t[]){Call, 0, Func, Do,
+    Call, (16 / sizeof(intptr_t)), Gget, 0,
+    Gset, 0, Free, Gget, 0,
+  End}, &value);
+
   return 0;
 }

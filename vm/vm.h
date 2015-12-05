@@ -3,6 +3,9 @@
 #define USCRIPT_VERSION 1
 typedef enum {
   Do = 128, End, // do ... end
+  Print, // (num)
+  Aprint, // (ptr)
+  String, // length prefixed bytes
   Mode, // pinMode(pin, mode)
   Read, // digitalRead(pin)
   Write, // digitalWrite(pin, value)
@@ -17,7 +20,7 @@ typedef enum {
   Iread, // Wiring.read()
   Delay, // delay(ms)
   Func, // (body)
-  Call, // (ptr, shift)
+  Call, // (shift, ptr)
   Alloc, // (size)
   Aget, // (ptr, offset)
   Aset, // (ptr, offset, value)

@@ -110,7 +110,7 @@ static uint32_t deadbeef_beef = 0xdeadbeef;
 static intptr_t globals[100];
 
 uint8_t* eval(intptr_t* stack, uint8_t* pc, intptr_t* value) {
-  // printf("%s> stack: %p  pc: %p  op: %02x\n", value ? "run" : "skip", stack, pc, *pc);
+  //("%s> stack: %p  pc: %p  op: %02x\n", value ? "run" : "skip", stack, pc, *pc);
   if (!(*pc & 0x80)) {
     if (!value) {
       if (*pc++ & 0x40) while (*pc++ & 0x80);
@@ -126,6 +126,33 @@ uint8_t* eval(intptr_t* stack, uint8_t* pc, intptr_t* value) {
     return pc;
   }
   switch ((opcode_t) *pc++) {
+    case Print:
+      if (!value) return eval(stack, pc, 0);
+      pc = eval(stack, pc, value);
+      printf("%ld\n", *value);
+      return pc;
+    case Aprint:
+      if (!value) return eval(stack, pc, 0);
+      buffer_t* buf;
+      pc = eval(stack, pc, (intptr_t*)&buf);
+      printf("%.*s\n", buf->len, buf->data);
+      return pc;
+    case String: {
+      uint8_t* start = pc;
+      int len = 0;
+      do {
+        len <<= 7;
+        len |= *pc;
+      } while (*pc++ & 0x80);
+      start = pc;
+      pc += len;
+      if (!value) return pc;
+      buffer_t* buf = (buffer_t*)malloc(sizeof(buffer_t) + len);
+      buf->len = len;
+      memcpy(buf->data, start, len);
+      *value = (intptr_t)buf;
+      return pc;
+    }
     case Mode: {
       if (!value) return eval(stack, eval(stack, pc, 0), 0);
       intptr_t pin;
@@ -214,8 +241,8 @@ uint8_t* eval(intptr_t* stack, uint8_t* pc, intptr_t* value) {
     case Call: {
       if (!value) return eval(stack, eval(stack, pc, 0), 0);
       uint8_t* ptr;
-      pc = eval(stack, pc, (intptr_t*)&ptr);
       pc = eval(stack, pc, value);
+      pc = eval(stack, pc, (intptr_t*)&ptr);
       eval(stack + *value, ptr, value);
       return pc;
     }
