@@ -70,6 +70,19 @@ local pin = {
 
 local colorFuzz = string.char(op.Do,
 
+op.End)
+
+local danceBot = string.char(op.Do,
+  op.Mode, pin[5], 1, -- orange
+  op.Mode, pin[6], 1, -- yellow
+  op.Mode, pin[7], 1, -- green
+  op.Mode, pin[8], 1, -- blue
+
+  op.Write, pin[5], 0,
+  op.Write, pin[6], 0,
+  op.Write, pin[7], 0,
+  op.Write, pin[8], 0,
+
   op.Ibegin, pin[2], pin[1],
 
   -- Turn the oscillator on
@@ -87,62 +100,49 @@ local colorFuzz = string.char(op.Do,
   op.Iwrite, 0x41, 0x6f, -- Wiring.write(0xef)
   op.Istop, 0, -- Wiring.stop(0)
 
+  op.Gset, 7, op.Func, op.Do,
+    op.Set, 3, 0x41, 0x00,
+    op.While, op.Decr, 3, op.Do,
+      op.Istart, 0x40, 0x70, -- Wiring.beginTransmission(0x70)
+      op.Iwrite, op.IncrMod, 0, 16,
+      op.Iwrite, op.Rand, 0x42, 0x00, -- Wiring.write(0xa0)
+      op.Istop, 0, -- Wiring.stop(0)
+      op.Delay, 3,
+    op.End,
+  op.End,
+
   op.Set, 0, 0,
 
   op.Forever, op.Do,
 
-    op.Istart, 0x40, 0x70, -- Wiring.beginTransmission(0x70)
-    op.Iwrite, op.IncrMod, 0, 16,
-    op.Iwrite, op.Rand, 0x42, 0x00, -- Wiring.write(0xa0)
-    op.Istop, 0, -- Wiring.stop(0)
-
-    op.Delay, 6,
-
-  op.End,
-op.End)
-
-local danceBot = string.char(op.Do,
-  op.Mode, pin[5], 1, -- orange
-  op.Mode, pin[6], 1, -- yellow
-  op.Mode, pin[7], 1, -- green
-  op.Mode, pin[8], 1, -- blue
-
-  op.Write, pin[5], 0,
-  op.Write, pin[6], 0,
-  op.Write, pin[7], 0,
-  op.Write, pin[8], 0,
-
-  op.Forever, op.Do,
-
     -- left forward
+    op.Write, pin[8], 0,
     op.Write, pin[5], 1,
-    op.Delay, 0x44, 0x00,
+    op.Call, 0, op.Gget, 7,
 
     -- left backwards
     op.Write, pin[5], 0,
     op.Write, pin[6], 1,
-    op.Delay, 0x44, 0x00,
-
+    op.Call, 0, op.Gget, 7,
 
     -- left forward
     op.Write, pin[6], 0,
     op.Write, pin[7], 1,
-    op.Delay, 0x44, 0x00,
+    op.Call, 0, op.Gget, 7,
 
     -- left backwards
     op.Write, pin[7], 0,
     op.Write, pin[8], 1,
-    op.Delay, 0x44, 0x00,
+    op.Call, 0, op.Gget, 7,
 
-    op.Write, pin[8], 0,
   op.End,
 op.End)
 
 local wheeler = "\001\000\241\207\157"
 
 local codes = {
-  --[wheeler]  = danceBot,
-  [wheeler]  = colorFuzz,
+  [wheeler]  = danceBot,
+  -- [wheeler]  = colorFuzz,
 
   ["\001\000\166?="] = string.char(op.Do,
 
