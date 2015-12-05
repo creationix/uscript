@@ -15,6 +15,8 @@ local list = {
   "Iavailable", -- Wiring.available()
   "Iread", -- Wiring.read()
   "Delay", -- (ms)
+  "Get", -- (index)
+  "Set", -- (index, value)
   "Forever", -- (action)
   "While", -- (condition, action)
   "Wait", -- (condition)

@@ -97,6 +97,8 @@ FakeWire Wire;
 static uint32_t deadbeef_seed;
 static uint32_t deadbeef_beef = 0xdeadbeef;
 
+int32_t globals[1024];
+
 uint8_t* eval(uint8_t* pc, int32_t* value) {
   if (!(*pc & 0x80)) {
     *value = *pc & 0x3f;
@@ -186,6 +188,20 @@ uint8_t* eval(uint8_t* pc, int32_t* value) {
       pc = eval(pc, value);
       delay(*value);
       return pc;
+    case Get:
+      if (!value) return eval(pc, 0);
+      pc = eval(pc, value);
+      *value = globals[*value];
+      return pc;
+    case Set: {
+      if (!value) return eval(eval(pc, 0), 0);
+      int32_t num;
+      pc = eval(pc, &num);
+      pc = eval(pc, value);
+      globals[num] = *value;
+      return pc;
+    }
+    if (!value) return eval(pc, 0);
     case Forever: {
       if (!value) return eval(pc, 0);
       uint8_t* start = pc;

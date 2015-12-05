@@ -15,6 +15,8 @@ typedef enum {
   Iavailable, // Wiring.available()
   Iread, // Wiring.read()
   Delay, // delay(ms)
+  Get, // (index)
+  Set, // (index, value)
   Forever, // (action)
   While, // (condition, action)
   Wait, // (condition)
