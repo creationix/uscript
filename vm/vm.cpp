@@ -4,6 +4,11 @@
 
 extern int isAlive();
 
+// Nodemcu pin remapping.
+static char pins[] = { 16, 5, 4, 0, 2, 14, 12, 13, 15, 3, 1, 9, 10 };
+// Normal pin mapping
+// static char pins[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
+
 #ifdef ARDUINO
 #include "Arduino.h"
 #include "Wire.h"
@@ -20,30 +25,30 @@ static void printBuffer(buffer_t* buf) {
 #include <sys/select.h>
 #include <sys/time.h>
 
-static int pins[17];
+static int pinState[17];
 
 static void pinMode(int pin, int mode) {
   printf("pinMode(%d, %d)\n", pin, mode);
 }
 
 static void digitalWrite(int pin, int value) {
-  pins[pin] = !!value;
+  pinState[pin] = !!value;
   printf("digitalWrite(%d, %d)\n", pin, value);
 }
 
 static int digitalRead(int pin) {
   printf("digitalRead(%d)\n", pin);
-  return !!pins[pin];
+  return !!pinState[pin];
 }
 
 static void analogWrite(int pin, int value) {
-  pins[pin] = value;
+  pinState[pin] = value;
   printf("analogWrite(%d, %d)\n", pin, value);
 }
 
 static int analogRead(int pin) {
   printf("analogRead(%d)\n", pin);
-  return pins[pin];
+  return pinState[pin];
 }
 
 static void delay(int ms) {
@@ -175,33 +180,33 @@ uint8_t* eval(intptr_t* stack, uint8_t* pc, intptr_t* value) {
       intptr_t pin;
       pc = eval(stack, pc, &pin);
       pc = eval(stack, pc, value);
-      pinMode(pin, *value);
+      pinMode(pins[pin], *value);
       return pc;
     }
     case Read:
       if (!value) return eval(stack, pc, 0);
       pc = eval(stack, pc, value);
-      *value = digitalRead(*value);
+      *value = digitalRead(pins[*value]);
       return pc;
     case Write: {
       if (!value) return eval(stack, eval(stack, pc, 0), 0);
       intptr_t pin;
       pc = eval(stack, pc, &pin);
       pc = eval(stack, pc, value);
-      digitalWrite(pin, *value);
+      digitalWrite(pins[pin], *value);
       return pc;
     }
     case Aread:
       if (!value) return eval(stack, pc, 0);
       pc = eval(stack, pc, value);
-      *value = analogRead(*value);
+      *value = analogRead(pins[*value]);
       return pc;
     case Pwrite: {
       if (!value) return eval(stack, eval(stack, pc, 0), 0);
       intptr_t pin;
       pc = eval(stack, pc, &pin);
       pc = eval(stack, pc, value);
-      analogWrite(pin, *value);
+      analogWrite(pins[pin], *value);
       return pc;
     }
     case Ibegin: {
@@ -209,7 +214,7 @@ uint8_t* eval(intptr_t* stack, uint8_t* pc, intptr_t* value) {
       intptr_t sda;
       pc = eval(stack, pc, &sda);
       pc = eval(stack, pc, value);
-      Wire.begin(sda, *value);
+      Wire.begin(pins[sda], pins[*value]);
       return pc;
     }
     case Ifrom: {

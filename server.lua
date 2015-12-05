@@ -51,39 +51,19 @@ for i = 1, #list do
   op[list[i]] = i + 127
 end
 
--- GPIO map for nodemcu
-local pin = {
-  [0] = 16,
-  [1] = 5,
-  [2] = 4,
-  [3] = 0,
-  [4] = 2,
-  [5] = 14,
-  [6] = 12,
-  [7] = 13,
-  [8] = 15,
-  [9] = 3,
-  [10] = 1,
-  [11] = 9,
-  [12] = 10,
-}
-
-local colorFuzz = string.char(op.Do,
-
-op.End)
 
 local danceBot = string.char(op.Do,
-  op.Mode, pin[5], 1, -- orange
-  op.Mode, pin[6], 1, -- yellow
-  op.Mode, pin[7], 1, -- green
-  op.Mode, pin[8], 1, -- blue
+  op.Mode, 5, 1, -- orange
+  op.Mode, 6, 1, -- yellow
+  op.Mode, 7, 1, -- green
+  op.Mode, 8, 1, -- blue
 
-  op.Write, pin[5], 0,
-  op.Write, pin[6], 0,
-  op.Write, pin[7], 0,
-  op.Write, pin[8], 0,
+  op.Write, 5, 0,
+  op.Write, 6, 0,
+  op.Write, 7, 0,
+  op.Write, 8, 0,
 
-  op.Ibegin, pin[2], pin[1],
+  op.Ibegin, 2, 1,
 
   -- Turn the oscillator on
   op.Istart, 0x40, 0x70, -- Wiring.beginTransmission(0x70)
@@ -116,23 +96,23 @@ local danceBot = string.char(op.Do,
   op.Forever, op.Do,
 
     -- left forward
-    op.Write, pin[8], 0,
-    op.Write, pin[5], 1,
+    op.Write, 8, 0,
+    op.Write, 5, 1,
     op.Call, 0, op.Gget, 7,
 
     -- left backwards
-    op.Write, pin[5], 0,
-    op.Write, pin[6], 1,
+    op.Write, 5, 0,
+    op.Write, 6, 1,
     op.Call, 0, op.Gget, 7,
 
     -- left forward
-    op.Write, pin[6], 0,
-    op.Write, pin[7], 1,
+    op.Write, 6, 0,
+    op.Write, 7, 1,
     op.Call, 0, op.Gget, 7,
 
     -- left backwards
-    op.Write, pin[7], 0,
-    op.Write, pin[8], 1,
+    op.Write, 7, 0,
+    op.Write, 8, 1,
     op.Call, 0, op.Gget, 7,
 
   op.End,
@@ -146,7 +126,7 @@ local codes = {
 
   ["\001\000\166?="] = string.char(op.Do,
 
-    op.Ibegin, pin[2], pin[1],
+    op.Ibegin, 2, 1,
 
     -- Turn the oscillator on
     op.Istart, 0x40, 0x70, -- Wiring.beginTransmission(0x70)
@@ -173,7 +153,7 @@ local codes = {
       op.Iwrite, op.Rand, 0x42, 0x00, -- Wiring.write(0xa0)
       op.Istop, 0, -- Wiring.stop(0)
 
-      op.Delay, 60,
+      -- op.Delay, 30,
 
     op.End,
 
@@ -181,17 +161,17 @@ local codes = {
   op.End),
   ["\001\000\166@\169"] = string.char(op.Do,
     -- Set output mode for LED pins
-    op.Mode, pin[5], 1, -- blue
-    op.Mode, pin[6], 1, -- green
-    op.Mode, pin[7], 1, -- red
+    op.Mode, 5, 1, -- blue
+    op.Mode, 6, 1, -- green
+    op.Mode, 7, 1, -- red
     -- Use 8 as ground
-    op.Mode, pin[8], 1, -- ground
-    op.Write, pin[8], 0,
+    op.Mode, 8, 1, -- ground
+    op.Write, 8, 0,
 
     -- Set input with pull-up for buttons
-    op.Mode, pin[1], 2, -- blue button, pull-up input
-    op.Mode, pin[2], 2, -- yellow button, pull-up input
-    -- op.Write, pin[2], 1,
+    op.Mode, 1, 2, -- blue button, pull-up input
+    op.Mode, 2, 2, -- yellow button, pull-up input
+    -- op.Write, 2, 1,
 
     op.Set, 2, 2,
     op.Set, 3, 1,
@@ -203,33 +183,33 @@ local codes = {
     -- 4  0 0 1
     -- 5  1 0 1
     op.Gset, 0, op.Func, op.Do,
-      op.Pwrite, pin[7], op.Mul, op.Get, 2,
+      op.Pwrite, 7, op.Mul, op.Get, 2,
         op.Or,
           op.Lte, op.Get, 0, 1,
           op.Gte, op.Get, 0, 5,
-      op.Pwrite, pin[6], op.Mul, op.Get, 2,
+      op.Pwrite, 6, op.Mul, op.Get, 2,
         op.And,
           op.Gte, op.Get, 0, 1,
           op.Lte, op.Get, 0, 3,
-      op.Pwrite, pin[5], op.Mul, op.Get, 2,
+      op.Pwrite, 5, op.Mul, op.Get, 2,
         op.Gte, op.Get, 0, 3,
     op.End,
 
 
     op.Set, 0, 0, -- Set variable to zero
     op.Forever, op.Do,
-      op.If, op.Not, op.Read, pin[1], op.Do,
+      op.If, op.Not, op.Read, 1, op.Do,
         op.IncrMod, 0, 6, -- Increment variable looping around at 6
         op.Call, 0, op.Gget, 0,
         op.Delay, 0x41, 0x00,
-        op.Wait, op.Read, pin[1],
+        op.Wait, op.Read, 1,
         op.Delay, 0x41, 0x00,
       op.End,
-      op.ElseIf, op.Not, op.Read, pin[2], op.Do,
+      op.ElseIf, op.Not, op.Read, 2, op.Do,
         op.DecrMod, 0, 6, -- Decrement variable looping around at 6
         op.Call, 0, op.Gget, 0,
         op.Delay, 0x41, 0x00,
-        op.Wait, op.Read, pin[2],
+        op.Wait, op.Read, 2,
         op.Delay, 0x41, 0x00,
       op.End,
       -- b += c
