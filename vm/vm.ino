@@ -12,9 +12,6 @@ const char* host = "10.42.0.1";*/
 
 WiFiClient client;
 
-int isAlive() {
-  return client.connected() && !client.available();
-}
 
 void setup() {
   Serial.begin(115200);
@@ -74,21 +71,18 @@ void handle(char c) {
 }
 
 int second = 0;
-void loop() {
-
+int cooldown;
+void maintainConnection() {
   if (!second || !client.connected()) {
-    if (second) {
-      Serial.println();
-      Serial.println("disconnecting from server.");
-      client.stop();
-    }
+    if (millis() < cooldown) return;
+    if (second) client.stop();
     second = 1;
-    delay(1000);
     Serial.print("connecting to ");
     Serial.println(host);
-    while (!client.connect(host, 1337)) {
+    if (!client.connect(host, 1337)) {
       Serial.println("connection failed");
-      delay(1000);
+      cooldown = millis() + 1000;
+      return;
     }
     Serial.println("Connected!");
     // Send the chip ID and protocol version as 5-bytes
@@ -99,7 +93,16 @@ void loop() {
     client.write((char) (id >> 8) & 0xff);
     client.write((char) id & 0xff);
   }
+}
 
+int isAlive() {
+  maintainConnection();
+  return !client.available();
+}
+
+void loop() {
+
+  maintainConnection();
   // if there are incoming bytes available
   // from the server, read them and print them:
   while (client.available()) {

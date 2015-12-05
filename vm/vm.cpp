@@ -9,7 +9,7 @@ extern int isAlive();
 #include "Wire.h"
 
 static void printNumber(intptr_t num) {
-  printf("%ld\n", num);
+  Serial.println(num, DEC);
 }
 
 static void printBuffer(buffer_t* buf) {
@@ -127,7 +127,7 @@ static uint32_t deadbeef_beef = 0xdeadbeef;
 static intptr_t globals[100];
 
 uint8_t* eval(intptr_t* stack, uint8_t* pc, intptr_t* value) {
-  //("%s> stack: %p  pc: %p  op: %02x\n", value ? "run" : "skip", stack, pc, *pc);
+  // printf("%s> stack: %p  pc: %p  op: %02x\n", value ? "run" : "skip", stack, pc, *pc);
   if (!(*pc & 0x80)) {
     if (!value) {
       if (*pc++ & 0x40) while (*pc++ & 0x80);
@@ -400,6 +400,7 @@ uint8_t* eval(intptr_t* stack, uint8_t* pc, intptr_t* value) {
         pc = eval(stack, pc, value);
         goto skip;
       }
+      pc = eval(stack, pc, 0);
       if (*pc == ElseIf) {
         pc++;
         goto start;

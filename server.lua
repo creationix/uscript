@@ -87,7 +87,76 @@ local codes = {
   --     op.Delay, 60,
   --   op.End,
   -- op.End),
-  string.char(op.Do,
+  ["\001\000\241\207\157"]  = string.char(op.Do,
+
+    op.Ibegin, pin[2], pin[1],
+
+    -- Turn the oscillator on
+    op.Istart, 0x40, 0x70, -- Wiring.beginTransmission(0x70)
+    op.Iwrite, 0x21, -- Wiring.write(OSCILLATOR_ON)
+    op.Istop, 0, -- Wiring.stop(0)
+
+    -- Turn off blink
+    op.Istart, 0x40, 0x70, -- Wiring.beginTransmission(0x70)
+    op.Iwrite, 0x41, 0x01, -- Wiring.write(0x81)
+    op.Istop, 0, -- Wiring.stop(0)
+
+    -- Set brightness to 15
+    op.Istart, 0x40, 0x70, -- Wiring.beginTransmission(0x70)
+    op.Iwrite, 0x41, 0x6f, -- Wiring.write(0xef)
+    op.Istop, 0, -- Wiring.stop(0)
+
+    op.Set, 0, 0,
+
+    op.Forever, op.Do,
+
+      op.Istart, 0x40, 0x70, -- Wiring.beginTransmission(0x70)
+      op.Iwrite, op.IncrMod, 0, 16,
+      op.Iwrite, op.Rand, 0x42, 0x00, -- Wiring.write(0xa0)
+      op.Istop, 0, -- Wiring.stop(0)
+
+      op.Delay, 6,
+
+    op.End,
+
+
+  op.End),
+  ["\001\000\166?="] = string.char(op.Do,
+
+    op.Ibegin, pin[2], pin[1],
+
+    -- Turn the oscillator on
+    op.Istart, 0x40, 0x70, -- Wiring.beginTransmission(0x70)
+    op.Iwrite, 0x21, -- Wiring.write(OSCILLATOR_ON)
+    op.Istop, 0, -- Wiring.stop(0)
+
+    -- Turn off blink
+    op.Istart, 0x40, 0x70, -- Wiring.beginTransmission(0x70)
+    op.Iwrite, 0x41, 0x01, -- Wiring.write(0x81)
+    op.Istop, 0, -- Wiring.stop(0)
+
+    -- Set brightness to 15
+    op.Istart, 0x40, 0x70, -- Wiring.beginTransmission(0x70)
+    op.Iwrite, 0x41, 0x6f, -- Wiring.write(0xef)
+    op.Istop, 0, -- Wiring.stop(0)
+
+    op.Set, 0, 0,
+
+    op.Forever, op.Do,
+
+      op.Istart, 0x40, 0x70, -- Wiring.beginTransmission(0x70)
+      op.Iwrite, op.Get, 0,
+      op.Set, 0, op.Mod, op.Add, op.Get, 0, 2, 16,
+      op.Iwrite, op.Rand, 0x42, 0x00, -- Wiring.write(0xa0)
+      op.Istop, 0, -- Wiring.stop(0)
+
+      --op.Delay, 6,
+
+    op.End,
+
+
+  op.End),
+  ["\001\000\166@\169"] = string.char(op.Do,
     -- Set output mode for LED pins
     op.Mode, pin[5], 1, -- blue
     op.Mode, pin[6], 1, -- green
@@ -97,36 +166,62 @@ local codes = {
     op.Write, pin[8], 0,
 
     -- Set input with pull-up for buttons
-    op.Mode, pin[1], 0, -- blue button
-    op.Write, pin[1], 1,
-    op.Mode, pin[2], 0, -- yellow button
-    op.Write, pin[2], 1,
+    op.Mode, pin[1], 2, -- blue button, pull-up input
+    op.Mode, pin[2], 2, -- yellow button, pull-up input
+    -- op.Write, pin[2], 1,
+
+    op.Set, 2, 2,
+    op.Set, 3, 1,
+    -- i  R G B
+    -- 0  1 0 0
+    -- 1  1 1 0
+    -- 2  0 1 0
+    -- 3  0 1 1
+    -- 4  0 0 1
+    -- 5  1 0 1
+    op.Gset, 0, op.Func, op.Do,
+      op.Pwrite, pin[7], op.Mul, op.Get, 2,
+        op.Or,
+          op.Lte, op.Get, 0, 1,
+          op.Gte, op.Get, 0, 5,
+      op.Pwrite, pin[6], op.Mul, op.Get, 2,
+        op.And,
+          op.Gte, op.Get, 0, 1,
+          op.Lte, op.Get, 0, 3,
+      op.Pwrite, pin[5], op.Mul, op.Get, 2,
+        op.Gte, op.Get, 0, 3,
+    op.End,
+
 
     op.Set, 0, 0, -- Set variable to zero
     op.Forever, op.Do,
-      op.If, op.Read, pin[1],
+      op.If, op.Not, op.Read, pin[1], op.Do,
         op.IncrMod, 0, 6, -- Increment variable looping around at 6
-      op.If, op.Read, pin[2],
+        op.Call, 0, op.Gget, 0,
+        op.Delay, 0x41, 0x00,
+        op.Wait, op.Read, pin[1],
+        op.Delay, 0x41, 0x00,
+      op.End,
+      op.ElseIf, op.Not, op.Read, pin[2], op.Do,
         op.DecrMod, 0, 6, -- Decrement variable looping around at 6
+        op.Call, 0, op.Gget, 0,
+        op.Delay, 0x41, 0x00,
+        op.Wait, op.Read, pin[2],
+        op.Delay, 0x41, 0x00,
+      op.End,
+      -- b += c
+      op.Set, 2, op.Add, op.Get, 2, op.Get, 3,
+      -- if b > 100 { c = -1 }
+      -- if b < 2 { c = 1 }
+      op.If, op.Gte, op.Get, 2, 0x41, 0x00,
+        op.Set, 3, op.Neg, 1,
+      op.ElseIf, op.Lte, op.Get, 2, 1,
+        op.Set, 3, 1,
 
-      -- i  R G B
-      -- 0  1 0 0
-      -- 1  1 1 0
-      -- 2  0 1 0
-      -- 3  0 1 1
-      -- 4  0 0 1
-      -- 5  1 0 1
-      op.Write, pin[7], op.Or,
-        op.Lte, op.Get, 0, 1,
-        op.Gte, op.Get, 0, 5,
-      op.Write, pin[6], op.And,
-        op.Gte, op.Get, 0, 1,
-        op.Lte, op.Get, 0, 3,
-      op.Write, pin[5],
-        op.Gte, op.Get, 0, 3,
+      --
+      op.Call, 0, op.Gget, 0,
 
-      op.Delay,
-        0x43, 0x74, -- 500
+      op.Delay, 10,
     op.End,
   op.End)
 }
@@ -138,21 +233,22 @@ require('coro-net').createServer({
   port = 1337
 }, function (read, write, socket)
   p(socket:getpeername())
-  local i = 0
-  uv.new_timer():start(0, 10000, function ()
-    coroutine.wrap(function ()
-      i = (i % #codes) + 1
-      local code = codes[i]
+  local data = ""
+  for chunk in read do
+    data = data .. chunk
+    if #data >= 5 then
+      p(data)
+      local code = codes[data:sub(1, 5)]
       local len = #code
       write(string.char(
         bit.rshift(len, 8),
         bit.band(len, 0xff)
       ) .. code);
-    end)()
-  end)
-
-  for data in read do
-    p(data)
+      break
+    end
+  end
+  for chunk in read do
+    p(chunk)
   end
   write()
 end)
