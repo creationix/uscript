@@ -63,6 +63,9 @@ FakeESP ESP;
 // 0mxxxxxx mxxxxxxx* - integer
 // 1xxxxxxx - opcode
 
+static uint32_t deadbeef_seed;
+static uint32_t deadbeef_beef = 0xdeadbeef;
+
 uint8_t* eval(uint8_t* pc, int32_t* value) {
   if (!(*pc & 0x80)) {
     *value = *pc & 0x3f;
@@ -293,13 +296,19 @@ uint8_t* eval(uint8_t* pc, int32_t* value) {
     }
     case Srand: {
       if (!value) return eval(pc, 0);
-      // TODO: Implement deadbeef Rand
-      return eval(pc, value);
+      pc = eval(pc, value);
+      deadbeef_seed = *value;
+      deadbeef_beef = 0xdeadbeef;
+      return pc;
     }
     case Rand: {
       if (!value) return eval(pc, 0);
-      // TODO: Implement deadbeef Rand
-      return eval(pc, value);
+      // From http://inglorion.net/software/deadbeef_rand/
+      deadbeef_seed = (deadbeef_seed << 7) ^ ((deadbeef_seed >> 25) + deadbeef_beef);
+      deadbeef_beef = (deadbeef_beef << 7) ^ ((deadbeef_beef >> 25) + 0xdeadbeef);
+      pc = eval(pc, value);
+      *value = deadbeef_seed % *value;
+      return pc;
     }
     case Restart:
       if (value) ESP.restart();
