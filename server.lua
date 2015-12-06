@@ -3,14 +3,12 @@
 -- USCRIPT_VERSION 1
 local list = {
   "Do", "End", -- do ... end
-  "PrintNum", -- (num)
-  "Aprint", -- (ptr)
-  "Buffer", -- null terminated string
-  "Mode", -- (pin, mode)
-  "Read", -- (pin)
-  "Write", -- (pin, value)
-  "Aread", -- (pin)
-  "Pwrite", -- (pin, value)
+  "Dump", -- (num)
+  "Mode", -- pinMode(pin, mode)
+  "Read", -- digitalRead(pin)
+  "Write", -- digitalWrite(pin, value)
+  "Aread", -- analogRead(pin)
+  "Pwrite", -- analogWrite(pin, value)
   "Ibegin", -- Wiring.begin(sda, scl)
   "Ifrom", -- Wiring.requestFrom(address, quantity, stop)
   "Istart", -- Wiring.beginTransmission(address)
@@ -18,20 +16,17 @@ local list = {
   "Iwrite", -- Wiring.write(byte)
   "Iavailable", -- Wiring.available()
   "Iread", -- Wiring.read()
-  "Delay", -- (ms)
-  "Func", -- (body)
-  "Call", -- (shift, ptr)
-  "Alloc", -- (size)
-  "Aget", -- (ptr)
-  "Aset", -- (ptr)
-  "Alen", -- (ptr)
-  "Free", -- (ptr)
-  "Gget", -- (index)
-  "Gset", -- (index, value)
-  "Get", -- (index)
-  "Set", -- (index, value)
-  "Incr", "Decr", -- (index)
-  "IncrMod", "DecrMod", -- (index, mod)
+  "Tone", -- tone(pin, frequency, ms)
+  "Delay", -- delay(ms)
+  "Call", -- (stackOffset, codeOffset)
+  "Gosub", -- (codeOffset)
+  "Goto", -- (codeOffset)
+  "Gget", -- (var)
+  "Gset", -- (var, value)
+  "Get", -- (var)
+  "Set", -- (var, value)
+  "Incr", "Decr", -- (var)
+  "IncrMod", "DecrMod", -- (var, mod)
   "Forever", -- (action)
   "While", -- (condition, action)
   "Wait", -- (condition)
@@ -42,8 +37,8 @@ local list = {
   "Band", "Bor", "Bxor", "Bnot", "Lshift", "Rshift",
   "And", "Or", "Xor", "Not", "Choose",
   "Gt", "Gte", "Lt", "Lte", "Eq", "Neq",
-  "Srand", -- (seed)
-  "Rand", -- (modulus)
+  "Srand", -- deadbeef_srand(seed)
+  "Rand", -- deadbeef_rand(modulus)
   "Restart", "ChipId", "FlashChipId", "CycleCount", "GetFree",
 }
 local op = {};
@@ -52,35 +47,63 @@ for i = 1, #list do
 end
 
 
-local danceBot = string.char(op.Do,
-  op.Mode, 5, 1, -- orange
-  op.Mode, 6, 1, -- yellow
-  op.Mode, 7, 1, -- green
-  op.Mode, 8, 1, -- blue
+local codes = {
+  ["\001\000\241\207\157"] = string.char(op.Do,
+    op.Mode, 5, 1, -- orange
+    op.Mode, 6, 1, -- yellow
+    op.Mode, 7, 1, -- green
+    op.Mode, 8, 1, -- blue
 
-  op.Write, 5, 0,
-  op.Write, 6, 0,
-  op.Write, 7, 0,
-  op.Write, 8, 0,
+    op.Write, 5, 0,
+    op.Write, 6, 0,
+    op.Write, 7, 0,
+    op.Write, 8, 0,
 
-  op.Ibegin, 2, 1,
+    op.Ibegin, 2, 1,
 
-  -- Turn the oscillator on
-  op.Istart, 0x40, 0x70, -- Wiring.beginTransmission(0x70)
-  op.Iwrite, 0x21, -- Wiring.write(OSCILLATOR_ON)
-  op.Istop, 0, -- Wiring.stop(0)
+    -- Turn the oscillator on
+    op.Istart, 0x40, 0x70, -- Wiring.beginTransmission(0x70)
+    op.Iwrite, 0x21, -- Wiring.write(OSCILLATOR_ON)
+    op.Istop, 0, -- Wiring.stop(0)
 
-  -- Turn off blink
-  op.Istart, 0x40, 0x70, -- Wiring.beginTransmission(0x70)
-  op.Iwrite, 0x41, 0x01, -- Wiring.write(0x81)
-  op.Istop, 0, -- Wiring.stop(0)
+    -- Turn off blink
+    op.Istart, 0x40, 0x70, -- Wiring.beginTransmission(0x70)
+    op.Iwrite, 0x41, 0x01, -- Wiring.write(0x81)
+    op.Istop, 0, -- Wiring.stop(0)
 
-  -- Set brightness to 15
-  op.Istart, 0x40, 0x70, -- Wiring.beginTransmission(0x70)
-  op.Iwrite, 0x41, 0x6f, -- Wiring.write(0xef)
-  op.Istop, 0, -- Wiring.stop(0)
+    -- Set brightness to 15
+    op.Istart, 0x40, 0x70, -- Wiring.beginTransmission(0x70)
+    op.Iwrite, 0x41, 0x6f, -- Wiring.write(0xef)
+    op.Istop, 0, -- Wiring.stop(0)
 
-  op.Gset, 7, op.Func, op.Do,
+    op.Set, 0, 0,
+
+    op.Forever, op.Do,
+
+      -- left forward
+      op.Write, 8, 0,
+      op.Write, 5, 1,
+      op.Gosub, 26,
+
+      -- left backwards
+      op.Write, 5, 0,
+      op.Write, 6, 1,
+      op.Gosub, 18,
+
+      -- left forward
+      op.Write, 6, 0,
+      op.Write, 7, 1,
+      op.Gosub, 10,
+
+      -- left backwards
+      op.Write, 7, 0,
+      op.Write, 8, 1,
+      op.Gosub, 2,
+
+    op.End,
+  op.End,
+
+  op.Do,
     op.Set, 3, 0x41, 0x00,
     op.While, op.Decr, 3, op.Do,
       op.Istart, 0x40, 0x70, -- Wiring.beginTransmission(0x70)
@@ -89,41 +112,7 @@ local danceBot = string.char(op.Do,
       op.Istop, 0, -- Wiring.stop(0)
       op.Delay, 3,
     op.End,
-  op.End,
-
-  op.Set, 0, 0,
-
-  op.Forever, op.Do,
-
-    -- left forward
-    op.Write, 8, 0,
-    op.Write, 5, 1,
-    op.Call, 0, op.Gget, 7,
-
-    -- left backwards
-    op.Write, 5, 0,
-    op.Write, 6, 1,
-    op.Call, 0, op.Gget, 7,
-
-    -- left forward
-    op.Write, 6, 0,
-    op.Write, 7, 1,
-    op.Call, 0, op.Gget, 7,
-
-    -- left backwards
-    op.Write, 7, 0,
-    op.Write, 8, 1,
-    op.Call, 0, op.Gget, 7,
-
-  op.End,
-op.End)
-
-local wheeler = "\001\000\241\207\157"
-
-local codes = {
-  [wheeler]  = danceBot,
-  -- [wheeler]  = colorFuzz,
-
+  op.End),
   ["\001\000\166?="] = string.char(op.Do,
 
     op.Mode, 7, 1,
@@ -163,6 +152,7 @@ local codes = {
     op.End,
 
   op.End),
+
   ["\001\000\166@\169"] = string.char(op.Do,
     -- Set output mode for LED pins
     op.Mode, 5, 1, -- blue
@@ -179,39 +169,20 @@ local codes = {
 
     op.Set, 2, 2,
     op.Set, 3, 1,
-    -- i  R G B
-    -- 0  1 0 0
-    -- 1  1 1 0
-    -- 2  0 1 0
-    -- 3  0 1 1
-    -- 4  0 0 1
-    -- 5  1 0 1
-    op.Gset, 0, op.Func, op.Do,
-      op.Pwrite, 7, op.Mul, op.Get, 2,
-        op.Or,
-          op.Lte, op.Get, 0, 1,
-          op.Gte, op.Get, 0, 5,
-      op.Pwrite, 6, op.Mul, op.Get, 2,
-        op.And,
-          op.Gte, op.Get, 0, 1,
-          op.Lte, op.Get, 0, 3,
-      op.Pwrite, 5, op.Mul, op.Get, 2,
-        op.Gte, op.Get, 0, 3,
-    op.End,
-
 
     op.Set, 0, 0, -- Set variable to zero
     op.Forever, op.Do,
       op.If, op.Not, op.Read, 1, op.Do,
         op.IncrMod, 0, 6, -- Increment variable looping around at 6
-        op.Call, 0, op.Gget, 0,
+        op.Gosub, 61,
+        --op.Call, 0, op.Gget, 0,
         op.Delay, 0x41, 0x00,
         op.Wait, op.Read, 1,
         op.Delay, 0x41, 0x00,
       op.End,
       op.ElseIf, op.Not, op.Read, 2, op.Do,
         op.DecrMod, 0, 6, -- Decrement variable looping around at 6
-        op.Call, 0, op.Gget, 0,
+        op.Gosub, 41,
         op.Delay, 0x41, 0x00,
         op.Wait, op.Read, 2,
         op.Delay, 0x41, 0x00,
@@ -226,13 +197,33 @@ local codes = {
         op.Set, 3, 1,
 
       --
-      op.Call, 0, op.Gget, 0,
+      op.Gosub, 4,
 
       op.Delay, 10,
     op.End,
-  op.End)
-}
+  op.End,
 
+  -- i  R G B
+  -- 0  1 0 0
+  -- 1  1 1 0
+  -- 2  0 1 0
+  -- 3  0 1 1
+  -- 4  0 0 1
+  -- 5  1 0 1
+  op.Do,
+    op.Pwrite, 7, op.Mul, op.Get, 2,
+      op.Or,
+        op.Lte, op.Get, 0, 1,
+        op.Gte, op.Get, 0, 5,
+    op.Pwrite, 6, op.Mul, op.Get, 2,
+      op.And,
+        op.Gte, op.Get, 0, 1,
+        op.Lte, op.Get, 0, 3,
+    op.Pwrite, 5, op.Mul, op.Get, 2,
+      op.Gte, op.Get, 0, 3,
+  op.End)
+
+}
 require('coro-net').createServer({
   host = "0.0.0.0",
   port = 1337
@@ -244,6 +235,7 @@ require('coro-net').createServer({
     if #data >= 5 then
       p(data)
       local code = codes[data:sub(1, 5)]
+      if not code then return end
       local len = #code
       write(string.char(
         bit.rshift(len, 8),

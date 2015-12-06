@@ -17,9 +17,6 @@ static void printNumber(intptr_t num) {
   Serial.println(num, DEC);
 }
 
-static void printBuffer(buffer_t* buf) {
-  printf("%.*s\n", buf->len, buf->data);
-}
 #else
 #include <stdio.h>
 #include <sys/select.h>
@@ -57,6 +54,14 @@ static void delay(int ms) {
   t.tv_usec = (ms % 1000) * 1000;
   select(0, NULL, NULL, NULL, &t);
 }
+
+static void delayMicroseconds(int ms) {
+  struct timeval t;
+  t.tv_sec = ms / 1000000;
+  t.tv_usec = (ms % 1000000);
+  select(0, NULL, NULL, NULL, &t);
+}
+
 
 class FakeESP {
 public:
@@ -116,11 +121,6 @@ static void printNumber(intptr_t num) {
   printf("%ld\n", num);
 }
 
-static void printBuffer(buffer_t* buf) {
-  printf("%.*s\n", buf->len, buf->data);
-}
-
-
 #endif
 
 // 0mxxxxxx mxxxxxxx* - integer
@@ -148,33 +148,11 @@ uint8_t* eval(intptr_t* stack, uint8_t* pc, intptr_t* value) {
     return pc;
   }
   switch ((opcode_t) *pc++) {
-    case PrintNum:
+    case Dump:
       if (!value) return eval(stack, pc, 0);
       pc = eval(stack, pc, value);
       printNumber(*value);
       return pc;
-    case Aprint:
-      if (!value) return eval(stack, pc, 0);
-      buffer_t* buf;
-      pc = eval(stack, pc, (intptr_t*)&buf);
-      printBuffer(buf);
-      return pc;
-    case Buffer: {
-      uint8_t* start = pc;
-      int len = 0;
-      do {
-        len <<= 7;
-        len |= *pc;
-      } while (*pc++ & 0x80);
-      start = pc;
-      pc += len;
-      if (!value) return pc;
-      buffer_t* buf = (buffer_t*)malloc(sizeof(buffer_t) + len);
-      buf->len = len;
-      memcpy(buf->data, start, len);
-      *value = (intptr_t)buf;
-      return pc;
-    }
     case Mode: {
       if (!value) return eval(stack, eval(stack, pc, 0), 0);
       intptr_t pin;
@@ -247,67 +225,50 @@ uint8_t* eval(intptr_t* stack, uint8_t* pc, intptr_t* value) {
     case Iread:
       if (value) *value = Wire.read();
       return pc;
+    case Tone: {
+      if (!value) return eval(stack, eval(stack, pc, 0), 0);
+      intptr_t pin, duration;
+      pc = eval(stack, pc, &pin);
+      pc = eval(stack, pc, value);
+      pc = eval(stack, pc, &duration);
+      pin = pins[pin];
+
+      int p = 1000000 / *value;
+      int d = p >> 1;
+      duration *= 1000;
+      while ((duration -= p) > 0) {
+        digitalWrite(pin, 1);
+        delayMicroseconds(d);
+        digitalWrite(pin, 0);
+        delayMicroseconds(d);
+      }
+      return pc;
+
+      return pc;
+    }
     case Delay:
       if (!value) return eval(stack, pc, 0);
       pc = eval(stack, pc, value);
       delay(*value);
       return pc;
-    case Func: {
-      if (!value) return eval(stack, pc, 0);
-      uint8_t* start = pc;
-      pc = eval(stack, pc, 0);
-      *value = (intptr_t)malloc(pc - start);
-      memcpy((uint8_t*)*value, start, pc - start);
-      return pc;
-    }
     case Call: {
       if (!value) return eval(stack, eval(stack, pc, 0), 0);
-      uint8_t* ptr;
+      intptr_t offset;
+      pc = eval(stack, pc, &offset);
       pc = eval(stack, pc, value);
-      pc = eval(stack, pc, (intptr_t*)&ptr);
-      eval(stack + *value, ptr, value);
+      eval(stack + offset, pc + *value, value);
       return pc;
     }
-    case Alloc: {
+    case Gosub: {
       if (!value) return eval(stack, pc, 0);
       pc = eval(stack, pc, value);
-      buffer_t* buf = (buffer_t*)malloc(sizeof(buffer_t) + *value);
-      buf->len = *value;
-      *value = (intptr_t)buf;
+      eval(stack, pc + *value, value);
       return pc;
     }
-    case Aget: {
-      if (!value) return eval(stack, eval(stack, pc, 0), 0);
-      buffer_t* buf;
-      pc = eval(stack, pc, (intptr_t*)&buf);
-      pc = eval(stack, pc, value);
-      *value = buf->data[*value];
-      return pc;
-    }
-    case Aset: {
-      if (!value) return eval(stack, eval(stack, eval(stack, pc, 0), 0), 0);
-      buffer_t* buf;
-      intptr_t index;
-      pc = eval(stack, pc, (intptr_t*)&buf);
-      pc = eval(stack, pc, &index);
-      pc = eval(stack, pc, value);
-      buf->data[index] = *value;
-      return pc;
-    }
-    case Alen: {
-      if (!value) return eval(stack, pc, 0);
-      buffer_t* buf;
-      pc = eval(stack, pc, (intptr_t*)&buf);
-      *value = buf->len;
-      return pc;
-    }
-    case Free: {
+    case Goto:
       if (!value) return eval(stack, pc, 0);
       pc = eval(stack, pc, value);
-      free((uint8_t*)*value);
-      *value = 0;
-      return pc;
-    }
+      return pc + *value;
     case Gget:
       if (!value) return eval(stack, pc, 0);
       pc = eval(stack, pc, value);
