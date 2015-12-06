@@ -1,0 +1,41 @@
+const sda 2
+const scl 1
+const addr 0x70
+
+const OSCILLATOR_ON 0x21
+const CMD_BRIGHTNESS 0xe0
+const BLINK_CMD 0x80
+const BLINK_DISPLAYON 0x01
+
+def config command do
+  istart addr
+  iwrite command
+  istop false
+end
+
+def send offset value do
+  istart addr
+  iwrite offset
+  iwrite value
+  istop false
+end
+
+def setup do
+  -- initialize the I2C bus
+  ibegin sda scl
+  -- turn the oscillator on
+  config OSCILLATOR_ON
+  -- turn display on
+  config bor BLINK_CMD
+      BLINK_DISPLAYON
+  -- set brightness to 15
+  config bor CMD_BRIGHTNESS
+      15
+end
+
+var row 0
+forever
+  send
+    set row
+      mod add row 2 16
+    rand 256

@@ -24,7 +24,7 @@ window.onload = function () {
   });
 
   var xhr = new XMLHttpRequest();
-  xhr.open("GET", "sample.uscript", true);
+  xhr.open("GET", "tri-switch.uscript", true);
   xhr.overrideMimeType("text/plain");
   xhr.addEventListener("load", function () {
     editor.setValue(xhr.responseText);

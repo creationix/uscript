@@ -35,7 +35,7 @@
       if (type === "opcode" && token === "do") {
         top.scope[top.name] = top.args.length;
         for (var i = 0, l = top.args.length; i < l; i++) {
-          top.scope[top.args[i]] = "let";
+          top.scope[top.args[i]] = "var";
         }
         delete top.args;
         top.mode = "block";
@@ -66,7 +66,7 @@
     }
 
     // Ensure the first token after DEF and LET are unused variables.
-    if (top.type === "def" || top.type === "let" || top.type === "set" ||
+    if (top.type === "const" || top.type === "var" || top.type === "set" ||
         top.type === "for" || top.type === "each") {
       if (type !== "ident") return "error";
     }
@@ -78,19 +78,19 @@
     }
 
     if (type === "ident") {
-      if (top.type === "def" || top.type === "let" || top.type === "for" ||
+      if (top.type === "const" || top.type === "var" || top.type === "for" ||
           top.type === "each") {
         top.scope[token] = top.scope[token] === undefined ? (
-          top.type === "def" ? "def" : "let") : "error";
-        if (top.type === "def" || top.type === "let") {
+          top.type === "const" ? "const" : "var") : "error";
+        if (top.type === "const" || top.type === "var") {
           top.name = token;
         }
       }
       var kind = top.scope[token];
 
       // Figure out which kind of variable this is.
-      if (kind === "let") type = "variable";
-      else if (kind === "def" && top.type !== "set") type = "definition";
+      if (kind === "var") type = "variable";
+      else if (kind === "const" && top.type !== "set") type = "definition";
       else if (typeof kind === "number" && top.type !== "set") {
         type = "function";
       }
@@ -130,7 +130,7 @@
     }
 
     else if (type === "opcode") {
-      if (token === "fun") {
+      if (token === "def") {
         stack.push({
           mode: "function",
           scope: cloneScope(),

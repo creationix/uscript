@@ -48,7 +48,7 @@
   restart: 0, chipid: 0, flashchipid: 0, cyclecount: 0, getfree: 0,
 
   // Function  definition
-  fun: undefined,
+  def: undefined,
   // Variables
-  def: 2, let: 2,
+  const: 2, var: 2,
 });
