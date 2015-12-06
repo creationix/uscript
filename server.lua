@@ -90,12 +90,12 @@ local codes = {
       op.Write, 6, 1,
       op.Gosub, 18,
 
-      -- left forward
+      -- right forward
       op.Write, 6, 0,
       op.Write, 7, 1,
       op.Gosub, 10,
 
-      -- left backwards
+      -- right backwards
       op.Write, 7, 0,
       op.Write, 8, 1,
       op.Gosub, 2,
@@ -147,8 +147,7 @@ local codes = {
         op.Set, 0, op.Mod, op.Add, op.Get, 0, op.Rand, 2, 8,
       op.End,
       op.Set, 0, op.Mod, op.Add, op.Get, 0, 4, 8,
-      op.Write, 7, op.Rand, 2,
-      op.Delay, 30,
+      op.Tone, 7, op.Add, 0x43, 0x68, op.Rand, 0x4f, 0x68, 30,
     op.End,
 
   op.End),
@@ -175,7 +174,6 @@ local codes = {
       op.If, op.Not, op.Read, 1, op.Do,
         op.IncrMod, 0, 6, -- Increment variable looping around at 6
         op.Gosub, 61,
-        --op.Call, 0, op.Gget, 0,
         op.Delay, 0x41, 0x00,
         op.Wait, op.Read, 1,
         op.Delay, 0x41, 0x00,

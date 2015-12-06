@@ -8,7 +8,7 @@ const char* host = "192.168.43.221";*/
 
 const char* ssid     = "HOTEL JOSEPHINE";
 const char* password = NULL;
-const char* host = "172.16.1.163";
+const char* host = "172.16.1.162";
 
 WiFiClient client;
 
