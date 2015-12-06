@@ -163,7 +163,7 @@
       }
       pop();
     }
-
+    // TODO: somehow show elseif and else as same level as associated if
     // Clean out any filled fixed items.
     while (top.mode === "fixed" && !top.left) {
       pop();

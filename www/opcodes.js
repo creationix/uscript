@@ -36,9 +36,9 @@
   forever: 1, // (action)
   while: 2, // (condition, action)
   wait: 1, // (condition)
-  if: undefined, // (condition, action)
-  elseif: undefined, // (condition, action)
-  else: undefined, // (action)
+  if: 2, // (condition, action)
+  elseif: 2, // (condition, action)
+  else: 1, // (action)
   add: 2, sub: 2, mul: 2, div: 2, mod: 2, neg: 1,
   band: 2, bor: 2, bxor: 2, bnot: 1, lshift: 1, rshift: 2,
   and: 2, or: 2, xor: 2, not: 1, choose: 3,

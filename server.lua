@@ -126,6 +126,8 @@ local codes = {
 
   ["\001\000\166?="] = string.char(op.Do,
 
+    op.Mode, 7, 1,
+
     op.Ibegin, 2, 1,
 
     -- Turn the oscillator on
@@ -143,20 +145,22 @@ local codes = {
     op.Iwrite, 0x41, 0x6f, -- Wiring.write(0xef)
     op.Istop, 0, -- Wiring.stop(0)
 
-    op.Set, 0, 0,
+    op.Set, 0, 0, -- x offset of start
 
     op.Forever, op.Do,
-
-      op.Istart, 0x40, 0x70, -- Wiring.beginTransmission(0x70)
-      op.Iwrite, op.Get, 0,
-      op.Set, 0, op.Mod, op.Add, op.Get, 0, 2, 16,
-      op.Iwrite, op.Rand, 0x42, 0x00, -- Wiring.write(0xa0)
-      op.Istop, 0, -- Wiring.stop(0)
-
-      -- op.Delay, 30,
-
+      op.Set, 1, 8,
+      op.While, op.Get, 1, op.Do,
+        op.Decr, 1,
+        op.Istart, 0x40, 0x70,
+        op.Iwrite, op.Mul, op.Get, 1, 2,
+        op.Iwrite, op.Lshift, 1, op.Get, 0,
+        op.Istop, 0,
+        op.Set, 0, op.Mod, op.Add, op.Get, 0, op.Rand, 2, 8,
+      op.End,
+      op.Set, 0, op.Mod, op.Add, op.Get, 0, 4, 8,
+      op.Write, 7, op.Rand, 2,
+      op.Delay, 30,
     op.End,
-
 
   op.End),
   ["\001\000\166@\169"] = string.char(op.Do,

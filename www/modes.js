@@ -4,14 +4,58 @@ CodeMirror.defineMode("uscript-asm", function (cm) {
   var opcodes = window.opcodes;
   var parser = window.parser;
   var patterns = window.patterns;
+  var special = {
+    do: "keyword",
+    end: "keyword",
+    func: "keyword",
+    call: "keyword",
+    forever: "keyword",
+    while: "keyword",
+    wait: "keyword",
+    if: "keyword",
+    elseif: "keyword",
+    else: "keyword",
+    def: "keyword",
+    const: "keyword",
+    var: "keyword",
+    set: "special",
+    incr: "special",
+    decr: "special",
+    incrmod: "special",
+    decrmod: "special",
+    add: "operator",
+    sub: "operator",
+    mul: "operator",
+    div: "operator",
+    mod: "operator",
+    neg: "operator",
+    band: "operator",
+    bor: "operator",
+    bxor: "operator",
+    bnot: "operator",
+    lshift: "operator",
+    rshift: "operator",
+    and: "operator",
+    or: "operator",
+    xor: "operator",
+    not: "operator",
+    choose: "operator",
+    gt: "operator",
+    gte: "operator",
+    lt: "operator",
+    lte: "operator",
+    eq: "operator",
+    neq: "operator",
+
+  };
   var typeMap = {
-    opcode: "keyword",
+    opcode: "builtin",
     number: "number",
     boolean: "atom",
     symbol: "property",
     variable: "variable",
     definition: "variable-2",
-    function: "builtin",
+    function: "def",
     bracket: "bracket",
     char: "string-2",
     string: "string",
@@ -51,10 +95,13 @@ CodeMirror.defineMode("uscript-asm", function (cm) {
       }
       var names = Object.keys(patterns);
       var type;
+      var name;
+      var token;
       for (var i = 0, l = names.length; i < l; i++) {
-        var name = names[i];
+        name = names[i];
         if (stream.match(patterns[name])) {
-          type = parser(state, name, stream.current());
+          token = stream.current();
+          type = parser(state, name, token);
           break;
         }
       }
@@ -64,7 +111,11 @@ CodeMirror.defineMode("uscript-asm", function (cm) {
         }
         return stream.next();
       }
-      return typeMap[type] || type;
+      type = typeMap[type] || type;
+      if (type === "builtin") {
+        type = special[token] || type;
+      }
+      return type;
     }
   };
 });
