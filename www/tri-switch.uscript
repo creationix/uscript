@@ -11,42 +11,43 @@ mode 1 2 -- blue button pull-up input
 mode 2 2 -- yellow button pull-up input
 -- write 2 1
 
+var hue 0
 var i 1
 var d 1
+
 def update do
   pwrite 7 mul i
       or
-        lte get 0 1
-        gte get 0 5
+        lte hue 1
+        gte hue 5
   pwrite 6 mul i
       and
-        gte get 0 1
-        lte get 0 3
+        gte hue 1
+        lte hue 3
   pwrite 5 mul i
-      gte get 0 3
+      gte hue 3
 end
 
-var hue 0
 forever do
     if not read 1 do
-      incrmod hue 6 -- Increment variable looping around at 6
-      update
-      delay 128
-      wait read 1
-      delay 128
-    end
+        incrmod hue 6 -- Increment variable looping around at 6
+        update
+        delay 128
+        wait read 1
+        delay 128
+      end
     elseif not read 2 do
-      decrmod hue 6 -- Decrement variable looping around at 6
-      update
-      delay 128
-      wait read 2
-      delay 128
-    end
+        decrmod hue 6 -- Decrement variable looping around at 6
+        update
+        delay 128
+        wait read 2
+        delay 128
+      end
     set i add i d
-    if gte i 0x41 0x00
+    if gte i 128
     set d neg 1
     elseif lte i 1
-    set d 1
+      set d 1
 
     update
 
