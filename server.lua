@@ -249,6 +249,7 @@ require('coro-net').createServer({
 end)
 print("uScript uController endpoint on port 1337")
 
+require('weblit-websocket')
 require('weblit-app')
 
   .bind({
@@ -261,5 +262,9 @@ require('weblit-app')
   .use(require('weblit-etag-cache'))
 
   .use(require('weblit-static')(module.dir .. "/www"))
+  .websocket({
+    path="/socket",
+    protocol="uscript-bridge",
+  }, p)
 
   .start()

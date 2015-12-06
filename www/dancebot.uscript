@@ -1,0 +1,63 @@
+mode 5 1 -- orange
+mode 6 1 -- yellow
+mode 7 1 -- green
+mode 8 1 -- blue
+
+write 5 0
+write 6 0
+write 7 0
+write 8 0
+
+ibegin 2 1
+
+-- Turn the oscillator on
+istart 0x70 -- Wiring.beginTransmission(0x70)
+iwrite 0x21 -- Wiring.write(OSCILLATOR_ON)
+istop 0 -- Wiring.stop(0)
+
+-- Turn off blink
+istart 0x70 -- Wiring.beginTransmission(0x70)
+iwrite 0x81 -- Wiring.write(0x81)
+istop 0 -- Wiring.stop(0)
+
+-- Set brightness to 15
+istart 0x70 -- Wiring.beginTransmission(0x70)
+iwrite 0xef -- Wiring.write(0xef)
+istop 0 -- Wiring.stop(0)
+
+var y 0
+
+forever do
+
+    -- left forward
+    write 8 0
+    write 5 1
+    gosub 25
+
+    -- left backwards
+    write 5 0
+    write 6 1
+    gosub 17
+
+    -- right forward
+    write 6 0
+    write 7 1
+    gosub 9
+
+    -- right backwards
+    write 7 0
+    write 8 1
+    gosub 1
+
+  end
+
+do
+  var i 128
+  while decr i do
+      istart 0x70 -- Wiring.beginTransmission(0x70)
+      iwrite incrmod y 16
+      iwrite rand 0xa0 -- Wiring.write(0xa0)
+      istop 0 -- Wiring.stop(0)
+      delay 3
+    end
+end

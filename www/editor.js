@@ -24,7 +24,7 @@ window.onload = function () {
   });
 
   var xhr = new XMLHttpRequest();
-  xhr.open("GET", "tri-switch.uscript", true);
+  xhr.open("GET", "dancebot.uscript", true);
   xhr.overrideMimeType("text/plain");
   xhr.addEventListener("load", function () {
     editor.setValue(xhr.responseText);
@@ -38,9 +38,19 @@ window.onload = function () {
     }
   }
 
+  var robots = document.querySelector(".robots");
+  function addRobot(id) {
+    var img = document.createElement("img");
+    img.setAttribute('src',
+      'data:image/png;base64,' + new Identicon(id, 420));
+    robots.appendChild(img);
+  }
+  addRobot(md5(""+Math.random() * 0x100000000));
+  addRobot(md5(""+Math.random() * 0x100000000));
+  addRobot(md5(""+Math.random() * 0x100000000));
 
-  var elem = document.querySelector(".CodeMirror");
-  elem.ondblclick = function () {
+  document.querySelector(".fullscreen").onclick = function () {
+    var elem = document.body;
     if (elem.requestFullscreen) {
       elem.requestFullscreen();
     } else if (elem.msRequestFullscreen) {

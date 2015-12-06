@@ -4,9 +4,7 @@
   catch (err) { window.opcodes = opcodes; }
 })({
   do: undefined, end: undefined, // do ... end
-  printnum: 1, // (num)
-  aprint: 1, // (ptr)
-  buffer: undefined, // length prefixed bytes
+  dump: 1, // (num)
   mode: 2, // pinMode(pin, mode)
   read: 1, // digitalRead(pin)
   write: 2, // digitalWrite(pin, value)
@@ -20,13 +18,9 @@
   iavailable: 0, // Wiring.available()
   iread: 0, // Wiring.read()
   delay: 1, // delay(ms)
-  func: 1, // (body)
-  call: 2, // (shift, ptr)
-  alloc: 1, // (size)
-  aget: 2, // (ptr, offset)
-  aset: 3, // (ptr, offset, value)
-  alen: 1, // (ptr)
-  free: 1, // (ptr)
+  call: 2, // (shift, offset)
+  gosub: 1, // (offset)
+  goto: 1, // (offset)
   gget: 1, // (index)
   gset: 2, // (index, value)
   get: 1, // (index)
