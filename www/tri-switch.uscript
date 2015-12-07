@@ -1,55 +1,59 @@
--- Set output mode for LED pins
-mode 5 1 -- blue
-mode 6 1 -- green
-mode 7 1 -- red
--- Use 8 as ground
-mode 8 1 -- ground
-write 8 0
+do
+  -- Set output mode for LED pins
+  mode 5 1 -- blue
+  mode 6 1 -- green
+  mode 7 1 -- red
+  -- Use 8 as ground
+  mode 8 1 -- ground
+  write 8 0
 
--- Set input with pull-up for buttons
-mode 1 2 -- blue button pull-up input
-mode 2 2 -- yellow button pull-up input
--- write 2 1
+  -- Set input with pull-up for buttons
+  mode 1 2 -- blue button pull-up input
+  mode 2 2 -- yellow button pull-up input
+  -- write 2 1
 
-var hue 0
-var i 1
-var d 1
+  var hue 0
+  var i 1
+  var d 1
 
-def update do
-  pwrite 7 mul i
-      or
-        lte hue 1
-        gte hue 5
-  pwrite 6 mul i
-      and
-        gte hue 1
-        lte hue 3
-  pwrite 5 mul i
-      gte hue 3
-end
+  goto loop
 
-forever do
-    if not read 1 do
-        incrmod hue 6 -- Increment variable looping around at 6
-        update
-        delay 128
-        wait read 1
-        delay 128
-      end
-    elseif not read 2 do
-        decrmod hue 6 -- Decrement variable looping around at 6
-        update
-        delay 128
-        wait read 2
-        delay 128
-      end
-    set i add i d
-    if gte i 128
-    set d neg 1
-    elseif lte i 1
-      set d 1
-
-    update
-
-    delay 10
+  update: do
+    pwrite 7 mul i
+        or
+          lte hue 1
+          gte hue 5
+    pwrite 6 mul i
+        and
+          gte hue 1
+          lte hue 3
+    pwrite 5 mul i
+        gte hue 3
   end
+
+  loop: forever do
+      if not read 1 do
+          incrmod hue 6 -- Increment variable looping around at 6
+          gosub update
+          delay 128
+          wait read 1
+          delay 128
+        end
+      elseif not read 2 do
+          decrmod hue 6 -- Decrement variable looping around at 6
+          gosub update
+          delay 128
+          wait read 2
+          delay 128
+        end
+      set i add i d
+      if gte i 128
+        set d neg 1
+      elseif lte i 1
+        set d 1
+
+      gosub update
+
+      delay 10
+    end
+end

@@ -17,6 +17,7 @@
   iwrite: 1, // Wiring.write(byte)
   iavailable: 0, // Wiring.available()
   iread: 0, // Wiring.read()
+  tone: 3, //
   delay: 1, // delay(ms)
   call: 2, // (shift, offset)
   gosub: 1, // (offset)
@@ -41,8 +42,6 @@
   rand: 1, // deadbeef_rand(modulus)
   restart: 0, chipid: 0, flashchipid: 0, cyclecount: 0, getfree: 0,
 
-  // Function  definition
-  def: undefined,
   // Variables
   const: 2, var: 2,
 });

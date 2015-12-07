@@ -18,7 +18,7 @@ typedef enum {
   Iread, // Wiring.read()
   Tone, // tone(pin, frequency, ms)
   Delay, // delay(ms)
-  Call, // (stackOffset, codeOffset)
+  Call, // (stackOffset, codeOffset) codeOffset is int16
   Gosub, // (codeOffset)
   Goto, // (codeOffset)
   Gget, // (var)

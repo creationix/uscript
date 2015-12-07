@@ -255,20 +255,26 @@ uint8_t* eval(intptr_t* stack, uint8_t* pc, intptr_t* value) {
       if (!value) return eval(stack, eval(stack, pc, 0), 0);
       intptr_t offset;
       pc = eval(stack, pc, &offset);
-      pc = eval(stack, pc, value);
-      eval(stack + offset, pc + *value, value);
+      int16_t jmp = (*pc << 8) | *(pc + 1);
+      pc += 2;
+      eval(stack + offset, pc + jmp, value);
       return pc;
     }
     case Gosub: {
       if (!value) return eval(stack, pc, 0);
-      pc = eval(stack, pc, value);
-      eval(stack, pc + *value, value);
+      int16_t jmp = (*pc << 8) | *(pc + 1);
+      pc += 2;
+      eval(stack, pc + jmp, value);
       return pc;
     }
-    case Goto:
+    case Goto: {
       if (!value) return eval(stack, pc, 0);
-      pc = eval(stack, pc, value);
-      return pc + *value;
+      int16_t jmp = (*pc << 8) | *(pc + 1);
+      Serial.print("Jump: ");
+      Serial.println(jmp);
+      pc += 2;
+      return eval(stack, pc + jmp, value);
+    }
     case Gget:
       if (!value) return eval(stack, pc, 0);
       pc = eval(stack, pc, value);

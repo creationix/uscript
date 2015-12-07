@@ -31,11 +31,11 @@ body, html {
   opacity: 1.0;
 }
 .robots button {
-  width: 100px;
+  width: 70px;
   height: 2em;
 }
 .robots img {
-  width: 100px;
-  height: 100px;
+  width: 70px;
+  height: 70px;
   border-radius: 5px;
 }

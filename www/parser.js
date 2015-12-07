@@ -67,7 +67,7 @@
 
     // Ensure the first token after DEF and LET are unused variables.
     if (top.type === "const" || top.type === "var" || top.type === "set" ||
-        top.type === "for" || top.type === "each") {
+        top.type === "call" || top.type === "gosub" || top.type === "goto") {
       if (type !== "ident") return "error";
     }
 
@@ -78,23 +78,28 @@
     }
 
     if (type === "ident") {
-      if (top.type === "const" || top.type === "var" || top.type === "for" ||
-          top.type === "each") {
-        top.scope[token] = top.scope[token] === undefined ? (
-          top.type === "const" ? "const" : "var") : "error";
+      var kind;
+      if (top.type === "call" || top.type === "gosub" || top.type === "goto") {
+        type = "label";
+      }
+      else {
         if (top.type === "const" || top.type === "var") {
-          top.name = token;
+          top.scope[token] = top.scope[token] === undefined ? (
+            top.type === "const" ? "const" : "var") : "error";
+          if (top.type === "const" || top.type === "var") {
+            top.name = token;
+          }
         }
-      }
-      var kind = top.scope[token];
+        kind = top.scope[token];
 
-      // Figure out which kind of variable this is.
-      if (kind === "var") type = "variable";
-      else if (kind === "const" && top.type !== "set") type = "definition";
-      else if (typeof kind === "number" && top.type !== "set") {
-        type = "function";
+        // Figure out which kind of variable this is.
+        if (kind === "var") type = "variable";
+        else if (kind === "const" && top.type !== "set") type = "definition";
+        else if (typeof kind === "number" && top.type !== "set") {
+          type = "function";
+        }
+        else type = "error";
       }
-      else type = "error";
 
       if (top.type) delete top.type;
       if (type === "function" && kind > 0) {
