@@ -38,16 +38,51 @@ window.onload = function () {
     }
   }
 
-  var robots = document.querySelector(".robots");
+  var robotsDiv = document.querySelector(".robots");
+  var robots = {};
   function addRobot(id) {
     var img = document.createElement("img");
+    var hash = md5(id.toString(15));
     img.setAttribute('src',
-      'data:image/png;base64,' + new Identicon(id, 420));
-    robots.appendChild(img);
+      'data:image/png;base64,' + new Identicon(hash, 420));
+    robotsDiv.appendChild(img);
+    robots[id] = img;
+    img.onclick = function () {
+      socket.send(compile(id, editor.getValue()));
+    };
   }
-  addRobot(md5(""+Math.random() * 0x100000000));
-  addRobot(md5(""+Math.random() * 0x100000000));
-  addRobot(md5(""+Math.random() * 0x100000000));
+
+  function removeRobot(id) {
+    var img = robots[id];
+    if (!img) { return; }
+    delete robots[id];
+    robotsDiv.removeChild(img);
+  }
+
+  var url = ("" + window.location.origin).replace(/^http/, "ws") + "/socket";
+  var socket = new WebSocket(url, "uscript-bridge");
+  socket.binaryType = 'arraybuffer';
+  socket.onmessage = function(evt) {
+    if (typeof evt.data === 'string') throw evt.data;
+    var message = new Uint8Array(evt.data);
+    var id = (message[0] << 24)
+           | (message[1] << 16)
+           | (message[2] << 8)
+           | (message[3]);
+    var command = message[4];
+    if (command === 0) {
+      console.log("Remove robot", id);
+      removeRobot(id);
+    }
+    else if (command === 1) {
+      console.log("Add robot", id);
+      addRobot(id);
+    }
+    else if (command === 2) {
+      console.log("Robot said", message);
+    }
+  };
+
 
   document.querySelector(".fullscreen").onclick = function () {
     var elem = document.body;
@@ -61,4 +96,14 @@ window.onload = function () {
       elem.webkitRequestFullscreen();
     }
   };
+
+  function compile(id, text) {
+    console.log(text);
+    return new Uint8Array([
+      id >> 24,
+      (id >> 16) & 0xff,
+      (id >> 8) & 0xff,
+      id & 0xff,
+      1,2,3,4]);
+  }
 };
