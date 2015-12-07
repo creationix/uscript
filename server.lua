@@ -3,6 +3,7 @@ local robots = {}
 local browsers = {}
 
 local function broadcast(message)
+  p("broadcast", message)
   for _, write in pairs(browsers) do
     write(message)
   end
@@ -20,7 +21,11 @@ require('coro-net').createServer({
     data = data .. chunk
     if #data >= 5 then
       assert(data:byte(1) == 1, "Must be protocol version 1")
-      id = data:sub(2, 5)
+      id = string.format("%02x%02x%02x%02x",
+        data:byte(2),
+        data:byte(3),
+        data:byte(4),
+        data:byte(5))
       robots[id] = function (code)
         if not code then return write() end
         local len = #code
@@ -33,15 +38,15 @@ require('coro-net').createServer({
     end
   end
   p("Robot connected: " .. id)
-  broadcast(id .. "\1")
+  broadcast({opcode=1,payload=id .. "!"})
   for message in read do
     p("Robot spoke: " .. id)
-    broadcast(id .. "\2" .. message)
+    broadcast({opcode=1,payload=id .. "@"})
   end
   write()
   robots[id] = nil
   p("Robot disconnected: " .. id)
-  broadcast(id .. "\0")
+  broadcast({opcode=1,payload=id .. "#"})
   write()
 end)
 print("uScript uController endpoint on port 1337")
@@ -66,12 +71,18 @@ require('weblit-app')
     browsers[req] = write
     print("Browser connected")
     for id in pairs(robots) do
-      write(id .. "\1")
+      write({opcode=1,payload=id .. "!"})
     end
 
     for message in read do
+      p(message)
       if message.opcode == 2 then
-        local id = message.payload:sub(1, 4)
+        local id = string.format("%02x%02x%02x%02x",
+          message.payload:byte(1),
+          message.payload:byte(2),
+          message.payload:byte(3),
+          message.payload:byte(4)
+        )
         local code = message.payload:sub(5)
         local robot = robots[id]
         if not robot then
