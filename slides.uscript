@@ -1,0 +1,20 @@
+
+const name "Tim Caswell"
+const nick "creationix"
+const inventor true
+
+-- Programming Langs
+["Lua" "JavaScript" "C"
+  "uScript"]
+
+-------------------
+
+Teaching Kids to Code
+-- A multi-year Journey
+
+{ virtualMachine: true }
+{ assemblySyntax: true }
+{ assembler: true }
+{ I2CDrivers: true }
+{ gitGraphFs: true }
+{ browserIDE: true }

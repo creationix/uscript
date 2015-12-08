@@ -62,6 +62,7 @@ window.onload = function () {
     {file:"dancebot.uscript",title:"Dancebot"},
     {file:"tri-switch.uscript",title:"TriSwitch"},
     {file:"sparkle.uscript",title:"Sparkle"},
+    {file:"stop.uscript",title:"Stop"},
   ].forEach(function (data) {
     var button = document.createElement("button");
     button.textContent = data.title;
@@ -73,6 +74,7 @@ window.onload = function () {
 
 
   function addRobot(id) {
+    if (robots[id]) removeRobot(id);
     var img = document.createElement("img");
     var hash = md5(id.toString(15));
     img.setAttribute('src',
@@ -93,23 +95,39 @@ window.onload = function () {
   }
 
   var url = ("" + window.location.origin).replace(/^http/, "ws") + "/socket";
-  var socket = new WebSocket(url, "uscript-bridge");
-  socket.onmessage = function(evt) {
-    var id = evt.data.substring(0, 8);
-    var command = evt.data[8];
-    var message = evt.data.substring(9);
-    if (command === "#") {
-      console.log("Remove robot", id);
-      removeRobot(id);
-    }
-    else if (command === '!') {
-      console.log("Add robot", id);
-      addRobot(id);
-    }
-    else if (command === "#") {
-      console.log("Robot said", message);
-    }
-  };
+  document.body.setAttribute("class", "disconnected");
+  function connect() {
+    var socket = new WebSocket(url, "uscript-bridge");
+    socket.onopen = function () {
+      console.log("websocket connected!");
+      document.body.setAttribute("class", "connected");
+    };
+    socket.onmessage = function(evt) {
+      var id = evt.data.substring(0, 8);
+      var command = evt.data[8];
+      var message = evt.data.substring(9);
+      if (command === "#") {
+        console.log("Remove robot", id);
+        removeRobot(id);
+      }
+      else if (command === '!') {
+        console.log("Add robot", id);
+        addRobot(id);
+      }
+      else if (command === "#") {
+        console.log("Robot said", message);
+      }
+    };
+    socket.onclose = function () {
+      document.body.setAttribute("class", "disconnected");
+      for (var id in robots) {
+        removeRobot(id);
+      }
+      console.log("websocket disconnected, trying to reconnect...");
+      return connect();
+    };
+  }
+  connect();
 
 
   document.querySelector(".fullscreen").onclick = function () {

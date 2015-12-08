@@ -2,13 +2,17 @@
 #include <string.h>
 #include "vm.h"
 
-/*const char* ssid     = "creationix-mobile";
+const char* ssid     = "creationix-mobile";
 const char* password = "noderocks";
-const char* host = "192.168.43.221";*/
+const char* host = "192.168.43.221";
 
-const char* ssid     = "HOTEL JOSEPHINE";
+/*const char* ssid     = "HOTEL JOSEPHINE";
 const char* password = NULL;
-const char* host = "172.16.1.162";
+const char* host = "172.16.1.162";*/
+
+/*const char* ssid     = "Theatre_de_Paris";
+const char* password = "amadeus75";
+const char* host = "192.168.0.30";*/
 
 WiFiClient client;
 
@@ -95,6 +99,7 @@ void maintainConnection() {
 
 int isAlive() {
   maintainConnection();
+  yield();
   return !client.available();
 }
 
