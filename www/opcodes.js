@@ -4,6 +4,7 @@
   catch (err) { window.opcodes = opcodes; }
 })({
   do: undefined, end: undefined, // do ... end
+  return: 0, // skips rest of block preserving previous/last value
   dump: 1, // (num)
   mode: 2, // pinMode(pin, mode)
   read: 1, // digitalRead(pin)
@@ -35,7 +36,7 @@
   elseif: 2, // (condition, action)
   else: 1, // (action)
   add: 2, sub: 2, mul: 2, div: 2, mod: 2, neg: 1,
-  band: 2, bor: 2, bxor: 2, bnot: 1, lshift: 1, rshift: 2,
+  band: 2, bor: 2, bxor: 2, bnot: 1, lshift: 2, rshift: 2,
   and: 2, or: 2, xor: 2, not: 1, choose: 3,
   gt: 2, gte: 2, lt: 2, lte: 2, eq: 2, neq: 2,
   srand: 1, // deadbeef_srand(seed)

@@ -7,6 +7,7 @@ CodeMirror.defineMode("uscript-asm", function (cm) {
   var special = {
     do: "keyword",
     end: "keyword",
+    return: "keyword",
     func: "keyword",
     call: "keyword",
     forever: "keyword",

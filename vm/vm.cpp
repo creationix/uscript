@@ -270,8 +270,6 @@ uint8_t* eval(intptr_t* stack, uint8_t* pc, intptr_t* value) {
     case Goto: {
       if (!value) return eval(stack, pc, 0);
       int16_t jmp = (*pc << 8) | *(pc + 1);
-      Serial.print("Jump: ");
-      Serial.println(jmp);
       pc += 2;
       return eval(stack, pc + jmp, value);
     }
@@ -338,10 +336,12 @@ uint8_t* eval(intptr_t* stack, uint8_t* pc, intptr_t* value) {
     }
     case While: {
       if (!value) return eval(stack, eval(stack, pc, 0), 0);
-      uint8_t* cond = pc;
+      uint8_t* start = pc;
+      intptr_t cond;
+      *value = 0;
       do {
-        pc = eval(stack, cond, value);
-        if (!*value) {
+        pc = eval(stack, start, &cond);
+        if (!cond) {
           pc = eval(stack, pc, 0);
           break;
         }
@@ -382,9 +382,18 @@ uint8_t* eval(intptr_t* stack, uint8_t* pc, intptr_t* value) {
       }
       return pc;
     }
-    case Do:
-      while (*pc != End) { pc = eval(stack, pc, value); }
+    case Do: {
+      int skip = 0;
+      while (*pc != End) {
+        if (*pc == Return) {
+          skip = 1;
+          pc++;
+          if (*pc == End) return pc + 1;
+        }
+        pc = eval(stack, pc, skip ? 0 : value);
+      }
       return pc + 1;
+    }
     case Add: {
       if (!value) return eval(stack, eval(stack, pc, 0), 0);
       intptr_t num;
@@ -585,7 +594,7 @@ uint8_t* eval(intptr_t* stack, uint8_t* pc, intptr_t* value) {
       return pc;
 
     // Invalid cases (cannot start an expression)
-    case End: case ElseIf: case Else:
+    case End: case ElseIf: case Else: case Return:
       *value = -(*(pc - 1));
       return 0;
 

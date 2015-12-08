@@ -3,6 +3,7 @@
 #define USCRIPT_VERSION 1
 typedef enum {
   Do = 128, End, // do ... end
+  Return,
   Dump, // (num)
   Mode, // pinMode(pin, mode)
   Read, // digitalRead(pin)

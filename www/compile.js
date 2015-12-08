@@ -1,12 +1,12 @@
 (function () {
-  var opcodes = [ "do", "end",  "dump",  "mode",  "read",  "write",  "aread",
-  "pwrite",  "ibegin",  "ifrom",  "istart",  "istop",  "iwrite",  "iavailable",
-  "iread",  "tone",  "delay",  "call",  "gosub",  "goto",  "gget",  "gset",
-  "get",  "set",  "incr", "decr",  "incrmod", "decrmod",  "forever",  "while",
-  "wait",  "if",  "elseif",  "else",  "add", "sub", "mul", "div", "mod", "neg",
-  "band", "bor", "bxor", "bnot", "lshift", "rshift", "and", "or", "xor", "not",
-  "choose", "gt", "gte", "lt", "lte", "eq", "neq", "srand",  "rand",  "restart",
-  "chipid", "flashchipid", "cyclecount", "getfree" ];
+  var opcodes = [ "do", "end",  "return", "dump",  "mode",  "read",  "write",
+  "aread", "pwrite",  "ibegin",  "ifrom",  "istart",  "istop",  "iwrite",
+  "iavailable", "iread",  "tone",  "delay",  "call",  "gosub",  "goto",  "gget",
+  "gset", "get",  "set",  "incr", "decr",  "incrmod", "decrmod",  "forever",
+  "while", "wait",  "if",  "elseif",  "else",  "add", "sub", "mul", "div",
+  "mod", "neg", "band", "bor", "bxor", "bnot", "lshift", "rshift", "and", "or",
+  "xor", "not", "choose", "gt", "gte", "lt", "lte", "eq", "neq", "srand",
+  "rand",  "restart", "chipid", "flashchipid", "cyclecount", "getfree" ];
 
   var map = {};
   opcodes.forEach(function (name, i) {
