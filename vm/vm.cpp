@@ -474,7 +474,7 @@ uint8_t* eval(intptr_t* stack, uint8_t* pc, intptr_t* value) {
       intptr_t num;
       pc = eval(stack, pc, &num);
       pc = eval(stack, pc, value);
-      *value = num << *value;
+      *value = (uint32_t)num << *value;
       return pc;
     }
     case Rshift: {
@@ -482,7 +482,7 @@ uint8_t* eval(intptr_t* stack, uint8_t* pc, intptr_t* value) {
       intptr_t num;
       pc = eval(stack, pc, &num);
       pc = eval(stack, pc, value);
-      *value = num >> *value;
+      *value = (uint32_t)num >> *value;
       return pc;
     }
     case And: {
