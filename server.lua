@@ -9,10 +9,12 @@ local function broadcast(message)
   end
 end
 
+local port = require('os').getenv("PORT") or 7000
+
 -- Create TCP server for robots to connect to.
 require('coro-net').createServer({
   host = "0.0.0.0",
-  port = 1337
+  port = port + 1
 }, function (read, write, socket)
   p(socket:getpeername())
   local data = ""
@@ -56,7 +58,7 @@ require('weblit-app')
 
   .bind({
     host = "0.0.0.0",
-    port = 8080
+    port = port
   })
 
   .use(require('weblit-logger'))

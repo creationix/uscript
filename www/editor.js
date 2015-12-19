@@ -1,6 +1,6 @@
 window.onload = function () {
   "use strict";
-
+  var socket;
 
   var editor = CodeMirror.fromTextArea(document.querySelector("textarea"), {
     mode: "uscript-asm",
@@ -97,7 +97,7 @@ window.onload = function () {
   var url = ("" + window.location.origin).replace(/^http/, "ws") + "/socket";
   document.body.setAttribute("class", "disconnected");
   function connect() {
-    var socket = new WebSocket(url, "uscript-bridge");
+    socket = new WebSocket(url, "uscript-bridge");
     socket.onopen = function () {
       console.log("websocket connected!");
       document.body.setAttribute("class", "connected");
