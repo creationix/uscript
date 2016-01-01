@@ -2,9 +2,14 @@
 #include <string.h>
 #include "vm.h"
 
-const char* ssid     = "creationix-mobile";
-const char* password = "noderocks";
-const char* host = "192.168.43.221";
+//const char* ssid     = "creationix-mobile";
+//const char* password = "noderocks";
+//const char* host = "192.168.43.221";
+
+const char* ssid     = "WIN_AE2F";
+const char* password = "SDPMSEX2";
+const char* host = "creationix.com";
+const int port = 7000;
 
 /*const char* ssid     = "HOTEL JOSEPHINE";
 const char* password = NULL;
@@ -81,7 +86,7 @@ void maintainConnection() {
     second = 1;
     Serial.print("connecting to ");
     Serial.println(host);
-    if (!client.connect(host, 1337)) {
+    if (!client.connect(host, port)) {
       Serial.println("connection failed");
       cooldown = millis() + 1000;
       return;
