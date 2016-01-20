@@ -2,22 +2,13 @@
 #include <string.h>
 #include "vm.h"
 
-//const char* ssid     = "creationix-mobile";
-//const char* password = "noderocks";
-//const char* host = "192.168.43.221";
+#include <ESP8266WiFiMulti.h>
 
-const char* ssid     = "WIN_AE2F";
-const char* password = "SDPMSEX2";
+ESP8266WiFiMulti wifiMulti;
+
 const char* host = "creationix.com";
-const int port = 7000;
+const int port = 7001;
 
-/*const char* ssid     = "HOTEL JOSEPHINE";
-const char* password = NULL;
-const char* host = "172.16.1.162";*/
-
-/*const char* ssid     = "Theatre_de_Paris";
-const char* password = "amadeus75";
-const char* host = "192.168.0.30";*/
 
 WiFiClient client;
 
@@ -26,25 +17,19 @@ void setup() {
   Serial.begin(115200);
   delay(10);
 
+  wifiMulti.addAP("creationix", "noderocks");
+  wifiMulti.addAP("creationix-mobile", "noderocks");
+  wifiMulti.addAP("WIN_AE2F", "SDPMSEX2");
+
   // We start by connecting to a WiFi network
 
-  Serial.println();
-  Serial.println();
-  Serial.print("Connecting to ");
-  Serial.println(ssid);
-
-  WiFi.begin(ssid, password);
-
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
+  Serial.println("Connecting Wifi...");
+  if(wifiMulti.run() == WL_CONNECTED) {
+    Serial.println("");
+    Serial.println("WiFi connected");
+    Serial.println("IP address: ");
+    Serial.println(WiFi.localIP());
   }
-
-  Serial.println("");
-  Serial.println("WiFi connected");
-  Serial.println("IP address: ");
-  Serial.println(WiFi.localIP());
-
 }
 
 int mode = 1;
@@ -80,6 +65,12 @@ void handle(char c) {
 int second = 0;
 int cooldown;
 void maintainConnection() {
+  if(wifiMulti.run() != WL_CONNECTED) {
+      Serial.println("WiFi not connected!");
+      delay(1000);
+      return;
+  }
+  
   if (!second || !client.connected()) {
     if (millis() < cooldown) return;
     if (second) client.stop();
