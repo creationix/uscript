@@ -1,0 +1,38 @@
+MML format as used in μScript:
+------------------------------
+
+A - G    Plays the notes corresponding to the notes A-G on the musical
+         scale. A # or + after the note makes it sharp, and a - makes
+         it flat.
+
+1-64     Optional suffix to note to override duration for that one note.
+
+Ln       Sets the duration of the notes that follow. n is a number from
+         1 to 64. 1 is a whole note, 2 is a half note, 4 is a quarter
+         note, 8 is an eighth note, etc.
+
+On       Sets the current octave. There are 7 octaves, 0 through 6. The
+         default octave is 4. Each octave starts with C and ends with B.
+         Octave 3 starts with middle C.
+
+Nn       Plays a note. n is in the range 0 to 84. Instead of specifying
+         the note's letter and octave, you may specify the note's number.
+         Note zero is a rest.
+
+Pn       Plays a rest (if that's the right terminology). n is the same as
+         for the L command, but specifies the length of the rest.
+
+.        Plays the note as a dotted note. You music buffs know that means
+         that the note is one half it's length longer when dotted. Place
+         the dot after the note, not before it. More than one dot may be
+         used after a note, and dots may be specified for rests.
+
+MN       "Music Normal." Each note plays 7/8 of the duration set by the
+         L command.
+
+ML       "Music Legato." Each note plays the full duration as set by the
+         L command.
+
+MS       "Music Staccato." Each note plays 3/4 of the duration set by the
+         L command.
+-}

@@ -1,0 +1,147 @@
+-- Hardware setup
+speaker = Speaker 6
+button = Button 2
+led = Led 1
+
+main:
+  --
+  speaker.play "L2C.B1-CAFGAF"
+-- C3 Bb1 C2 A2 F2 G2 A2 F2
+
+  mode LED OUTPUT
+  mode SPEAKER OUTPUT
+  mode BUTTON INPUT
+  forever do
+      write LED not read LED
+      gosub tis
+      gosub fala
+      gosub tis
+      gosub fala
+      gosub don
+      gosub fala2
+      gosub tis
+      gosub fala3
+      gosub click
+    end
+  goto last
+
+  tis: do
+    -- C3 Bb1 C2 A2 F2 G2 A2 F2
+    gosub pause
+    tone SPEAKER C 300
+    gosub pause
+    tone SPEAKER Bb 100
+    gosub pause
+    tone SPEAKER A 200
+    gosub pause
+    tone SPEAKER G 200
+    gosub pause
+    tone SPEAKER F 200
+    gosub pause
+    tone SPEAKER G 200
+    gosub pause
+    tone SPEAKER A 200
+    gosub pause
+    tone SPEAKER F 200
+  end
+
+  fala: do
+    -- G1 A1 Bb1 G1 A3 G1 F2 E2 F4
+    gosub pause
+    tone SPEAKER G 100
+    gosub pause
+    tone SPEAKER A 100
+    gosub pause
+    tone SPEAKER Bb 100
+    gosub pause
+    tone SPEAKER G 100
+    gosub pause
+    tone SPEAKER A 300
+    gosub pause
+    tone SPEAKER G 100
+    gosub pause
+    tone SPEAKER F 200
+    gosub pause
+    tone SPEAKER E 200
+    gosub pause
+    tone SPEAKER F 400
+  end
+
+  -- G3 A1 Bb2 G2 A3 Bb1 C2 G2
+  don: do
+    gosub pause
+    tone SPEAKER G 300
+    gosub pause
+    tone SPEAKER A 100
+    gosub pause
+    tone SPEAKER Bb 200
+    gosub pause
+    tone SPEAKER G 200
+    gosub pause
+    tone SPEAKER A 300
+    gosub pause
+    tone SPEAKER Bb 100
+    gosub pause
+    tone SPEAKER C 200
+    gosub pause
+    tone SPEAKER G 200
+  end
+
+  -- A1 B1 C2 D1 Eh1 Fh2 Eh2 D2 C4
+  fala2: do
+    gosub pause
+    tone SPEAKER A 100
+    gosub pause
+    tone SPEAKER B 100
+    gosub pause
+    tone SPEAKER C 200
+    gosub pause
+    tone SPEAKER D 100
+    gosub pause
+    tone SPEAKER Eh 100
+    gosub pause
+    tone SPEAKER Fh 200
+    gosub pause
+    tone SPEAKER Eh 200
+    gosub pause
+    tone SPEAKER D 200
+    gosub pause
+    tone SPEAKER C 400
+  end
+
+  -- D1 D1 D1 D1 C3 Bb1 A2 G2 F4
+  fala3: do
+    gosub pause
+    tone SPEAKER D 100
+    gosub pause
+    tone SPEAKER D 100
+    gosub pause
+    tone SPEAKER D 100
+    gosub pause
+    tone SPEAKER D 100
+    gosub pause
+    tone SPEAKER C 300
+    gosub pause
+    tone SPEAKER Bb 100
+    gosub pause
+    tone SPEAKER A 200
+    gosub pause
+    tone SPEAKER G 200
+    gosub pause
+    tone SPEAKER F 400
+  end
+
+  pause: do
+    wait not read BUTTON
+    delay 20
+  end
+
+  click: do
+    delay 10
+    wait read BUTTON
+    delay 10
+    wait not read BUTTON
+  end
+
+  last: delay 10
+end
