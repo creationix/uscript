@@ -1,0 +1,11 @@
+A = Button 2
+B = Button 3
+M = Stack
+
+onDown x =
+  M.push x
+
+
+
+A.down = onDown
+B.down = onDown
