@@ -8,7 +8,7 @@
 #include <string.h>
 
 #define START_PAIRS 10
-#define START_BYTES 100
+#define START_BYTES 1024
 #define START_INTS 3
 
 typedef enum type_e {
@@ -41,6 +41,12 @@ typedef struct pair_s {
   value_t right;
 } pair_t;
 
+typedef struct buffer_s {
+  bool gc : 1;
+  int length: 31;
+  uint8_t data[];
+} buffer_t;
+
 typedef struct state_s {
   pair_t* pairs; // Table of pairs
   uint8_t* bytes; // Buffer space for strings/byte-arrays/pixels
@@ -48,7 +54,9 @@ typedef struct state_s {
   int32_t num_pairs;
   int32_t next_pair;
   int32_t num_bytes;
+  int32_t next_bytes;
   int32_t num_ints;
+  int32_t _; // padding for alignment
 } state_t;
 
 /*
@@ -336,6 +344,20 @@ static value_t stackIs(state_t* S, value_t left, value_t right) {
   }
   return Bool(true);
 }
+
+static value_t stackReverse(state_t* S, value_t stack) {
+  if (stack.type != STACK) return Bool(false);
+  pair_t meta = getPair(S, stack);
+  value_t node = meta.right;
+  value_t last = Bool(false);
+  while (node.type == PAIR) {
+    pair_t link = getPair(S, node);
+    last = Pair(S, cons(link.left, last));
+    node = link.right;
+  }
+  return RawPair(S, STACK, cons(meta.left, last));
+}
+
 // Used by set and map. A 32-bit hash is generated for every value so that it
 // takes a pseudo random path down the tree for fast search.
 static int32_t hash(value_t value) {
@@ -561,6 +583,54 @@ static value_t mapRead(state_t* S, value_t map, value_t key) {
   return recursiveRead(S, map, key, hash(key));
 }
 
+static value_t RawBuffer(state_t* S, type_t type, int32_t length, const uint8_t* data) {
+  if (data && length < 0) {
+    length = (int32_t)strlen((char*)data);
+  }
+  if (length + 4 > S->num_bytes - S->next_bytes) {
+    // TODO: GC and/or resize space
+    printf("ERROR: not enough space to allocate new buffer\n");
+    return Bool(false);
+  }
+  int32_t start = S->next_bytes;
+  buffer_t* buf = (buffer_t*)(S->bytes + start);
+  buf->gc = true;
+  buf->length = length;
+  if (data) {
+    memcpy(buf->data, data, (size_t)length);
+  }
+  else {
+    memset(buf->data, 0, (size_t)length);
+  }
+  S->next_bytes += length + 4;
+  return (value_t){
+    .gc = true,
+    .type = type,
+    .value = start
+  };
+}
+
+static value_t String(state_t* S, const char* str) {
+  return RawBuffer(S, STRING, -1, (uint8_t*)str);
+}
+
+static value_t Symbol(state_t* S, const char* str) {
+  // TODO: intern to make sure we don't have duplicates.
+  return RawBuffer(S, SYMBOL, -1, (uint8_t*)str);
+}
+
+static value_t Buffer(state_t* S, int32_t length, const uint8_t* data) {
+  return RawBuffer(S, BYTE_ARRAY, length, data);
+}
+
+static value_t Pixels(state_t* S, int32_t length, const uint32_t* data) {
+  if (length < 0) return Bool(false);
+  return RawBuffer(S, FRAME_BUFFER, length << 3, (const uint8_t*)data);
+}
+
+static buffer_t* getBuffer(state_t* S, value_t value) {
+  return (buffer_t*)(S->bytes + value.value);
+}
 static void prettyPrint(state_t* S, value_t value);
 
 static void printSetNode(state_t* S, value_t node, bool later) {
@@ -652,18 +722,38 @@ static void prettyPrint(state_t* S, value_t value) {
       }
       putchar('\'');
       break;
-    case STRING:
-      printf("TODO: print STRING");
+    case STRING: {
+      buffer_t* buf = getBuffer(S, value);
+      printf("\"%*s\"", buf->length, buf->data);
       break;
-    case SYMBOL:
-      printf("TODO: print SYMBOL");
+    }
+    case SYMBOL: {
+      buffer_t* buf = getBuffer(S, value);
+      printf(":%*s", buf->length, buf->data);
       break;
-    case BYTE_ARRAY:
-      printf("TODO: print BYTE_ARRAY");
+    }
+    case BYTE_ARRAY: {
+      buffer_t* buf = getBuffer(S, value);
+      putchar('<');
+      for (int i = 0; i < buf->length; i++) {
+        if (i) putchar(' ');
+        printf("%02x", buf->data[i]);
+      }
+      putchar('>');
       break;
-    case FRAME_BUFFER:
-      printf("TODO: print FRAME_BUFFER");
+    }
+    case FRAME_BUFFER: {
+      buffer_t* buf = getBuffer(S, value);
+      uint32_t* data = (uint32_t*)buf->data;
+      int32_t len = buf->length >> 3;
+      putchar('<');
+      for (int i = 0; i < len; i++) {
+        if (i) putchar(' ');
+        printf("%08x", data[i]);
+      }
+      putchar('>');
       break;
+    }
     case PAIR: {
       pair_t pair = getPair(S, value);
       putchar('(');
@@ -688,9 +778,9 @@ static void prettyPrint(state_t* S, value_t value) {
       putchar(']');
       break;
     case SET:
-      putchar('<');
+      putchar('|');
       printSetNode(S, value, false);
-      putchar('>');
+      putchar('|');
       break;
     case MAP:
       putchar('{');
@@ -890,4 +980,32 @@ int main() {
   stackPop(S, history);
   dump(S, history);
   dump(S, stackIs(S, history, check));
+  stackPush(S, history, Char('O'));
+  stackPush(S, history, Char('P'));
+  dump(S, history);
+
+  dump(S, stackReverse(S, history));
+
+  dump(S, String(S, "Hello World"));
+  dump(S, Symbol(S, "name"));
+  dump(S, Buffer(S, 5, 0));
+  dump(S, Buffer(S, 4, (uint8_t[]){0xde,0xad,0xbe,0xef}));
+  dump(S, Pixels(S, 8, 0));
+  const uint32_t RED = 0xff2200;
+  const uint32_t ORN = 0xf08000;
+  const uint32_t YEL = 0xe8e800;
+  const uint32_t GRN = 0x22ee00;
+  const uint32_t BLU = 0x0088ff;
+  const uint32_t PUR = 0x9000f0;
+  const uint32_t OFF = 0x000000;
+  dump(S, Pixels(S, 4*8, (uint32_t[]){
+    OFF, ORN, YEL, OFF,
+    PUR, RED, ORN, YEL,
+    BLU, PUR, RED, ORN,
+    GRN, BLU, PUR, RED,
+    YEL, GRN, BLU, PUR,
+    ORN, YEL, GRN, BLU,
+    RED, ORN, YEL, GRN,
+    OFF, RED, ORN, OFF,
+  }));
 }

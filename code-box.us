@@ -4,6 +4,7 @@ B = Button 3
 S = Stack
 
 check =
+  S = S.reverse
   if S.is [A B B A]
     L.
   elif S.is [A B A B]
