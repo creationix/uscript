@@ -6,9 +6,9 @@ S = Stack
 check =
   if S.is [A B B A]
     L.
-  if S.is [A B A B]
+  elif S.is [A B A B]
     ...
-  if S.is [B A A B]
+  elif S.is [B A A B]
     ...
   else
     ...
