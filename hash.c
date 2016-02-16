@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <inttypes.h>
 #include <assert.h>
+#include <string.h>
 
 #define START_PAIRS 10
 #define START_BYTES 100
@@ -174,14 +175,12 @@ static value_t Integer(state_t* S, int64_t value) {
     if (i < S->num_ints) {
       continue;
     }
-    printf("realloc int list\n");
     int32_t j = i + START_INTS;
     S->num_ints = j;
     S->ints = realloc(S->ints,  sizeof(int64_t) * (size_t)j);
     while (j-- > i) {
       S->ints[j] = 0;
     }
-    break;
   }
   return (value_t){
     .gc = true,
@@ -210,8 +209,15 @@ static value_t Pair(state_t* S, type_t type, value_t left, value_t right) {
   int32_t i = S->next_pair;
   while (true) {
     if (i >= S->num_pairs) {
-      // TODO: resize table and/or trigger GC
-      return Bool(false);
+      // TODO: gc
+      int32_t old_length = S->num_pairs;
+      int32_t new_length = old_length + START_PAIRS;
+      size_t old_size = (size_t)old_length * sizeof(pair_t);
+      size_t new_size = (size_t)new_length * sizeof(pair_t);
+      S->pairs = realloc(S->pairs, new_size);
+      memset((uint8_t*)S->pairs + old_size, 0, new_size - old_size);
+      S->num_pairs = new_length;
+      continue;
     }
     pair_t pair = S->pairs[i];
     if (!(pair.left.gc || pair.right.gc)) {
@@ -276,39 +282,24 @@ static value_t Set(state_t* S) {
 }
 
 static bool recursiveAdd(state_t* S, value_t set, value_t value, int32_t bits) {
-  printf("set: ");
-  prettyPrint(S, set);
-  printf(", value: ");
-  prettyPrint(S, value);
-  putchar('\n');
-
   pair_t node = getPair(S, set);
   value_t payload = node.left;
   if (eq(payload, value)) return false;
   value_t tree = node.right;
   // If the slot is empty, insert the value there.
   if (falsy(payload)) {
-    printf("It was empty!\n");
     setPair(S, set, cons(value, tree));
     return true;
   }
   // If there is no tree/split yet, create one with the value already in it.
   if (falsy(tree)) {
     value_t next = Pair(S, PAIR, value, Bool(false));
-    printf("Set! ");
-    prettyPrint(S, set);
-    printf("; NEXT: ");
-    prettyPrint(S, next);
-    putchar('\n');
     setPair(S, set, cons(
       payload,
       bits & 1 ?
         Pair(S, PAIR, next, Bool(false)) :
         Pair(S, PAIR, Bool(false), next)
     ));
-    printf("Added new split and node! ");
-    prettyPrint(S, set);
-    putchar('\n');
     return true;
   }
   // Otherwise, check the side for space.
@@ -341,26 +332,26 @@ static value_t setAdd(state_t* S, value_t set, value_t value) {
 }
 
 static value_t Map(state_t* S) {
-  return Pair(S, MAP, Int(0), Bool(false));
+  return Pair(S, MAP, Bool(false), Bool(false));
 }
 
 static void prettyPrint(state_t* S, value_t value);
 
-// static void printSetNode(state_t* S, value_t node, bool later) {
-//   if (!node) return;
-//   pair_t pair = getPair(S, node);
-//   node = left(pair);
-//   if (node) {
-//     if (later) putchar(' ');
-//     prettyPrint(S, node);
-//     later = true;
-//   }
-//   node = right(pair);
-//   if (!node) return;
-//   pair_t split = getPair(S, node);
-//   printSetNode(S, right(split), later);
-//   printSetNode(S, left(split), later);
-// }
+static void printSetNode(state_t* S, value_t node, bool later) {
+  if (falsy(node)) return;
+  pair_t pair = getPair(S, node);
+  node = pair.left;
+  if (truthy(node)) {
+    if (later) putchar(' ');
+    prettyPrint(S, node);
+    later = true;
+  }
+  node = pair.right;
+  if (falsy(node)) return;
+  pair_t split = getPair(S, node);
+  printSetNode(S, split.right, later);
+  printSetNode(S, split.left, later);
+}
 
 // static void printMapNode(state_t* S, value_t node, bool later) {
 //   if (!node) return;
@@ -447,7 +438,7 @@ static void prettyPrint(state_t* S, value_t value) {
     case FRAME_BUFFER:
       printf("TODO: print FRAME_BUFFER");
       break;
-    case PAIR: case MAP: case SET: {
+    case PAIR: case MAP: {
       pair_t pair = getPair(S, value);
       putchar('(');
       prettyPrint(S, pair.left);
@@ -470,11 +461,11 @@ static void prettyPrint(state_t* S, value_t value) {
       }
       putchar(']');
       break;
-    // case SET:
-    //   putchar('<');
-    //   printSetNode(S, value, false);
-    //   putchar('>');
-    //   break;
+    case SET:
+      putchar('<');
+      printSetNode(S, value, false);
+      putchar('>');
+      break;
     // case MAP:
     //   putchar('{');
     //   printMapNode(S, value, false);
@@ -506,53 +497,59 @@ int main() {
   //   dump(S, Integer(S, i));
   //   dump(S, Integer(S, -i));
   // }
-  dump(S, Integer(S, 0));
-  dump(S, Integer(S, 1));
-  dump(S, Integer(S, -1));
-  dump(S, Bool(true));
-  dump(S, Bool(false));
-  dump(S, Pair(S, PAIR,
-    Integer(S, 1),
-    Integer(S, 2)));
-  dump(S, Pair(S, RATIONAL,
-    Integer(S, 1),
-    Integer(S, 2)));
-  for (int i = 0; i < 100; i++) {
-    dump(S, Char(i));
-  }
-  dump(S, Char('@'));
-  dump(S, Char(9654));   // ▶
-  dump(S, Char(128513)); // 😁
-  dump(S, Char(128525)); // 😍
+  // dump(S, Integer(S, 0));
+  // dump(S, Integer(S, 1));
+  // dump(S, Integer(S, -1));
+  // dump(S, Bool(true));
+  // dump(S, Bool(false));
+  // dump(S, Pair(S, PAIR,
+  //   Integer(S, 1),
+  //   Integer(S, 2)));
+  // dump(S, Pair(S, RATIONAL,
+  //   Integer(S, 1),
+  //   Integer(S, 2)));
+  // for (int i = 0; i < 100; i++) {
+  //   dump(S, Char(i));
+  // }
+  // dump(S, Char('@'));
+  // dump(S, Char(9654));   // ▶
+  // dump(S, Char(128513)); // 😁
+  // dump(S, Char(128525)); // 😍
 
   value_t stack = Stack(S);
   dump(S, stack);
   stackPush(S, stack, Char('A'));
   dump(S, stack);
-  stackPush(S, stack, Char('B'));
-  dump(S, stack);
-  stackPush(S, stack, Char('C'));
-  dump(S, stack);
-  dump(S, stackPop(S, stack));
-  dump(S, stack);
-  dump(S, stackPop(S, stack));
-  dump(S, stack);
-  dump(S, stackPop(S, stack));
-  dump(S, stack);
+  // stackPush(S, stack, Char('B'));
+  // dump(S, stack);
+  // stackPush(S, stack, Char('C'));
+  // dump(S, stack);
+  // dump(S, stackPop(S, stack));
+  // dump(S, stack);
+  // dump(S, stackPop(S, stack));
+  // dump(S, stack);
+  // dump(S, stackPop(S, stack));
+  // dump(S, stack);
   dump(S, stackPop(S, stack));
   dump(S, stack);
 
   value_t set = Set(S);
   dump(S, set);
-  dump(S, setAdd(S, set, Int(10)));
+  dump(S, setAdd(S, set, Char('J')));
   dump(S, set);
-  dump(S, setAdd(S, set, Int(10)));
+  dump(S, setAdd(S, set, Char('J')));
   dump(S, set);
   dump(S, setAdd(S, set, Int(20)));
   dump(S, set);
   dump(S, setAdd(S, set, Int(20)));
   dump(S, set);
   dump(S, setAdd(S, set, Int(30)));
+  dump(S, set);
+  dump(S, setAdd(S, set, Int(40)));
+  dump(S, set);
+  dump(S, setAdd(S, set, Int(50)));
+  dump(S, set);
+  dump(S, setAdd(S, set, Int(60)));
   dump(S, set);
 
   value_t map = Map(S);
