@@ -243,6 +243,24 @@ static void setPair(state_t* S, value_t value, pair_t pair) {
   S->pairs[value.value] = pair;
 }
 
+static pair_t updateLeft(pair_t pair, value_t value) {
+  return (pair_t){
+    .left = value,
+    .right = pair.right
+  };
+}
+
+static pair_t updateRight(pair_t pair, value_t value) {
+  return (pair_t){
+    .left = pair.left,
+    .right = value
+  };
+}
+
+static pair_t updateSide(pair_t pair, int side, value_t value) {
+  return side ? updateLeft(pair, value) : updateRight(pair, value);
+}
+
 static value_t Stack(state_t* S) {
   return Pair(S, STACK, Int(0), Bool(false));
 }
@@ -283,52 +301,85 @@ static value_t Set(state_t* S) {
 
 static bool recursiveAdd(state_t* S, value_t set, value_t value, int32_t bits) {
   pair_t node = getPair(S, set);
-  value_t payload = node.left;
-  if (eq(payload, value)) return false;
-  value_t tree = node.right;
+  // If the value is already here, abort.
+  if (eq(node.left, value)) return false;
   // If the slot is empty, insert the value there.
-  if (falsy(payload)) {
-    setPair(S, set, cons(value, tree));
+  if (falsy(node.left)) {
+    setPair(S, set, cons(value, node.right));
     return true;
   }
   // If there is no tree/split yet, create one with the value already in it.
-  if (falsy(tree)) {
-    value_t next = Pair(S, PAIR, value, Bool(false));
+  if (falsy(node.right)) {
+    value_t side = Pair(S, PAIR, value, Bool(false));
     setPair(S, set, cons(
-      payload,
-      bits & 1 ?
-        Pair(S, PAIR, next, Bool(false)) :
-        Pair(S, PAIR, Bool(false), next)
+      node.left,
+      bits & 1
+        ? Pair(S, PAIR, side, Bool(false))
+        : Pair(S, PAIR, Bool(false), side)
     ));
     return true;
   }
   // Otherwise, check the side for space.
-  pair_t split = getPair(S, tree);
+  pair_t split = getPair(S, node.right);
 
   // If the branch already exists, recurse down it.
   value_t side = (bits & 1) ? split.left : split.right;
   if (truthy(side)) return recursiveAdd(S, side, value, bits >> 1);
 
   // If not, fill it out
-  if (bits & 1) {
-    setPair(S, tree, cons(
-      Pair(S, PAIR, value, Bool(false)),
-      split.right
-    ));
-    return true;
-  }
-  else {
-    setPair(S, tree, cons(
-      split.left,
+  setPair(S, node.right,
+    updateSide(split, bits & 1,
       Pair(S, PAIR, value, Bool(false))
-    ));
-    return true;
-  }
+    )
+  );
+
+  return true;
 }
 
 static value_t setAdd(state_t* S, value_t set, value_t value) {
   assert(set.type == SET);
   return Bool(recursiveAdd(S, set, value, hash(value)));
+}
+
+static bool recursiveHas(state_t* S, value_t set, value_t value, int32_t bits) {
+  pair_t node = getPair(S, set);
+  // If we find the value, we're done!
+  if (eq(node.left, value)) return true;
+  // If there is no tree/split yet, stop looking, it's not here.
+  if (falsy(node.right)) return false;
+  // Otherwise, Look down the split.
+  pair_t split = getPair(S, node.right);
+  // If the branch already exists, recurse down it.
+  value_t side = (bits & 1) ? split.left : split.right;
+  return truthy(side) && recursiveHas(S, side, value, bits >> 1);
+}
+
+static value_t setHas(state_t* S, value_t set, value_t value) {
+  assert(set.type == SET);
+  return Bool(recursiveHas(S, set, value, hash(value)));
+}
+
+static bool recursiveDel(state_t* S, value_t set, value_t value, int32_t bits) {
+  pair_t node = getPair(S, set);
+  // If we find the value, remove it and we're done!
+  if (eq(node.left, value)) {
+    setPair(S, set, cons(
+      Bool(false),
+      node.right));
+    return true;
+  }
+  // If there is no tree/split yet, stop looking, it's not here.
+  if (falsy(node.right)) return false;
+  // Otherwise, Look down the split.
+  pair_t split = getPair(S, node.right);
+  // If the branch already exists, recurse down it.
+  value_t side = (bits & 1) ? split.left : split.right;
+  return truthy(side) && recursiveDel(S, side, value, bits >> 1);
+}
+
+static value_t setDel(state_t* S, value_t set, value_t value) {
+  assert(set.type == SET);
+  return Bool(recursiveDel(S, set, value, hash(value)));
 }
 
 static value_t Map(state_t* S) {
@@ -535,7 +586,9 @@ int main() {
 
   value_t set = Set(S);
   dump(S, set);
+  dump(S, setHas(S, set, Char('J')));
   dump(S, setAdd(S, set, Char('J')));
+  dump(S, setHas(S, set, Char('J')));
   dump(S, set);
   dump(S, setAdd(S, set, Char('J')));
   dump(S, set);
@@ -550,6 +603,10 @@ int main() {
   dump(S, setAdd(S, set, Int(50)));
   dump(S, set);
   dump(S, setAdd(S, set, Int(60)));
+  dump(S, set);
+  dump(S, setDel(S, set, Int(50)));
+  dump(S, set);
+  dump(S, setDel(S, set, Int(50)));
   dump(S, set);
 
   value_t map = Map(S);
