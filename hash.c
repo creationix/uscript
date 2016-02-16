@@ -322,7 +322,20 @@ static value_t stackPop(state_t* S, value_t stack) {
   return first.left;
 }
 
+static value_t stackIs(state_t* S, value_t left, value_t right) {
+  if (left.type != STACK || right.type != STACK) return Bool(false);
+  pair_t lpair = getPair(S, left);
+  pair_t rpair = getPair(S, right);
+  // Make sure lengths match up.
+  if (!eq(lpair.left, rpair.left)) return Bool(false);
 
+  while (lpair.right.type == PAIR) {
+    lpair = getPair(S, lpair.right);
+    rpair = getPair(S, rpair.right);
+    if (!eq(lpair.left, rpair.left)) return Bool(false);
+  }
+  return Bool(true);
+}
 // Used by set and map. A 32-bit hash is generated for every value so that it
 // takes a pseudo random path down the tree for fast search.
 static int32_t hash(value_t value) {
@@ -720,29 +733,27 @@ int main() {
   assert(sizeof(value_t) == 4);
   assert(sizeof(pair_t) == 8);
   state_t* S = State();
-  // for (int64_t i = 1; i > 0 && i <= INT64_MAX; i <<= 4) {
-  //   printf("Testing %"PRId64"\n", i);
-  //   dump(S, Integer(S, i));
-  //   dump(S, Integer(S, -i));
-  // }
-  // dump(S, Integer(S, 0));
-  // dump(S, Integer(S, 1));
-  // dump(S, Integer(S, -1));
-  // dump(S, Bool(true));
-  // dump(S, Bool(false));
-  // dump(S, Pair(S, PAIR,
-  //   Integer(S, 1),
-  //   Integer(S, 2)));
-  // dump(S, Pair(S, RATIONAL,
-  //   Integer(S, 1),
-  //   Integer(S, 2)));
-  // for (int i = 0; i < 100; i++) {
-  //   dump(S, Char(i));
-  // }
-  // dump(S, Char('@'));
-  // dump(S, Char(9654));   // ▶
-  // dump(S, Char(128513)); // 😁
-  // dump(S, Char(128525)); // 😍
+  for (int64_t i = 1; i > 0 && i <= INT64_MAX; i <<= 4) {
+    printf("Testing %"PRId64"\n", i);
+    dump(S, Integer(S, i));
+    dump(S, Integer(S, -i));
+  }
+  dump(S, Integer(S, 0));
+  dump(S, Integer(S, 1));
+  dump(S, Integer(S, -1));
+  dump(S, Bool(true));
+  dump(S, Bool(false));
+  dump(S, Pair(S, cons(
+    Integer(S, 1),
+    Integer(S, 2))));
+  dump(S, Rational(S, 1, 2));
+  for (int i = 0; i < 100; i++) {
+    dump(S, Char(i));
+  }
+  dump(S, Char('@'));
+  dump(S, Char(9654));   // ▶
+  dump(S, Char(128513)); // 😁
+  dump(S, Char(128525)); // 😍
 
   printf("\n--STACKS--\n");
   printf("Creating an empty stack -> ");
@@ -852,4 +863,31 @@ int main() {
     dump(S, map);
   }
 
+  value_t history = Stack(S);
+  stackPush(S, history, Char('A'));
+  stackPush(S, history, Char('B'));
+  stackPush(S, history, Char('B'));
+  stackPush(S, history, Char('A'));
+  dump(S, history);
+
+  value_t check = Stack(S);
+  stackPush(S, check, Char('A'));
+  stackPush(S, check, Char('B'));
+  stackPush(S, check, Char('B'));
+  stackPush(S, check, Char('A'));
+
+  dump(S, stackIs(S, history, check));
+
+  stackPush(S, check, Char('Z'));
+  dump(S, check);
+  dump(S, stackIs(S, history, check));
+  stackPush(S, history, Char('Y'));
+  dump(S, history);
+  dump(S, stackIs(S, history, check));
+  stackPop(S, check);
+  dump(S, check);
+  dump(S, stackIs(S, history, check));
+  stackPop(S, history);
+  dump(S, history);
+  dump(S, stackIs(S, history, check));
 }

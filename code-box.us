@@ -1,11 +1,23 @@
+L = Led 5
 A = Button 2
 B = Button 3
-M = Stack
+S = Stack
+
+check =
+  if S.is [A B B A]
+    L.
+  if S.is [A B A B]
+    ...
+  if S.is [B A A B]
+    ...
+  else
+    ...
+  S = Stack
 
 onDown x =
-  M.push x
+  S.push x
+  if S.length == 4
+    check
 
-
-
-A.down = onDown
-B.down = onDown
+A.down = onDown.
+B.down = onDown.
