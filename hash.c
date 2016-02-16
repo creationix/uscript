@@ -204,7 +204,7 @@ static pair_t cons(value_t left, value_t right) {
   };
 }
 
-static value_t Pair(state_t* S, type_t type, value_t left, value_t right) {
+static value_t RawPair(state_t* S, type_t type, pair_t pair) {
   // Find an empty slot in the pairs table
   int32_t i = S->next_pair;
   while (true) {
@@ -219,15 +219,15 @@ static value_t Pair(state_t* S, type_t type, value_t left, value_t right) {
       S->num_pairs = new_length;
       continue;
     }
-    pair_t pair = S->pairs[i];
-    if (!(pair.left.gc || pair.right.gc)) {
+    pair_t slot = S->pairs[i];
+    if (!(slot.left.gc || slot.right.gc)) {
       // If both GC flags are zero, assume it's free.
       break;
     }
     ++i;
   }
   S->next_pair = i + 1;
-  S->pairs[i] = cons(left, right);
+  S->pairs[i] = pair;
   return (value_t){
     .gc = true,
     .type = type,
@@ -235,12 +235,20 @@ static value_t Pair(state_t* S, type_t type, value_t left, value_t right) {
   };
 }
 
+static value_t Pair(state_t* S, pair_t pair) {
+  return RawPair(S, PAIR, pair);
+}
+
+static value_t Rational(state_t* S, int64_t n, int64_t d) {
+  return RawPair(S, RATIONAL, cons(Integer(S, n), Integer(S, d)));
+}
+
 static pair_t getPair(state_t* S, value_t value) {
   return S->pairs[value.value];
 }
 
-static void setPair(state_t* S, value_t value, pair_t pair) {
-  S->pairs[value.value] = pair;
+static void setPair(state_t* S, value_t slot, pair_t pair) {
+  S->pairs[slot.value] = pair;
 }
 
 static pair_t updateLeft(pair_t pair, value_t value) {
@@ -261,24 +269,48 @@ static pair_t updateSide(pair_t pair, int side, value_t value) {
   return side ? updateLeft(pair, value) : updateRight(pair, value);
 }
 
+static void setLeft(state_t* S, value_t slot, value_t value) {
+  S->pairs[slot.value] = updateLeft(S->pairs[slot.value], value);
+}
+
+// static void setRight(state_t* S, value_t slot, value_t value) {
+//   S->pairs[slot.value] = updateRight(S->pairs[slot.value], value);
+// }
+//
+
 static value_t Stack(state_t* S) {
-  return Pair(S, STACK, Int(0), Bool(false));
+  return RawPair(S, STACK, cons(Int(0), Bool(false)));
 }
 
-// Push a value onto a stack value
-static void stackPush(state_t* S, value_t stack, value_t value) {
-  assert(stack.type == STACK);
+static value_t stackPush(state_t* S, value_t stack, value_t value) {
+  if (stack.type != STACK) return Bool(false);
   pair_t meta = getPair(S, stack);
-  int64_t count = toInt(S, meta.left);
+  value_t count = Integer(S, toInt(S, meta.left) + 1);
   setPair(S, stack, cons(
-    Integer(S, count + 1),
-    Pair(S, PAIR, value, meta.right)
+    count,
+    Pair(S, cons(value, meta.right))
   ));
+  return count;
 }
 
-// Pop a value from a stack value (or return false if empty)
+static value_t stackPeek(state_t* S, value_t stack) {
+  if (stack.type != STACK) return Bool(false);
+  pair_t meta = getPair(S, stack);
+  if (meta.right.type == PAIR) {
+    pair_t next = getPair(S, meta.right);
+    return next.left;
+  }
+  return meta.right;
+}
+
+static value_t stackLength(state_t* S, value_t stack) {
+  if (stack.type != STACK) return Bool(false);
+  pair_t meta = getPair(S, stack);
+  return meta.left;
+}
+
 static value_t stackPop(state_t* S, value_t stack) {
-  assert(stack.type == STACK);
+  if (stack.type != STACK) return Bool(false);
   pair_t meta = getPair(S, stack);
   int64_t count = toInt(S, meta.left);
   if (!count) { return Bool(false); }
@@ -290,55 +322,76 @@ static value_t stackPop(state_t* S, value_t stack) {
   return first.left;
 }
 
+
+// Used by set and map. A 32-bit hash is generated for every value so that it
+// takes a pseudo random path down the tree for fast search.
 static int32_t hash(value_t value) {
-  int32_t num = value.type << 31 | value.value;
-  return (num >> 13) ^ num ^ (num << 12);
+  return (value.type << 27 | value.value) ^ value.type ^ value.value << value.type;
 }
 
 static value_t Set(state_t* S) {
-  return Pair(S, SET, Bool(false), Bool(false));
+  return RawPair(S, SET, cons(Bool(false), Bool(false)));
 }
 
-static bool recursiveAdd(state_t* S, value_t set, value_t value, int32_t bits) {
+// setNode = (value, split)
+// setNode = (value, (false, rightNode))
+// setNode = (value, (leftNode, false))
+// setNode = (value, (leftNode, rightNode))
+// An false value means the slot is empty (it might have held a deleted value)
+// An false split means both sides are unset
+// The split may have one side false and the other set.
+//
+// recursiveAdd needs to search for a matching value.
+// If the value is not found, then the first empty slot that was encountered
+// is used to add the value.  If there was none, add a new slot (and possibly
+// a new split to hold it)
+static bool recursiveAdd(state_t* S, value_t set, value_t value, value_t slot, int32_t bits) {
   pair_t node = getPair(S, set);
   // If the value is already here, abort.
   if (eq(node.left, value)) return false;
-  // If the slot is empty, insert the value there.
-  if (falsy(node.left)) {
-    setPair(S, set, cons(value, node.right));
+
+  // If we find a free slot and havn't seen one yet, record it.
+  if (falsy(node.left) && slot.type == BOOLEAN) {
+    slot = set;
+  }
+
+  // If there are no further subtrees, stop here.
+  if (node.right.type != PAIR) {
+    // If we had seen an empty slot, use it.
+    if (slot.type != BOOLEAN) {
+      setLeft(S, slot, value);
+      return true;
+    }
+    // Otherwise, create a new split and populate one side with slot and value.
+    slot = Pair(S, cons(value, Bool(false)));
+    setPair(S, set, cons(node.left, Pair(S, bits & 1
+      ? cons(slot, Bool(false))
+      : cons(Bool(false), slot))));
     return true;
   }
-  // If there is no tree/split yet, create one with the value already in it.
-  if (falsy(node.right)) {
-    value_t side = Pair(S, PAIR, value, Bool(false));
-    setPair(S, set, cons(
-      node.left,
-      bits & 1
-        ? Pair(S, PAIR, side, Bool(false))
-        : Pair(S, PAIR, Bool(false), side)
-    ));
-    return true;
-  }
-  // Otherwise, check the side for space.
+
+  // If there is a subtree on the matching side, recurse into it.
   pair_t split = getPair(S, node.right);
+  value_t side = bits & 1 ? split.left : split.right;
+  if (side.type == PAIR) {
+    return recursiveAdd(S, side, value, slot, bits >> 1);
+  }
 
-  // If the branch already exists, recurse down it.
-  value_t side = (bits & 1) ? split.left : split.right;
-  if (truthy(side)) return recursiveAdd(S, side, value, bits >> 1);
+  // If we've reached this end and had seen a slot, use it now.
+  if (slot.type != BOOLEAN) {
+    setLeft(S, slot, value);
+    return true;
+  }
 
-  // If not, fill it out
-  setPair(S, node.right,
-    updateSide(split, bits & 1,
-      Pair(S, PAIR, value, Bool(false))
-    )
-  );
-
+  // Otherwise fill out the other half of the split.
+  side = Pair(S, cons(value, Bool(false)));
+  setPair(S, node.right, updateSide(split, bits & 1, side));
   return true;
 }
 
 static value_t setAdd(state_t* S, value_t set, value_t value) {
   assert(set.type == SET);
-  return Bool(recursiveAdd(S, set, value, hash(value)));
+  return Bool(recursiveAdd(S, set, value, Bool(false), hash(value)));
 }
 
 static bool recursiveHas(state_t* S, value_t set, value_t value, int32_t bits) {
@@ -346,12 +399,12 @@ static bool recursiveHas(state_t* S, value_t set, value_t value, int32_t bits) {
   // If we find the value, we're done!
   if (eq(node.left, value)) return true;
   // If there is no tree/split yet, stop looking, it's not here.
-  if (falsy(node.right)) return false;
+  if (node.right.type != PAIR) return false;
   // Otherwise, Look down the split.
   pair_t split = getPair(S, node.right);
   // If the branch already exists, recurse down it.
   value_t side = (bits & 1) ? split.left : split.right;
-  return truthy(side) && recursiveHas(S, side, value, bits >> 1);
+  return side.type == PAIR && recursiveHas(S, side, value, bits >> 1);
 }
 
 static value_t setHas(state_t* S, value_t set, value_t value) {
@@ -369,12 +422,12 @@ static bool recursiveDel(state_t* S, value_t set, value_t value, int32_t bits) {
     return true;
   }
   // If there is no tree/split yet, stop looking, it's not here.
-  if (falsy(node.right)) return false;
+  if (node.right.type != PAIR) return false;
   // Otherwise, Look down the split.
   pair_t split = getPair(S, node.right);
   // If the branch already exists, recurse down it.
   value_t side = (bits & 1) ? split.left : split.right;
-  return truthy(side) && recursiveDel(S, side, value, bits >> 1);
+  return side.type == PAIR && recursiveDel(S, side, value, bits >> 1);
 }
 
 static value_t setDel(state_t* S, value_t set, value_t value) {
@@ -382,9 +435,53 @@ static value_t setDel(state_t* S, value_t set, value_t value) {
   return Bool(recursiveDel(S, set, value, hash(value)));
 }
 
+/*
 static value_t Map(state_t* S) {
   return Pair(S, MAP, Bool(false), Bool(false));
 }
+
+static bool recursiveSet(state_t* S, value_t map, value_t key, value_t value, int32_t bits) {
+  pair_t node = getPair(S, map);
+
+  // If the key matches, set the value.
+  if (node.left.type == PAIR) {
+    pair_t mapping = getPair(S, node.left);
+    if (eq(mapping.left, key)) {
+      // Only return true if the value changed
+      if (!eq(mapping.right, value)) {
+        setPair(S, node.left, cons(key, value));
+        return true;
+      }
+      return false;
+    }
+  }
+
+  // If there is no split, create a new one with mapping in it.
+  if (node.right.type != PAIR) {
+    setPair(S, map, cons(
+      node.left,
+
+    )())
+  }
+
+  pair_t split = getPair(S, node.right);
+  value_t side = (bits & 1) ? split.left : split.right;
+  // If the path exists, recurse down it.
+  if (side.type == PAIR) {
+    return recursiveSet(S, side, key, value, bits >> 1);
+  }
+  // Fill out the empty side with new entry
+  setPair(S, node.right, updateSide(split, bits & 1,
+    Pair(S, PAIR,
+      Pair(S, PAIR, key, value), Bool(false))));
+  return true;
+}
+
+static value_t mapSet(state_t* S, value_t map, value_t key, value_t value) {
+  assert(map.type == MAP);
+  return Bool(recursiveSet(S, map, key, value, hash(key)));
+}
+*/
 
 static void prettyPrint(state_t* S, value_t value);
 
@@ -539,7 +636,22 @@ static void dump(state_t* S, value_t value) {
   putchar('\n');
 }
 
+static uint32_t deadbeef_seed;
+static uint32_t deadbeef_beef = 0xdeadbeef;
+
+static uint32_t deadbeef_rand() {
+	deadbeef_seed = (deadbeef_seed << 7) ^ ((deadbeef_seed >> 25) + deadbeef_beef);
+	deadbeef_beef = (deadbeef_beef << 7) ^ ((deadbeef_beef >> 25) + 0xdeadbeef);
+	return deadbeef_seed;
+}
+
+static void deadbeef_srand(uint32_t x) {
+	deadbeef_seed = x;
+	deadbeef_beef = 0xdeadbeef;
+}
+
 int main() {
+  deadbeef_srand(42);
   assert(sizeof(value_t) == 4);
   assert(sizeof(pair_t) == 8);
   state_t* S = State();
@@ -567,48 +679,64 @@ int main() {
   // dump(S, Char(128513)); // 😁
   // dump(S, Char(128525)); // 😍
 
+  printf("\n--STACKS--\n");
+  printf("Creating an empty stack\n");
   value_t stack = Stack(S);
   dump(S, stack);
-  stackPush(S, stack, Char('A'));
+  printf("Pushing 'A' onto the stack\n");
+  dump(S, stackPush(S, stack, Char('A')));
   dump(S, stack);
-  // stackPush(S, stack, Char('B'));
-  // dump(S, stack);
-  // stackPush(S, stack, Char('C'));
-  // dump(S, stack);
-  // dump(S, stackPop(S, stack));
-  // dump(S, stack);
-  // dump(S, stackPop(S, stack));
-  // dump(S, stack);
-  // dump(S, stackPop(S, stack));
-  // dump(S, stack);
+  printf("Pushing 'B' onto the stack\n");
+  dump(S, stackPush(S, stack, Char('B')));
+  dump(S, stack);
+  printf("Pushing 'C' onto the stack\n");
+  dump(S, stackPush(S, stack, Char('C')));
+  dump(S, stack);
+  printf("Peeking on the stack\n");
+  dump(S, stackPeek(S, stack));
+  printf("Reading stack length\n");
+  dump(S, stackLength(S, stack));
+  printf("Popping from the stack\n");
   dump(S, stackPop(S, stack));
   dump(S, stack);
+  printf("Popping from the stack\n");
+  dump(S, stackPop(S, stack));
+  dump(S, stack);
+  printf("Popping from the stack\n");
+  dump(S, stackPop(S, stack));
+  dump(S, stack);
+  printf("Popping from the empty stack\n");
+  dump(S, stackPop(S, stack));
+  dump(S, stack);
+  printf("Peeking on the empty stack\n");
+  dump(S, stackPeek(S, stack));
+  printf("Reading empty stack length\n");
+  dump(S, stackLength(S, stack));
 
+  printf("\n--SETS--\n");
+  printf("Creating ane empty set\n");
   value_t set = Set(S);
   dump(S, set);
-  dump(S, setHas(S, set, Char('J')));
-  dump(S, setAdd(S, set, Char('J')));
-  dump(S, setHas(S, set, Char('J')));
+  for (int i = 0; i < 10; i++) {
+    int n = deadbeef_rand() % 20;
+    printf("set.add(%d) -> ", n);
+    dump(S, setAdd(S, set, Int(n)));
+    dump(S, set);
+    n = deadbeef_rand() % 20;
+    printf("set.del(%d) -> ", n);
+    dump(S, setDel(S, set, Int(n)));
+    dump(S, set);
+    for (int j = 0; j < 20; j++) {
+      putchar(truthy(setHas(S, set, Int(j))) ? '#' : '_');
+    }
+    putchar('\n');
+  }
+  dump(S, setAdd(S, set, Pair(S, cons(Bool(true),Char('b')))));
   dump(S, set);
-  dump(S, setAdd(S, set, Char('J')));
+  dump(S, setAdd(S, set, Rational(S, 1, 3)));
   dump(S, set);
-  dump(S, setAdd(S, set, Int(20)));
-  dump(S, set);
-  dump(S, setAdd(S, set, Int(20)));
-  dump(S, set);
-  dump(S, setAdd(S, set, Int(30)));
-  dump(S, set);
-  dump(S, setAdd(S, set, Int(40)));
-  dump(S, set);
-  dump(S, setAdd(S, set, Int(50)));
-  dump(S, set);
-  dump(S, setAdd(S, set, Int(60)));
-  dump(S, set);
-  dump(S, setDel(S, set, Int(50)));
-  dump(S, set);
-  dump(S, setDel(S, set, Int(50)));
-  dump(S, set);
-
-  value_t map = Map(S);
-  dump(S, map);
+  // value_t map = Map(S);
+  // dump(S, map);
+  // dump(S, mapSet(S, map, Int(10), Int(20)));
+  // dump(S, map);
 }
