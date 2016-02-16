@@ -412,7 +412,7 @@ static value_t setHas(state_t* S, value_t set, value_t value) {
   return Bool(recursiveHas(S, set, value, hash(value)));
 }
 
-static bool recursiveDel(state_t* S, value_t set, value_t value, int32_t bits) {
+static bool recursiveRemove(state_t* S, value_t set, value_t value, int32_t bits) {
   pair_t node = getPair(S, set);
   // If we find the value, remove it and we're done!
   if (eq(node.left, value)) {
@@ -427,20 +427,20 @@ static bool recursiveDel(state_t* S, value_t set, value_t value, int32_t bits) {
   pair_t split = getPair(S, node.right);
   // If the branch already exists, recurse down it.
   value_t side = (bits & 1) ? split.left : split.right;
-  return side.type == PAIR && recursiveDel(S, side, value, bits >> 1);
+  return side.type == PAIR && recursiveRemove(S, side, value, bits >> 1);
 }
 
-static value_t setDel(state_t* S, value_t set, value_t value) {
+static value_t setRemove(state_t* S, value_t set, value_t value) {
   assert(set.type == SET);
-  return Bool(recursiveDel(S, set, value, hash(value)));
+  return Bool(recursiveRemove(S, set, value, hash(value)));
 }
 
-/*
+
 static value_t Map(state_t* S) {
-  return Pair(S, MAP, Bool(false), Bool(false));
+  return RawPair(S, MAP, cons(Bool(false), Bool(false)));
 }
 
-static bool recursiveSet(state_t* S, value_t map, value_t key, value_t value, int32_t bits) {
+static bool recursiveSet(state_t* S, value_t map, value_t key, value_t value, value_t slot, int32_t bits) {
   pair_t node = getPair(S, map);
 
   // If the key matches, set the value.
@@ -456,32 +456,97 @@ static bool recursiveSet(state_t* S, value_t map, value_t key, value_t value, in
     }
   }
 
-  // If there is no split, create a new one with mapping in it.
+  // If we find a free slot and havn't seen one yet, record it.
+  if (falsy(node.left) && slot.type == BOOLEAN) {
+    slot = map;
+  }
+
+  // If there are no further subtrees, stop here.
   if (node.right.type != PAIR) {
-    setPair(S, map, cons(
-      node.left,
-
-    )())
+    // If we had seen an empty slot, use it.
+    if (slot.type != BOOLEAN) {
+      setLeft(S, slot, Pair(S, cons(key, value)));
+      return true;
+    }
+    // Otherwise, create a new split and populate one side with slot and value.
+    slot = Pair(S, cons(Pair(S, cons(key, value)), Bool(false)));
+    setPair(S, map, cons(node.left, Pair(S, bits & 1
+      ? cons(slot, Bool(false))
+      : cons(Bool(false), slot))));
+    return true;
   }
 
+  // If there is a subtree on the matching side, recurse into it.
   pair_t split = getPair(S, node.right);
-  value_t side = (bits & 1) ? split.left : split.right;
-  // If the path exists, recurse down it.
+  value_t side = bits & 1 ? split.left : split.right;
   if (side.type == PAIR) {
-    return recursiveSet(S, side, key, value, bits >> 1);
+    return recursiveSet(S, side, key, value, slot, bits >> 1);
   }
-  // Fill out the empty side with new entry
-  setPair(S, node.right, updateSide(split, bits & 1,
-    Pair(S, PAIR,
-      Pair(S, PAIR, key, value), Bool(false))));
+
+  // If we've reached this end and had seen a slot, use it now.
+  if (slot.type != BOOLEAN) {
+    setLeft(S, slot, Pair(S, cons(key, value)));
+    return true;
+  }
+
+  // Otherwise fill out the other half of the split.
+  side = Pair(S, cons(Pair(S, cons(key, value)), Bool(false)));
+  setPair(S, node.right, updateSide(split, bits & 1, side));
   return true;
 }
 
 static value_t mapSet(state_t* S, value_t map, value_t key, value_t value) {
-  assert(map.type == MAP);
-  return Bool(recursiveSet(S, map, key, value, hash(key)));
+  if (map.type != MAP) return Bool(false);
+  return Bool(recursiveSet(S, map, key, value, Bool(false), hash(key)));
 }
-*/
+
+static bool recursiveDelete(state_t* S, value_t map, value_t key, int32_t bits) {
+  pair_t node = getPair(S, map);
+  // If we find the key, remove the mapping and we're done!
+  if (node.left.type == PAIR) {
+    pair_t mapping = getPair(S, node.left);
+    if (eq(mapping.left, key)) {
+      setPair(S, map, cons(
+        Bool(false),
+        node.right));
+      return true;
+    }
+  }
+  // If there is no tree/split yet, stop looking, it's not here.
+  if (node.right.type != PAIR) return false;
+  // Otherwise, Look down the split.
+  pair_t split = getPair(S, node.right);
+  // If the branch already exists, recurse down it.
+  value_t side = (bits & 1) ? split.left : split.right;
+  return side.type == PAIR && recursiveDelete(S, side, key, bits >> 1);
+}
+
+static value_t mapDelete(state_t* S, value_t map, value_t key) {
+  if (map.type != MAP) return Bool(false);
+  return Bool(recursiveDelete(S, map, key, hash(key)));
+}
+
+static value_t recursiveRead(state_t* S, value_t map, value_t key, int32_t bits) {
+  pair_t node = getPair(S, map);
+  // If we find the key, return the value!
+  if (node.left.type == PAIR) {
+    pair_t mapping = getPair(S, node.left);
+    if (eq(mapping.left, key)) return mapping.right;
+  }
+  // If there is no tree/split yet, stop looking, it's not here.
+  if (node.right.type != PAIR) return Bool(false);
+  // Otherwise, Look down the split.
+  pair_t split = getPair(S, node.right);
+  // If the branch already exists, recurse down it.
+  value_t side = (bits & 1) ? split.left : split.right;
+  if (side.type == PAIR) return recursiveRead(S, side, key, bits >> 1);
+  return Bool(false);
+}
+
+static value_t mapRead(state_t* S, value_t map, value_t key) {
+  if (map.type != MAP) return Bool(false);
+  return recursiveRead(S, map, key, hash(key));
+}
 
 static void prettyPrint(state_t* S, value_t value);
 
@@ -501,24 +566,24 @@ static void printSetNode(state_t* S, value_t node, bool later) {
   printSetNode(S, split.left, later);
 }
 
-// static void printMapNode(state_t* S, value_t node, bool later) {
-//   if (!node) return;
-//   pair_t pair = getPair(S, node);
-//   value_t value = left(pair);
-//   if (value) {
-//     if (later) putchar(' ');
-//     pair_t mapping = getPair(S, value);
-//     prettyPrint(S, left(mapping));
-//     printf(":");
-//     prettyPrint(S, right(mapping));
-//     later = true;
-//   }
-//   value = right(pair);
-//   if (!value) return;
-//   pair_t split = getPair(S, value);
-//   printMapNode(S, right(split), later);
-//   printMapNode(S, left(split), later);
-// }
+static void printMapNode(state_t* S, value_t node, bool later) {
+  if (falsy(node)) return;
+  pair_t pair = getPair(S, node);
+  if (pair.left.type == PAIR) {
+    if (later) putchar(' ');
+    pair_t mapping = getPair(S, pair.left);
+    prettyPrint(S, mapping.left);
+    putchar(':');
+    prettyPrint(S, mapping.right);
+    later = true;
+  }
+  node = pair.right;
+  if (falsy(node)) return;
+  pair_t split = getPair(S, node);
+  printMapNode(S, split.right, later);
+  printMapNode(S, split.left, later);
+}
+
 
 static void prettyPrint(state_t* S, value_t value) {
   switch (value.type) {
@@ -586,7 +651,7 @@ static void prettyPrint(state_t* S, value_t value) {
     case FRAME_BUFFER:
       printf("TODO: print FRAME_BUFFER");
       break;
-    case PAIR: case MAP: {
+    case PAIR: {
       pair_t pair = getPair(S, value);
       putchar('(');
       prettyPrint(S, pair.left);
@@ -614,11 +679,11 @@ static void prettyPrint(state_t* S, value_t value) {
       printSetNode(S, value, false);
       putchar('>');
       break;
-    // case MAP:
-    //   putchar('{');
-    //   printMapNode(S, value, false);
-    //   putchar('}');
-    //   break;
+    case MAP:
+      putchar('{');
+      printMapNode(S, value, false);
+      putchar('}');
+      break;
     case FUNCTION:
       printf("TODO: print FUNCTION");
       break;
@@ -680,41 +745,41 @@ int main() {
   // dump(S, Char(128525)); // 😍
 
   printf("\n--STACKS--\n");
-  printf("Creating an empty stack\n");
+  printf("Creating an empty stack -> ");
   value_t stack = Stack(S);
   dump(S, stack);
-  printf("Pushing 'A' onto the stack\n");
+  printf("Pushing 'A' onto the stack -> ");
   dump(S, stackPush(S, stack, Char('A')));
   dump(S, stack);
-  printf("Pushing 'B' onto the stack\n");
+  printf("Pushing 'B' onto the stack -> ");
   dump(S, stackPush(S, stack, Char('B')));
   dump(S, stack);
-  printf("Pushing 'C' onto the stack\n");
+  printf("Pushing 'C' onto the stack -> ");
   dump(S, stackPush(S, stack, Char('C')));
   dump(S, stack);
-  printf("Peeking on the stack\n");
+  printf("Peeking on the stack -> ");
   dump(S, stackPeek(S, stack));
-  printf("Reading stack length\n");
+  printf("Reading stack length -> ");
   dump(S, stackLength(S, stack));
-  printf("Popping from the stack\n");
+  printf("Popping from the stack -> ");
   dump(S, stackPop(S, stack));
   dump(S, stack);
-  printf("Popping from the stack\n");
+  printf("Popping from the stack -> ");
   dump(S, stackPop(S, stack));
   dump(S, stack);
-  printf("Popping from the stack\n");
+  printf("Popping from the stack -> ");
   dump(S, stackPop(S, stack));
   dump(S, stack);
-  printf("Popping from the empty stack\n");
+  printf("Popping from the empty stack -> ");
   dump(S, stackPop(S, stack));
   dump(S, stack);
-  printf("Peeking on the empty stack\n");
+  printf("Peeking on the empty stack -> ");
   dump(S, stackPeek(S, stack));
-  printf("Reading empty stack length\n");
+  printf("Reading empty stack length -> ");
   dump(S, stackLength(S, stack));
 
   printf("\n--SETS--\n");
-  printf("Creating ane empty set\n");
+  printf("Creating ane empty set -> ");
   value_t set = Set(S);
   dump(S, set);
   for (int i = 0; i < 10; i++) {
@@ -724,19 +789,67 @@ int main() {
     dump(S, set);
     n = deadbeef_rand() % 20;
     printf("set.del(%d) -> ", n);
-    dump(S, setDel(S, set, Int(n)));
+    dump(S, setRemove(S, set, Int(n)));
     dump(S, set);
     for (int j = 0; j < 20; j++) {
       putchar(truthy(setHas(S, set, Int(j))) ? '#' : '_');
     }
     putchar('\n');
   }
+  printf("Adding a pair to the set -> ");
   dump(S, setAdd(S, set, Pair(S, cons(Bool(true),Char('b')))));
   dump(S, set);
+  printf("Adding a rational to the set -> ");
   dump(S, setAdd(S, set, Rational(S, 1, 3)));
   dump(S, set);
-  // value_t map = Map(S);
-  // dump(S, map);
-  // dump(S, mapSet(S, map, Int(10), Int(20)));
-  // dump(S, map);
+
+  printf("\n--MAPS\n");
+  printf("Creating an empty map: ");
+  value_t map = Map(S);
+  dump(S, map);
+  printf("Setting mapping from 10 to 20 -> ");
+  dump(S, mapSet(S, map, Int(10), Int(20)));
+  dump(S, map);
+  printf("Setting mapping from 'A' to 42 -> ");
+  dump(S, mapSet(S, map, Char('A'), Int(42)));
+  dump(S, map);
+  printf("Setting mapping from 'B' to -5 -> ");
+  dump(S, mapSet(S, map, Char('B'), Int(-5)));
+  dump(S, map);
+  printf("Setting mapping from 'A' to 0 -> ");
+  dump(S, mapSet(S, map, Char('A'), Int(0)));
+  dump(S, map);
+  printf("Setting mapping from 'A' to 0 -> ");
+  dump(S, mapSet(S, map, Char('A'), Int(0)));
+  dump(S, map);
+  printf("Deleting mapping from 'A' -> ");
+  dump(S, mapDelete(S, map, Char('A')));
+  dump(S, map);
+  printf("Deleting mapping from 10 -> ");
+  dump(S, mapDelete(S, map, Int(10)));
+  dump(S, map);
+  printf("Setting mapping from 'A' to 100 -> ");
+  dump(S, mapSet(S, map, Char('A'), Int(100)));
+  dump(S, map);
+  printf("Setting mapping from 10 to 20 -> ");
+  dump(S, mapSet(S, map, Int(10), Int(20)));
+  dump(S, map);
+  printf("Reading mapping from 'A' -> ");
+  dump(S, mapRead(S, map, Char('A')));
+  printf("Reading mapping from 10 -> ");
+  dump(S, mapRead(S, map, Int(10)));
+  printf("Reading mapping from 20 -> ");
+  dump(S, mapRead(S, map, Int(20)));
+  for (int i = 0; i < 10; i++) {
+    int k = deadbeef_rand() % 20;
+    int v = deadbeef_rand() % 20;
+    printf("map.set(%d, %d) -> ", k, v);
+    dump(S, mapSet(S, map, Int(k), Int(v)));
+    dump(S, map);
+    k = deadbeef_rand() % 20;
+    printf("map.delete(%d) -> ", k);
+    dump(S, mapDelete(S, map, Int(k)));
+    dump(S, map);
+  }
+
 }
