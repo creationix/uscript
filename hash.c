@@ -11,6 +11,14 @@
 #define START_BYTES 1024
 #define START_INTS 3
 
+#define RED 0xff2200
+#define ORN 0xf08000
+#define YEL 0xe8e800
+#define GRN 0x22ee00
+#define BLU 0x0088ff
+#define PUR 0x9000f0
+#define OFF 0x000000
+
 typedef enum type_e {
   BOOLEAN = 0,
   INTEGER = 1,
@@ -610,12 +618,14 @@ static value_t RawBuffer(state_t* S, type_t type, int32_t length, const uint8_t*
   };
 }
 
-static value_t String(state_t* S, const char* str) {
-  return RawBuffer(S, STRING, -1, (uint8_t*)str);
+static value_t String(state_t* S, int32_t len, const uint8_t* str) {
+  return RawBuffer(S, STRING, len, str);
 }
 
-static value_t Symbol(state_t* S, const char* str) {
-  int32_t len = (int32_t)strlen(str);
+static value_t Symbol(state_t* S, int32_t len, const uint8_t* str) {
+  if (len < 0) {
+    len = (int32_t)strlen((const char*)str);
+  }
   uint8_t* offset = S->bytes;
   while (true) {
     buffer_t* buf = (buffer_t*)offset;
@@ -624,7 +634,7 @@ static value_t Symbol(state_t* S, const char* str) {
       return RawBuffer(S, SYMBOL, len, (uint8_t*)str);
     }
     // If we find a matching string, reuse the existing value.
-    if (buf->gc && buf->length == len && !strcmp((char*)buf->data, str)) {
+    if (buf->gc && buf->length == len && !strcmp((char*)buf->data, (const char*)str)) {
       return (value_t){
         .gc = 1,
         .type = SYMBOL,
@@ -834,7 +844,7 @@ static void deadbeef_srand(uint32_t x) {
 	deadbeef_beef = 0xdeadbeef;
 }
 
-int main() {
+void testValues() {
   deadbeef_srand(42);
   assert(sizeof(value_t) == 4);
   assert(sizeof(pair_t) == 8);
@@ -1002,18 +1012,11 @@ int main() {
 
   dump(S, stackReverse(S, history));
 
-  dump(S, String(S, "Hello World"));
-  dump(S, Symbol(S, "name"));
+  dump(S, String(S, -1, (const uint8_t*)"Hello World"));
+  dump(S, Symbol(S, -1, (const uint8_t*)"name"));
   dump(S, Buffer(S, 5, 0));
   dump(S, Buffer(S, 4, (uint8_t[]){0xde,0xad,0xbe,0xef}));
   dump(S, Pixels(S, 8, 0));
-  const uint32_t RED = 0xff2200;
-  const uint32_t ORN = 0xf08000;
-  const uint32_t YEL = 0xe8e800;
-  const uint32_t GRN = 0x22ee00;
-  const uint32_t BLU = 0x0088ff;
-  const uint32_t PUR = 0x9000f0;
-  const uint32_t OFF = 0x000000;
   dump(S, Pixels(S, 4*8, (uint32_t[]){
     OFF, ORN, YEL, OFF,
     PUR, RED, ORN, YEL,
@@ -1025,7 +1028,189 @@ int main() {
     OFF, RED, ORN, OFF,
   }));
   printf("Testing equality of two symbols with same contents: ");
-  dump(S, Bool(eq(Symbol(S, "test"), Symbol(S, "test"))));
+  dump(S, Bool(eq(Symbol(S, -1, (const uint8_t*)"test"), Symbol(S, -1, (const uint8_t*)"test"))));
   printf("Testing equality of two strings with same contents: ");
-  dump(S, Bool(eq(String(S, "test"), String(S, "test"))));
+  dump(S, Bool(eq(String(S, -1, (const uint8_t*)"test"), String(S, -1, (const uint8_t*)"test"))));
+}
+
+typedef enum opcode_e {
+  LitFalse,
+  LitTrue,
+  LitInt, // num
+  LitRational, // num num
+  LitChar, // num
+  LitString, // len:num byte*
+  LitSymbol, // len:num byte*
+  LitBuffer, // len:num byte*
+  LitPixels, // len:num word*
+  LitPair, // value value
+  LitStack, // len:num value*
+  LitSet, // len:num value*
+  LitMap, // len:num (value/value)*
+  Block, // len:num value*
+} opcode_t;
+
+// integer is encoded msxxxxx mxxxxxxx* where s is sign (1 for negative) and
+// m is more.  All but the last byte will have m set 1.
+// Holds ints from -64 to 64
+#define Int7(x) \
+          0x7f & x
+// Holds ints from -8192 to 8191
+#define Int14(x) \
+  0x80 | (0x7f & (x >> 7)),\
+          0x7f & x
+// Holds ints from -1048576 to 1048575
+#define Int21(x) \
+  0x80 | (0x7f & (x >> 14)),\
+  0x80 | (0x7f & (x >> 7)),\
+          0x7f & x
+// Holds ints from -134217728 to 134217727
+#define Int28(x) \
+0x80 | (0x7f & (x >> 21)),\
+0x80 | (0x7f & (x >> 14)),\
+0x80 | (0x7f & (x >> 7)),\
+        0x7f & x
+// Holds ints from -17179869184 to 17179869183
+#define Int35(x) \
+0x80 | (0x7f & (x >> 28)),\
+0x80 | (0x7f & (x >> 21)),\
+0x80 | (0x7f & (x >> 14)),\
+0x80 | (0x7f & (x >> 7)),\
+        0x7f & x
+#define Uint32(x) \
+0xff & (x >> 24),\
+0xff & (x >> 16),\
+0xff & (x >> 8),\
+0xff & x
+
+static uint8_t* code = (uint8_t[]){
+  LitTrue,
+  LitInt, Int7(25),
+  LitInt, Int7(-25),
+  LitInt, Int14(42),
+  LitInt, Int14(-42),
+  LitInt, Int21(5000),
+  LitInt, Int21(-5000),
+  LitRational, Int21(-5000), Int14(111),
+  LitChar, Int14('%'),
+  LitString, Int7(11), 'H','e','l','l','o',' ','W','o','r','l','d',
+  LitSymbol, Int7(4), 'n','a','m','e',
+  LitBuffer, Int21(4*4), Uint32(RED),Uint32(BLU),Uint32(ORN),Uint32(YEL),
+  LitPixels, Int21(4), Uint32(RED),Uint32(BLU),Uint32(ORN),Uint32(YEL),
+  LitPair, LitTrue, LitFalse,
+  LitStack, Int7(3), LitTrue, LitInt, Int7(10), LitChar, Int14('%'),
+  LitSet, Int7(3), LitTrue, LitChar, Int14('%'), LitChar, Int14('*'),
+  LitMap, Int7(2),
+    LitSymbol, Int7(4), 'n','a','m','e',
+      LitString, Int7(3), 'T','i','m',
+    LitSymbol, Int7(3), 'a','g','e',
+      LitInt, Int14(33),
+  LitFalse,
+};
+
+uint8_t* readInt(uint8_t* pc, int64_t* out) {
+  *out = 0;
+  int64_t extend = *pc & 0x40 ? ~0 : 0;
+  do {
+    extend <<= 7;
+    *out = (*out << 7) | (*pc & 0x7f);
+  } while (*pc++ & 0x80);
+  *out |= extend;
+  return pc;
+}
+
+uint8_t* eval(state_t* S, uint8_t* pc, value_t* out) {
+  int64_t num, num2;
+  switch ((opcode_t)*pc++) {
+    case LitFalse:
+      *out = Bool(false);
+      return pc;
+    case LitTrue:
+      *out = Bool(true);
+      return pc;
+    case LitInt: // num
+      pc = readInt(pc, &num);
+      *out = Integer(S, num);
+      return pc;
+    case LitRational: // num num
+      pc = readInt(pc, &num);
+      pc = readInt(pc, &num2);
+      *out = Rational(S, num, num2);
+      return pc;
+    case LitChar: // num
+      pc = readInt(pc, &num);
+      *out = Char((int32_t)num);
+      return pc;
+    case LitString: // len:num byte*
+      pc = readInt(pc, &num);
+      *out = String(S, (int32_t)num, pc);
+      return pc + num;
+    case LitSymbol: // len:num byte*
+      pc = readInt(pc, &num);
+      *out = Symbol(S, (int32_t)num, pc);
+      return pc + num;
+    case LitBuffer: // len:num byte*
+      pc = readInt(pc, &num);
+      *out = Buffer(S, (int32_t)num, pc);
+      return pc + num;
+    case LitPixels: // len:num byte*
+      pc = readInt(pc, &num);
+      *out = Pixels(S, (int32_t)num, (uint32_t*)pc);
+      return pc + num * 4;
+    case LitPair: { // value value
+      value_t left, right;
+      pc = eval(S, pc, &left);
+      pc = eval(S, pc, &right);
+      *out = Pair(S, cons(left, right));
+      return pc;
+    }
+    case LitStack: // len:num value*
+      pc = readInt(pc, &num);
+      *out = Stack(S);
+      for (int i = 0; i < num; i++) {
+        value_t value;
+        pc = eval(S, pc, &value);
+        stackPush(S, *out, value);
+      }
+      return pc;
+    case LitSet: // len:num value*
+      pc = readInt(pc, &num);
+      *out = Set(S);
+      for (int i = 0; i < num; i++) {
+        value_t value;
+        pc = eval(S, pc, &value);
+        setAdd(S, *out, value);
+      }
+      return pc;
+    case LitMap: // len:num (value/value)*
+      pc = readInt(pc, &num);
+      *out = Map(S);
+      for (int i = 0; i < num; i++) {
+        value_t key;
+        value_t value;
+        pc = eval(S, pc, &key);
+        pc = eval(S, pc, &value);
+        mapSet(S, *out, key, value);
+      }
+      return pc;
+    case Block: // len:num value*
+      pc = readInt(pc, &num);
+      for (int i = 0; i < num; i++) {
+        pc = eval(S, pc, out);
+      }
+      return pc;
+  }
+  return pc;
+}
+
+int main() {
+  value_t value;
+  uint8_t* pc = code;
+  state_t* S = State();
+  while (*pc) {
+    pc = eval(S, pc, &value);
+    prettyPrint(S, value);
+    putchar('\n');
+  }
+  return 0;
 }
