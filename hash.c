@@ -1105,6 +1105,7 @@ static uint8_t* code = (uint8_t[]){
       LitString, Int7(3), 'T','i','m',
     LitSymbol, Int7(3), 'a','g','e',
       LitInt, Int14(33),
+  Block, Int7(2), LitTrue, LitFalse,
   LitFalse,
 };
 
