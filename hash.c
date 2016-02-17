@@ -615,8 +615,24 @@ static value_t String(state_t* S, const char* str) {
 }
 
 static value_t Symbol(state_t* S, const char* str) {
-  // TODO: intern to make sure we don't have duplicates.
-  return RawBuffer(S, SYMBOL, -1, (uint8_t*)str);
+  int32_t len = (int32_t)strlen(str);
+  uint8_t* offset = S->bytes;
+  while (true) {
+    buffer_t* buf = (buffer_t*)offset;
+    // If we reach the end, it's not here, just add a new buffer.
+    if (offset > S->bytes + S->num_bytes || !(buf->gc || buf->length)) {
+      return RawBuffer(S, SYMBOL, len, (uint8_t*)str);
+    }
+    // If we find a matching string, reuse the existing value.
+    if (buf->gc && buf->length == len && !strcmp((char*)buf->data, str)) {
+      return (value_t){
+        .gc = 1,
+        .type = SYMBOL,
+        .value = (int32_t)(offset - S->bytes)
+      };
+    }
+    offset += buf->length + 4;
+  }
 }
 
 static value_t Buffer(state_t* S, int32_t length, const uint8_t* data) {
@@ -1008,4 +1024,8 @@ int main() {
     RED, ORN, YEL, GRN,
     OFF, RED, ORN, OFF,
   }));
+  printf("Testing equality of two symbols with same contents: ");
+  dump(S, Bool(eq(Symbol(S, "test"), Symbol(S, "test"))));
+  printf("Testing equality of two strings with same contents: ");
+  dump(S, Bool(eq(String(S, "test"), String(S, "test"))));
 }
