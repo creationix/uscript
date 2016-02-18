@@ -40,15 +40,16 @@ value_t Pair(state_t* S, value_t left, value_t right) {
   return RawPair(S, PAIR, left, right);
 }
 
-value_t Rational(state_t* S, int64_t n, int64_t d) {
-  return RawPair(S, RATIONAL, Integer(S, n), Integer(S, d));
-}
-
-pair_t getPair(state_t* S, value_t value) {
-  return S->pairs[value.value];
+pair_t getPair(state_t* S, value_t slot) {
+  if (!isPair(slot)) return (pair_t) {
+    .left = Bool(false),
+    .right = Bool(false)
+  };
+  return S->pairs[slot.value];
 }
 
 void setPair(state_t* S, value_t slot, value_t left, value_t right) {
+  if (!isPair(slot)) return;
   S->pairs[slot.value] = (pair_t) {
     .left = left,
     .right = right
@@ -56,6 +57,7 @@ void setPair(state_t* S, value_t slot, value_t left, value_t right) {
 }
 
 void setLeft(state_t* S, value_t slot, value_t value) {
+  if (!isPair(slot)) return;
   S->pairs[slot.value] = (pair_t){
     .left = value,
     .right = S->pairs[slot.value].right
@@ -63,8 +65,19 @@ void setLeft(state_t* S, value_t slot, value_t value) {
 }
 
 void setRight(state_t* S, value_t slot, value_t value) {
+  if (!isPair(slot)) return;
   S->pairs[slot.value] = (pair_t){
     .left = S->pairs[slot.value].left,
     .right = value
   };
+}
+
+value_t getLeft(state_t* S, value_t slot) {
+  if (!isPair(slot)) return Bool(false);
+  return S->pairs[slot.value].left;
+}
+
+value_t getRight(state_t* S, value_t slot) {
+  if (!isPair(slot)) return Bool(false);
+  return S->pairs[slot.value].right;
 }
