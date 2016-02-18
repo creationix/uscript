@@ -47,10 +47,16 @@ void prettyPrint(state_t* S, value_t value) {
       printf("%"PRId64, toInt(S, value));
       break;
     case RATIONAL: {
-      pair_t pair = getPair(S, value);
-      prettyPrint(S, pair.left);
+      rational_t r = getRational(S, value);
+      if (r.dem == 0) {
+        if (r.num > 0) printf("Inf");
+        else if (r.num < 0) printf("-Inf");
+        else printf("NaN");
+        break;
+      }
+      printf("%"PRId64, r.num);
       putchar('/');
-      prettyPrint(S, pair.right);
+      printf("%"PRId64, r.dem);
       break;
     }
     case CHARACTER:

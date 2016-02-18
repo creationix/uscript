@@ -122,6 +122,24 @@ int main() {
   assert(toInt(S, getLeft(S, v)) == 5);
   assert(toInt(S, getRight(S, v)) == 6);
 
+  v = numberAdd(S, Rational(S, 10, 0), Int(-500));
+  dump(S, v);
+  assert(v.type == RATIONAL);
+  assert(toInt(S, getLeft(S, v)) == 1);
+  assert(toInt(S, getRight(S, v)) == 0);
+
+  v = numberAdd(S, Rational(S, -10, 0), Int(-500));
+  dump(S, v);
+  assert(v.type == RATIONAL);
+  assert(toInt(S, getLeft(S, v)) == -1);
+  assert(toInt(S, getRight(S, v)) == 0);
+
+  v = numberAdd(S, Rational(S, -10, 0), Rational(S, 20, 0));
+  dump(S, v);
+  assert(v.type == RATIONAL);
+  assert(toInt(S, getLeft(S, v)) == 0);
+  assert(toInt(S, getRight(S, v)) == 0);
+
   v = numberSub(S, Int(1), Int(2));
   dump(S, v);
   assert(v.type == INTEGER);
@@ -230,7 +248,6 @@ int main() {
   dump(S, v);
   assert(v.type == INTEGER);
   assert(v.value == 2);
-
 
   freeState(S);
   return 0;

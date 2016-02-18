@@ -83,7 +83,10 @@ int64_t toInt(state_t* S, value_t value) {
 }
 
 value_t Rational(state_t* S, int64_t num , int64_t dem) {
-  if (num == 0) {
+  if (dem == 0) {
+    num = num > 0 ? 1 : num < 0 ? -1 : 0;
+  }
+  else if (num == 0) {
     dem = 1;
   }
   else if (dem != 1) {
@@ -124,20 +127,27 @@ rational_t getRational(state_t* S, value_t value) {
 }
 
 static rational_t ratAdd(rational_t a, rational_t b) {
+  // If the denominators match, we can do simple addition
+  // This also handles -Inf + Inf = NaN since .num is normalized to -1 and 1.
   if (a.dem == b.dem) {
     return (rational_t){
       .num = a.num + b.num,
       .dem = a.dem
     };
   }
-  int64_t n, d, g;
-  g = gcd(a.dem, b.dem);
-  n = a.num * (b.dem / g) +
-      b.num * (a.dem / g);
-  d = a.dem / g * b.dem;
+
+  // Infinity + anything is still Infinity
+  if (a.dem == 0) return a;
+  if (b.dem == 0) return b;
+
+  // Use the GCD to pull out common factors while adding.
+  // We divide as early as possible to prevent integer overflows.
+  // Otherwise we would just defer to the Rational constructor's factoring.
+  int64_t g = gcd(a.dem, b.dem);
   return (rational_t){
-    .num = n,
-    .dem = d
+    .num = a.num * (b.dem / g) +
+           b.num * (a.dem / g),
+    .dem = (a.dem / g) * b.dem
   };
 }
 static rational_t ratSub(rational_t a, rational_t b) {
