@@ -1,6 +1,6 @@
 LINT= -Wall -Wextra -pedantic -Wpadded -Fno-strict-aliasing -std=c99 -Werror
 CFLAGS= -ffunction-sections -fdata-sections
-LDFLAGS= -static -flto -O3 -Wl,-gc-sections -s
+LDFLAGS= -static -flto -Os -Wl,-gc-sections -s
 CC= musl-gcc
 
 FILES= \
@@ -13,6 +13,8 @@ FILES= \
 	src/stack.c \
 	src/uscript.c \
 	src/utils.c
+
+all: test main
 
 main: main.c ${FILES}
 	${CC} ${LINT} ${CFLAGS} ${LDFLAGS} ${FILES} $< -o $@
