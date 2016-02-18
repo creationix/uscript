@@ -93,6 +93,7 @@ typedef struct state_s {
 // STATE
 state_t* State();
 void freeState(state_t* S);
+uint8_t* eval(state_t* S, uint8_t* pc, value_t* out);
 
 // NUMBERS
 value_t Char(int32_t code);
@@ -137,5 +138,58 @@ value_t Map(state_t* S);
 value_t mapSet(state_t* S, value_t map, value_t key, value_t value);
 value_t mapDelete(state_t* S, value_t map, value_t key);
 value_t mapRead(state_t* S, value_t map, value_t key);
+
+// BYTECODE
+
+typedef enum opcode_e {
+  LitFalse,
+  LitTrue,
+  LitInt, // num
+  LitRational, // num num
+  LitChar, // num
+  LitString, // len:num byte*
+  LitSymbol, // len:num byte*
+  LitBuffer, // len:num byte*
+  LitPixels, // len:num word*
+  LitPair, // value value
+  LitStack, // len:num value*
+  LitSet, // len:num value*
+  LitMap, // len:num (value/value)*
+  Block, // len:num value*
+} opcode_t;
+
+
+// integer is encoded msxxxxx mxxxxxxx* where s is sign (1 for negative) and
+// m is more.  All but the last byte will have m set 1.
+// Holds ints from -64 to 64
+#define Int7(x) \
+          0x7f & x
+// Holds ints from -8192 to 8191
+#define Int14(x) \
+  0x80 | (0x7f & (x >> 7)),\
+          0x7f & x
+// Holds ints from -1048576 to 1048575
+#define Int21(x) \
+  0x80 | (0x7f & (x >> 14)),\
+  0x80 | (0x7f & (x >> 7)),\
+          0x7f & x
+// Holds ints from -134217728 to 134217727
+#define Int28(x) \
+0x80 | (0x7f & (x >> 21)),\
+0x80 | (0x7f & (x >> 14)),\
+0x80 | (0x7f & (x >> 7)),\
+        0x7f & x
+// Holds ints from -17179869184 to 17179869183
+#define Int35(x) \
+0x80 | (0x7f & (x >> 28)),\
+0x80 | (0x7f & (x >> 21)),\
+0x80 | (0x7f & (x >> 14)),\
+0x80 | (0x7f & (x >> 7)),\
+        0x7f & x
+#define Uint32(x) \
+0xff & (x >> 24),\
+0xff & (x >> 16),\
+0xff & (x >> 8),\
+0xff & x
 
 #endif

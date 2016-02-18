@@ -1,6 +1,6 @@
 LINT= -Wall -Wextra -pedantic -Wpadded -Fno-strict-aliasing -std=c99 -Werror
 CFLAGS= -ffunction-sections -fdata-sections
-LDFLAGS= -static -flto -Os -Wl,-gc-sections -s
+LDFLAGS= -static -flto -O3 -Wl,-gc-sections -s
 CC= musl-gcc
 
 FILES= \
@@ -12,11 +12,20 @@ FILES= \
 	src/set.c \
 	src/stack.c \
 	src/uscript.c \
-	src/utils.c \
-	main.c
+	src/utils.c
 
-vm: ${FILES}
-	${CC} ${LINT} ${CFLAGS} ${LDFLAGS} ${FILES} -o vm
+TESTS=\
+	tests/test.numbers
+
+main: main.c ${FILES}
+	${CC} ${LINT} ${CFLAGS} ${LDFLAGS} ${FILES} $< -o $@
+
+test: ${TESTS}
+	tests/test.numbers
+
+tests/test.%: tests/test-%.c ${FILES}
+		${CC} ${LINT} ${CFLAGS} ${LDFLAGS} ${FILES} $< -o $@
 
 clean:
-	rm -f vm
+	rm -f main
+	rm -f tests/test.*
