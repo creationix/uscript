@@ -14,14 +14,15 @@ FILES= \
 	src/uscript.c \
 	src/utils.c
 
-TESTS=\
-	tests/test.numbers
-
 main: main.c ${FILES}
 	${CC} ${LINT} ${CFLAGS} ${LDFLAGS} ${FILES} $< -o $@
 
-test: ${TESTS}
-	tests/test.numbers
+test: \
+	test.numbers \
+	test.stack
+
+test.%: tests/test.%
+	$<
 
 tests/test.%: tests/test-%.c ${FILES}
 		${CC} ${LINT} ${CFLAGS} ${LDFLAGS} ${FILES} $< -o $@
