@@ -2,14 +2,14 @@
 #include <stdio.h>
 #include <inttypes.h>
 
-static void printSetNode(state_t* S, value_t node, bool later) {
+static void printSetNode(state_t* S, value_t node, bool* later) {
   if (falsy(node)) return;
   pair_t pair = getPair(S, node);
   node = pair.left;
   if (truthy(node)) {
-    if (later) putchar(' ');
+    if (*later) putchar(' ');
     prettyPrint(S, node);
-    later = true;
+    *later = true;
   }
   node = pair.right;
   if (falsy(node)) return;
@@ -18,16 +18,16 @@ static void printSetNode(state_t* S, value_t node, bool later) {
   printSetNode(S, split.left, later);
 }
 
-static void printMapNode(state_t* S, value_t node, bool later) {
+static void printMapNode(state_t* S, value_t node, bool* later) {
   if (falsy(node)) return;
   pair_t pair = getPair(S, node);
   if (pair.left.type == PAIR) {
-    if (later) putchar(' ');
+    if (*later) putchar(' ');
     pair_t mapping = getPair(S, pair.left);
     prettyPrint(S, mapping.left);
     putchar(':');
     prettyPrint(S, mapping.right);
-    later = true;
+    *later = true;
   }
   node = pair.right;
   if (falsy(node)) return;
@@ -152,16 +152,20 @@ void prettyPrint(state_t* S, value_t value) {
       }
       putchar(']');
       break;
-    case SET:
+    case SET: {
       putchar('|');
-      printSetNode(S, value, false);
+      bool later = false;
+      printSetNode(S, value, &later);
       putchar('|');
       break;
-    case MAP:
+    }
+    case MAP: {
       putchar('{');
-      printMapNode(S, value, false);
+      bool later = false;
+      printMapNode(S, value, &later);
       putchar('}');
       break;
+    }
     case FUNCTION:
       printf("TODO: print FUNCTION");
       break;

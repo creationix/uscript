@@ -22,7 +22,8 @@ main: main.c ${FILES}
 test: \
 	test.numbers \
 	test.stack \
-	test.pair
+	test.pair \
+	test.set
 
 test.%: tests/test.%
 	$<
