@@ -3,6 +3,14 @@
 #include <stdio.h>
 #include <assert.h>
 
+// value_t Stack(state_t* S);
+// value_t stackPush(state_t* S, value_t stack, value_t value);
+// value_t stackPeek(state_t* S, value_t stack);
+// value_t stackLength(state_t* S, value_t stack);
+// value_t stackPop(state_t* S, value_t stack);
+// value_t stackIs(state_t* S, value_t left, value_t right);
+// value_t stackReverse(state_t* S, value_t stack);
+
 int main() {
   state_t* S = State();
   value_t v, r, c;

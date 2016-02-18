@@ -3,6 +3,14 @@
 #include <stdio.h>
 #include <assert.h>
 
+// value_t Pair(state_t* S, value_t left, value_t right);
+// pair_t getPair(state_t* S, value_t slot);
+// value_t getLeft(state_t* S, value_t slot);
+// value_t getRight(state_t* S, value_t slot);
+// value_t setPair(state_t* S, value_t slot, value_t left, value_t right);
+// value_t setLeft(state_t* S, value_t slot, value_t value);
+// value_t setRight(state_t* S, value_t slot, value_t value);
+
 int main() {
   state_t* S = State();
   value_t v, r;

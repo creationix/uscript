@@ -3,6 +3,20 @@
 #include <stdio.h>
 #include <assert.h>
 
+// value_t Char(int32_t code);
+// value_t Bool(bool value);
+// value_t Int(int32_t value);
+// value_t Integer(state_t* S, int64_t value);
+// int64_t toInt(state_t* S, value_t value);
+// value_t Rational(state_t* S, int64_t n, int64_t d);
+// rational_t getRational(state_t* S, value_t value);
+// value_t numberAdd(state_t* S, value_t left, value_t right);
+// value_t numberSub(state_t* S, value_t left, value_t right);
+// value_t numberMul(state_t* S, value_t left, value_t right);
+// value_t numberDiv(state_t* S, value_t left, value_t right);
+// value_t numberIDiv(state_t* S, value_t left, value_t right);
+// value_t numberMod(state_t* S, value_t left, value_t right);
+
 int main() {
   state_t* S = State();
   value_t v;
