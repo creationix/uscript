@@ -48,28 +48,31 @@ pair_t getPair(state_t* S, value_t slot) {
   return S->pairs[slot.value];
 }
 
-void setPair(state_t* S, value_t slot, value_t left, value_t right) {
-  if (!isPair(slot)) return;
+value_t setPair(state_t* S, value_t slot, value_t left, value_t right) {
+  if (!isPair(slot)) return Bool(false);
   S->pairs[slot.value] = (pair_t) {
     .left = left,
     .right = right
   };
+  return Bool(true);
 }
 
-void setLeft(state_t* S, value_t slot, value_t value) {
-  if (!isPair(slot)) return;
+value_t setLeft(state_t* S, value_t slot, value_t value) {
+  if (!isPair(slot)) return Bool(false);
   S->pairs[slot.value] = (pair_t){
     .left = value,
     .right = S->pairs[slot.value].right
   };
+  return Bool(true);
 }
 
-void setRight(state_t* S, value_t slot, value_t value) {
-  if (!isPair(slot)) return;
+value_t setRight(state_t* S, value_t slot, value_t value) {
+  if (!isPair(slot)) return Bool(false);
   S->pairs[slot.value] = (pair_t){
     .left = S->pairs[slot.value].left,
     .right = value
   };
+  return Bool(true);
 }
 
 value_t getLeft(state_t* S, value_t slot) {

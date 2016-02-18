@@ -19,7 +19,8 @@ main: main.c ${FILES}
 
 test: \
 	test.numbers \
-	test.stack
+	test.stack \
+	test.pair
 
 test.%: tests/test.%
 	$<
