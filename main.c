@@ -145,11 +145,11 @@ void testValues() {
   dump(S, mapSet(S, map, Int(10), Int(20)));
   dump(S, map);
   printf("Reading mapping from 'A' -> ");
-  dump(S, mapRead(S, map, Char('A')));
+  dump(S, mapGet(S, map, Char('A')));
   printf("Reading mapping from 10 -> ");
-  dump(S, mapRead(S, map, Int(10)));
+  dump(S, mapGet(S, map, Int(10)));
   printf("Reading mapping from 20 -> ");
-  dump(S, mapRead(S, map, Int(20)));
+  dump(S, mapGet(S, map, Int(20)));
   for (int i = 0; i < 10; i++) {
     int k = deadbeef_rand() % 20;
     int v = deadbeef_rand() % 20;

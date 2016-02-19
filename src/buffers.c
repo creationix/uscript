@@ -29,6 +29,9 @@ static value_t RawBuffer(state_t* S, type_t type, int32_t length, const uint8_t*
 }
 
 value_t String(state_t* S, int32_t len, const uint8_t* str) {
+  if (len < 0) {
+    len = (int32_t)strlen((const char*)str);
+  }
   return RawBuffer(S, STRING, len, str);
 }
 
@@ -56,6 +59,7 @@ value_t Symbol(state_t* S, int32_t len, const uint8_t* str) {
 }
 
 value_t Buffer(state_t* S, int32_t length, const uint8_t* data) {
+  if (length < 0) return Bool(false);
   return RawBuffer(S, BYTE_ARRAY, length, data);
 }
 

@@ -115,7 +115,7 @@ static value_t recursiveRead(state_t* S, value_t map, value_t key, int32_t bits)
   return Bool(false);
 }
 
-value_t mapRead(state_t* S, value_t map, value_t key) {
+value_t mapGet(state_t* S, value_t map, value_t key) {
   if (map.type != MAP) return Bool(false);
   return recursiveRead(S, map, key, hash(key));
 }

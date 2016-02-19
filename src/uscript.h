@@ -149,7 +149,7 @@ value_t setRemove(state_t* S, value_t set, value_t value);
 value_t Map(state_t* S);
 value_t mapSet(state_t* S, value_t map, value_t key, value_t value);
 value_t mapDelete(state_t* S, value_t map, value_t key);
-value_t mapRead(state_t* S, value_t map, value_t key);
+value_t mapGet(state_t* S, value_t map, value_t key);
 
 // BYTECODE
 

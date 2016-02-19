@@ -23,7 +23,8 @@ test: \
 	test.numbers \
 	test.stack \
 	test.pair \
-	test.set
+	test.set \
+	test.map
 
 test.%: tests/test.%
 	$<
