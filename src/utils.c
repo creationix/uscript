@@ -13,10 +13,10 @@ bool truthy(value_t value) {
 }
 
 bool isPair(value_t value) {
-  return value.type == RATIONAL ||
-         value.type == PAIR ||
+  return value.type == PAIR ||
          value.type == STACK ||
          value.type == SET ||
+         value.type == RATIONAL ||
          value.type == MAP;
 }
 

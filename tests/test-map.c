@@ -88,7 +88,6 @@ int main() {
     }
   }
 
-
   freeState(S);
   return 0;
 }

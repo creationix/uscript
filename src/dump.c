@@ -99,12 +99,12 @@ void prettyPrint(state_t* S, value_t value) {
       break;
     case STRING: {
       buffer_t* buf = getBuffer(S, value);
-      printf("\"%*s\"", buf->length, buf->data);
+      printf("\"%.*s\"", buf->length, buf->data);
       break;
     }
     case SYMBOL: {
       buffer_t* buf = getBuffer(S, value);
-      printf(":%*s", buf->length, buf->data);
+      printf(":%.*s", buf->length, buf->data);
       break;
     }
     case BYTE_ARRAY: {
