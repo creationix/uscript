@@ -1,7 +1,4 @@
-#include "../src/uscript.h"
-#include "../src/dump.h"
-#include <stdio.h>
-#include <assert.h>
+#include "helpers.c"
 
 // value_t Stack(state_t* S);
 // value_t stackPush(state_t* S, value_t stack, value_t value);

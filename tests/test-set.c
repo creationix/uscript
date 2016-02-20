@@ -1,7 +1,4 @@
-#include "../src/uscript.h"
-#include "../src/dump.h"
-#include <stdio.h>
-#include <assert.h>
+#include "helpers.c"
 
 // value_t Set(state_t* S);
 // value_t setAdd(state_t* S, value_t set, value_t value);

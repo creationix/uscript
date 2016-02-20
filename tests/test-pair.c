@@ -1,7 +1,4 @@
-#include "../src/uscript.h"
-#include "../src/dump.h"
-#include <stdio.h>
-#include <assert.h>
+#include "helpers.c"
 
 // value_t Pair(state_t* S, value_t left, value_t right);
 // pair_t getPair(state_t* S, value_t slot);

@@ -25,7 +25,8 @@ test: \
 	test.pair \
 	test.set \
 	test.map \
-	test.buffers
+	test.buffers \
+	test.dump
 
 test.%: tests/test.%
 	$<

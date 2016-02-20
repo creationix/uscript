@@ -1,7 +1,4 @@
-#include "../src/uscript.h"
-#include "../src/dump.h"
-#include <stdio.h>
-#include <assert.h>
+#include "helpers.c"
 
 // value_t Char(int32_t code);
 // value_t Bool(bool value);

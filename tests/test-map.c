@@ -1,7 +1,4 @@
-#include "../src/uscript.h"
-#include "../src/dump.h"
-#include <stdio.h>
-#include <assert.h>
+#include "helpers.c"
 
 // value_t Map(state_t* S);
 // value_t mapSet(state_t* S, value_t map, value_t key, value_t value);

@@ -1,8 +1,4 @@
-#include "../src/uscript.h"
-#include "../src/dump.h"
-#include <stdio.h>
-#include <assert.h>
-#include <string.h>
+#include "helpers.c"
 
 // value_t String(state_t* S, int32_t length, const uint8_t* data);
 // value_t Symbol(state_t* S, int32_t length, const uint8_t* data);
@@ -36,24 +32,27 @@ int main() {
   assert(v2.type == SYMBOL);
   assert(eq(v, v2));
 
-  v = Buffer(S, 10, 0);
+  v = Buffer(S, 10, (uint8_t[]){
+    0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa
+  });
   dump(S, v);
   assert(isBuffer(v));
   assert(v.type == BYTE_ARRAY);
   b = getBuffer(S, v);
   assert(b->length == 10);
-  assert(b->data[0] == 0);
+  assert(b->data[0] == 0x11);
 
-  b->data[0] = 100;
-  dump(S, v);
-
-  v = Pixels(S, 4, 0);
+  v = Pixels(S, 4, (uint32_t[]){
+    0xdeadbeef,
+    0x11223344,
+    0x55667788,
+    0x01010101,
+  });
   dump(S, v);
   assert(isBuffer(v));
   assert(v.type == FRAME_BUFFER);
   b = getBuffer(S, v);
   assert(b->length == 4 * 4);
-  assert(b->data[0] == 0);
 
   freeState(S);
   return 0;
