@@ -120,7 +120,7 @@ void prettyPrint(state_t* S, value_t value) {
     case FRAME_BUFFER: {
       buffer_t* buf = getBuffer(S, value);
       uint32_t* data = (uint32_t*)buf->data;
-      int32_t len = buf->length >> 3;
+      int32_t len = buf->length >> 2;
       putchar('<');
       for (int i = 0; i < len; i++) {
         if (i) putchar(' ');

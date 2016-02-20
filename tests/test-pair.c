@@ -19,6 +19,7 @@ int main() {
   v = Pair(S, Char('a'), Char('b'));
   dump(S, v);
   assert(v.type == PAIR);
+  assert(isPair(v));
   p = getPair(S, v);
   assert(p.left.type == CHARACTER);
   assert(p.left.value == 'a');

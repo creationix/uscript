@@ -65,5 +65,5 @@ value_t Buffer(state_t* S, int32_t length, const uint8_t* data) {
 
 value_t Pixels(state_t* S, int32_t length, const uint32_t* data) {
   if (length < 0) return Bool(false);
-  return RawBuffer(S, FRAME_BUFFER, length << 3, (const uint8_t*)data);
+  return RawBuffer(S, FRAME_BUFFER, length << 2, (const uint8_t*)data);
 }

@@ -16,6 +16,7 @@ int main() {
   v = Set(S);
   dump(S, v);
   assert(v.type == SET);
+  assert(isPair(v));
   p = getPair(S, v);
   assert(p.left.type == BOOLEAN);
   assert(p.left.value == false);

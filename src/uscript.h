@@ -83,6 +83,12 @@ typedef struct rational_s {
   int64_t dem;
 } rational_t;
 
+typedef struct buffer_s {
+  bool gc : 1;
+  int length: 31;
+  uint8_t data[];
+} buffer_t;
+
 typedef struct state_s {
   pair_t* pairs; // Table of pairs
   uint8_t* bytes; // Buffer space for strings/byte-arrays/pixels
@@ -99,6 +105,11 @@ typedef struct state_s {
 state_t* State();
 void freeState(state_t* S);
 uint8_t* eval(state_t* S, uint8_t* pc, value_t* out);
+
+// MISC
+bool eq(value_t left, value_t right);
+bool falsy(value_t value);
+bool truthy(value_t value);
 
 // NUMBERS
 value_t Char(int32_t code);
@@ -120,6 +131,8 @@ value_t String(state_t* S, int32_t length, const uint8_t* data);
 value_t Symbol(state_t* S, int32_t length, const uint8_t* data);
 value_t Buffer(state_t* S, int32_t length, const uint8_t* data);
 value_t Pixels(state_t* S, int32_t length, const uint32_t* data);
+buffer_t* getBuffer(state_t* S, value_t value);
+bool isBuffer(value_t);
 
 // PAIRS
 value_t Pair(state_t* S, value_t left, value_t right);
@@ -129,6 +142,7 @@ value_t getRight(state_t* S, value_t slot);
 value_t setPair(state_t* S, value_t slot, value_t left, value_t right);
 value_t setLeft(state_t* S, value_t slot, value_t value);
 value_t setRight(state_t* S, value_t slot, value_t value);
+bool isPair(value_t);
 
 // STACKS
 value_t Stack(state_t* S);

@@ -15,6 +15,7 @@ int main() {
   v = Map(S);
   dump(S, v);
   assert(v.type == MAP);
+  assert(isPair(v));
 
   value_t name = Symbol(S, -1, (const uint8_t*)"name");
   dump(S, name);

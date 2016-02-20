@@ -91,6 +91,10 @@ int main() {
   v = Rational(S, 1, 2);
   dump(S, v);
   assert(v.type == RATIONAL);
+  assert(isPair(v));
+  rational_t rational = getRational(S, v);
+  assert(rational.num == 1);
+  assert(rational.dem == 2);
   assert(toInt(S, getLeft(S, v)) == 1);
   assert(toInt(S, getRight(S, v)) == 2);
   assert(toInt(S, v) == 0);

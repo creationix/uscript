@@ -24,7 +24,8 @@ test: \
 	test.stack \
 	test.pair \
 	test.set \
-	test.map
+	test.map \
+	test.buffers
 
 test.%: tests/test.%
 	$<
