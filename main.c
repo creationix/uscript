@@ -17,14 +17,14 @@ static uint32_t deadbeef_seed;
 static uint32_t deadbeef_beef = 0xdeadbeef;
 
 static uint32_t deadbeef_rand() {
-	deadbeef_seed = (deadbeef_seed << 7) ^ ((deadbeef_seed >> 25) + deadbeef_beef);
-	deadbeef_beef = (deadbeef_beef << 7) ^ ((deadbeef_beef >> 25) + 0xdeadbeef);
-	return deadbeef_seed;
+  deadbeef_seed = (deadbeef_seed << 7) ^ ((deadbeef_seed >> 25) + deadbeef_beef);
+  deadbeef_beef = (deadbeef_beef << 7) ^ ((deadbeef_beef >> 25) + 0xdeadbeef);
+  return deadbeef_seed;
 }
 
 static void deadbeef_srand(uint32_t x) {
-	deadbeef_seed = x;
-	deadbeef_beef = 0xdeadbeef;
+  deadbeef_seed = x;
+  deadbeef_beef = 0xdeadbeef;
 }
 
 void testValues() {
@@ -244,13 +244,13 @@ static uint8_t* code = (uint8_t[]){
 };
 
 int main() {
+  uint8_t buffer[256];
   value_t value;
   uint8_t* pc = code;
   state_t* S = State();
   while (*pc) {
     pc = eval(S, pc, &value);
-    prettyPrint(S, value);
-    putchar('\n');
+    printf("%.*s\n", (int)(writeValue(buffer, buffer + 256, S, value) - buffer), buffer);
   }
   return 0;
 }
