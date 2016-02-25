@@ -1,3 +1,33 @@
+vars a, b, history
+
+main: (--) =
+  newStack -> history
+
+onDown : (Button --)
+onDown =
+  history stackPush
+  if
+    history stackLength 4 ==
+  then
+    if
+      [a b b a] history stackMatch
+    then
+      ...
+    elif
+      [b a a b] history stackMatch
+    then
+      ...
+    elif
+      [a b a b] history stackMatch
+    then
+      ...
+    else
+      ...
+    end
+    newStack -> history
+  end
+
+
 L = Led 5
 A = Button 2
 B = Button 3
