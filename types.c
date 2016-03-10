@@ -1,7 +1,11 @@
-#include "stdint.h"
-#include "stdbool.h"
-#include "stdlib.h"
-#include "stdio.h"
+#include <stdint.h>
+#include <stdbool.h>
+#include <stdlib.h>
+#include <stdio.h>
+
+#include <termios.h>
+#include <poll.h>
+#include <unistd.h>
 
 typedef struct byte_array_s {
   intptr_t* length;
@@ -25,12 +29,35 @@ typedef union value_u {
 //   PinMode (Integer)
 //   Address (Integer)
 
+typedef enum type_e {
+  Boolean,
+  Integer,
+  Pin, // Integer internally
+  Mode, // Integer internally
+  Address, // Integer internally
+  ByteArray,
+  WordArray,
+} type_t;
+
+typedef enum mode_e {
+  Input,
+  Output,
+  InputPullup
+} mode_t;
+
 typedef enum opcode_e {
   // Values under 0x80 start variable length unsigned integer literals.
   // 0mxxxxxx mxxxxxxx*
   End = 0x80,
+  L7, // Integer Integer -- Integer
   False, // -- Boolean
   True,  // -- Boolean
+  Forward, // Boolean Integer --
+  Back,    // Boolean Integer --
+  While,   // Integer Integer --
+  PrintI,  // Integer --
+  Decr,// Integer -> Integer
+  Incr,// Integer -> Integer
   Add, // Integer Integer -- Integer
   Sub, // Integer Integer -- Integer
   Mul, // Integer Integer -- Integer
@@ -55,7 +82,7 @@ typedef enum opcode_e {
   NRot,// a b c -- c a b
   Tuck,// a b -- b a b
   Over,// a b -- a b a
-  PinMode,      // Pin Mode --
+  SetPinMode,   // Pin Mode --
   DigitalWrite, // Pin Boolean --
   DigitalRead,  // Pin -- Boolean
   Tone,         // Pin Integer Integer --
@@ -89,180 +116,241 @@ typedef struct thread_s {
   int depth;
 } thread_t;
 
-#define push(T) T->values[++T->top]
-#define pop(T) T->values[T->top--]
-#define top(T) T->values[T->top]
-#define next(T) T->values[T->top + 1]
-#define next2(T) T->values[T->top + 2]
-#define prev(T) T->values[T->top - 1]
-#define prev2(T) T->values[T->top - 2]
+typedef struct compiler_s {
+  type_t types[16];
+  int top;
+} compiler_t;
 
-bool step(thread_t* T) {
-  printf("%p=%02x |", (void*)T->pc, *T->pc);
-  for (int i = 0; i <= T->top; i++) {
-    printf(" %ld", T->values[i].integer);
-  }
-  printf("\n");
+#define push(T) values[++top]
+#define pop(T) values[top--]
+#define top(T) values[top]
+#define next(T) values[top + 1]
+#define next2(T) values[top + 2]
+#define prev(T) values[top - 1]
+#define prev2(T) values[top - 2]
 
-  if (!(*T->pc & 0x80)) {
-    int32_t num = *T->pc & 0x3f;
-    if (*T->pc++ & 0x40) {
-      do {
-        num = (num << 7) | (*T->pc & 0x7f);
-      } while (*T->pc++ & 0x80);
-    }
-    push(T).integer = (int32_t)num;
-    return true;
+static bool step(thread_t* TT) {
+  value_t values[16];
+  int top = TT->top;
+  uint8_t* pc = TT->pc;
+  for(;;) {
+  // printf("%p=%02x |", (void*)pc, *pc);
+  // for (int i = 0; i <= top; i++) {
+  //   printf(" %ld", values[i].integer);
+  // }
+  // printf("\n");
+
+  if ((*pc & 0x80) == 0) {
+    push(T).integer = (int32_t)(*pc++ & 0x7f);
+    continue;
   }
-  switch ((opcode_t)*T->pc++) {
+  switch ((opcode_t)*pc++) {
     case End: return false;
-    case False:
+    case L7: // Integer Integer -- Integer
+      top--;
+      top(T).integer = (top(T).integer << 7) | next(T).integer;
+      continue;
+    case False: // -- Boolean
       push(T).boolean = false;
-      return true;
-    case True:
+      continue;
+    case True: // -- Boolean
       push(T).boolean = true;
-      return true;
+      continue;
+    case Forward: // Integer Integer --
+      if (prev(T).integer) {
+        pc += top(T).integer;
+      }
+      top -= 2;
+      continue;
+    case Back: // Integer Integer --
+      if (prev(T).integer) {
+        pc -= top(T).integer;
+      }
+      top -= 2;
+      continue;
+    case PrintI: // Integer --
+      printf("%ld\n", top(T).integer);
+      top--;
+      continue;
+    case Incr: // Integer -> Integer
+      top(T).integer++;
+      continue;
+    case Decr: // Integer -> Integer
+      top(T).integer--;
+      continue;
     case Add: // Integer Integer -- Integer
-      T->top--;
+      top--;
       top(T).integer = top(T).integer + next(T).integer;
-      return true;
+      continue;
     case Sub: // Integer Integer -- Integer
-      T->top--;
+      top--;
       top(T).integer = top(T).integer - next(T).integer;
-      return true;
+      continue;
     case Mul: // Integer Integer -- Integer
-      T->top--;
+      top--;
       top(T).integer = top(T).integer * next(T).integer;
-      return true;
+      continue;
     case Div: // Integer Integer -- Integer
-      T->top--;
+      top--;
       top(T).integer = top(T).integer / next(T).integer;
-      return true;
+      continue;
     case Mod: // Integer Integer -- Integer
-      T->top--;
+      top--;
       top(T).integer = top(T).integer % next(T).integer;
-      return true;
+      continue;
     case Neg: // Integer -- Integer
       top(T).integer = -top(T).integer;
-      return true;
+      continue;
     case Lt: // Integer Integer -- Boolean
-      T->top--;
-      top(T).boolean = top(T).integer < next(T).integer;
-      return true;
+      top--;
+      top(T).integer = top(T).integer < next(T).integer;
+      continue;
     case Lte: // Integer Integer -- Boolean
-      T->top--;
+      top--;
       top(T).boolean = top(T).integer <= next(T).integer;
-      return true;
+      continue;
     case Gt: // Integer Integer -- Boolean
-      T->top--;
+      top--;
       top(T).boolean = top(T).integer > next(T).integer;
-      return true;
+      continue;
     case Gte: // Integer Integer -- Boolean
-      T->top--;
+      top--;
       top(T).boolean = top(T).integer >= next(T).integer;
-      return true;
+      continue;
     case Eq: // Integer Integer -- Boolean
-      T->top--;
+      top--;
       top(T).boolean = top(T).integer == next(T).integer;
-      return true;
+      continue;
     case Neq: // Integer Integer -- Boolean
-      T->top--;
+      top--;
       top(T).boolean = top(T).integer != next(T).integer;
-      return true;
+      continue;
     case And: // Boolean Boolean -- Boolean
-      T->top--;
+      top--;
       top(T).boolean = top(T).boolean && next(T).boolean;
-      return true;
+      continue;
     case Or: // Boolean Boolean -- Boolean
-      T->top--;
+      top--;
       top(T).boolean = top(T).boolean || next(T).boolean;
-      return true;
+      continue;
     case Xor: // Boolean Boolean -- Boolean
-      T->top--;
+      top--;
       top(T).boolean = top(T).boolean != next(T).boolean;
-      return true;
+      continue;
     case Not: // BOolean -- BOolean
       top(T).boolean = !top(T).boolean;
-      return true;
+      continue;
     case Drop: // a --
-      T->top--;
-      return true;
+      top--;
+      continue;
     case Dup: // a -- a a
       next(T) = top(T);
-      T->top++;
-      return true;
+      top++;
+      continue;
     case Swap: { // a b -- b a
       value_t t = top(T);
       top(T) = prev(T);
       prev(T) = t;
-      return true;
+      continue;
     }
     case Rot: { // a b c -- b c a
       value_t t = prev2(T);
       prev2(T) = prev(T);
       prev(T) = top(T);
       top(T) = t;
-      return true;
+      continue;
     }
     case Nip:
       prev(T) = top(T);
-      T->top--;
-      return true;
+      top--;
+      continue;
     case NRot: { // a b c -- c a b
       value_t t = top(T);
       top(T) = prev(T);
       prev(T) = prev2(T);
       prev2(T) = t;
-      return true;
+      continue;
     }
-    case Tuck:
+    case Tuck: // a b -- b a b
       next(T) = top(T);
       top(T) = prev(T);
       prev(T) = next(T);
-      T->top++;
-      return true;
-    case Over:
+      top++;
+      continue;
+    case Over: // a b -- a b a
       next(T) = prev(T);
-      T->top++;
-      return true;
+      top++;
+      continue;
 
     default:
-      printf("TODO: Implement %d\n", *(T->pc - 1));
+      printf("TODO: Implement %d\n", *(pc - 1));
       return false;
   }
+  }
+  return false;
 }
 
-// Numbers up to 64
-#define Uint6(n) (n) & 0x3f
-// Numbers up to 8191
-#define Uint13(n) (0x40|(((n) >> 7) & 0x3f)),\
-                  (n) & 0x7f
-// Numbers up to 1048576
-#define Uint20(n) (0x40|(((n) >> 14) & 0x3f)),\
-                  (0x80|(((n) >> 7) & 0x7f)),\
-                  (n) & 0x7f
-// Numbers up to 134217728
-#define Uint27(n) (0x40|(((n) >> 21) & 0x3f)),\
-                  (0x80|(((n) >> 14) & 0x7f)),\
-                  (0x80|(((n) >> 7) & 0x7f)),\
-                  (n) & 0x7f
-// Numbers up to 17179869184
-#define Uint34(n) (0x40|(((n) >> 28) & 0x3f)),\
-                  (0x80|(((n) >> 21) & 0x7f)),\
-                  (0x80|(((n) >> 14) & 0x7f)),\
-                  (0x80|(((n) >> 7) & 0x7f)),\
-                  (n) & 0x7f
+// Numbers up to 127
+#define Uint7(n) (n) & 0x7f
+// Numbers up to 16383
+#define Uint14(n) (((n) >> 7) & 0x7f),\
+                  (n) & 0x7f, L7
+// Numbers up to 2097151
+#define Uint22(n) (((n) >> 14) & 0x7f),\
+                  (((n) >> 7) & 0x7f), L7,\
+                  (n) & 0x7f, L7
+
+// Numbers up to 268435455
+#define Uint28(n) (((n) >> 21) & 0x7f),\
+                  (((n) >> 14) & 0x7f), L7,\
+                  (((n) >> 7) & 0x7f), L7,\
+                  (n) & 0x7f, L7
+
+// Numbers up to 4294967295
+#define Uint35(n) (((n) >> 28) & 0xf),\
+                  (((n) >> 21) & 0x7f), L7,\
+                  (((n) >> 14) & 0x7f), L7,\
+                  (((n) >> 7) & 0x7f), L7,\
+                  (n) & 0x7f, L7
+
+static struct pollfd fds[18];
 
 int main() {
+
+  fds[0].fd = 0;
+  fds[0].events = POLLIN;
+
   thread_t* T = calloc(1, sizeof(thread_t));
+  // Sum up all the integers from 1 to 1000000000
   uint8_t code[] = {
-    Uint13(1000), Uint34(-1), 1, Neg,
-    1, 2, Add,
-    4, Tuck, Dup, Sub,
+    Uint35(1000000000), 0,
+    Over, Add, Swap,
+    Decr,
+    Tuck,
+    7, Back,
+    PrintI,
     End
   };
   T->pc = code;
   T->top = -1;
   while (step(T));
+
+  // struct termios old_tio, new_tio;
+	// tcgetattr(STDIN_FILENO, &old_tio);
+	// new_tio = old_tio;
+	// /* disable canonical mode (buffered i/o) and local echo */
+	// new_tio.c_lflag &= (unsigned)(~ICANON & ~ECHO);
+	// tcsetattr(STDIN_FILENO, TCSANOW, &new_tio);
+  //
+  // printf("Polling\n");
+  // while (poll(fds, 1, -1)) {
+  //   uint8_t c;
+  //   read(fds[0].fd, &c, 1);
+  //   printf("%d\n", c);
+  // }
+  // printf("after\n");
+  //
+  // tcsetattr(STDIN_FILENO, TCSANOW, &old_tio);
+
   return 0;
 }
