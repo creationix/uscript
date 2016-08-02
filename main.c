@@ -148,10 +148,12 @@ uint8_t* skipNative(uint8_t *code, int slot) {
 }
 
 uint8_t* callNative(uint8_t *code, int slot, int32_t *value) {
+  printf("callNative(%p,%d,%p)\n", code, slot, value);
   if (!value) return skipNative(code, slot);
   fn_t *fn = funcs + slot;
   switch (fn->len) {
     case 0: {
+      printf("fn0=%p\n", fn->fn0);
       *value = fn->fn0();
       return code;
     }
@@ -222,11 +224,11 @@ uint8_t* skip(uint8_t *code) {
       return skip(skip(skip(code)));
 
     // Consume four expressions
-    case FOR:
     case CALL3:
       return skip(skip(skip(skip(code))));
 
     // Consume five expressions
+    case FOR:
     case CALL4:
       return skip(skip(skip(skip(skip(code)))));
 
@@ -371,6 +373,7 @@ uint8_t* eval(uint8_t *code, int32_t *value) {
       int len = code - block;
       user[slot] = malloc(len);
       memcpy(user[slot], block, len);
+      *value = slot;
       return code;
     }
     case CALL: {
@@ -390,6 +393,7 @@ uint8_t* eval(uint8_t *code, int32_t *value) {
       int start = highest + 1;
       int old = offset;
       code = eval(eval(code, &slot), stack + start);
+      printf("slot=%d\n", slot);
       offset = start;
       highest = start + 1;
       eval(user[slot], value);
@@ -589,6 +593,7 @@ uint8_t* eval(uint8_t *code, int32_t *value) {
 
     case ELIF: case ELSE: case END: return code;
   }
+  return code;
 }
 
 
@@ -596,11 +601,13 @@ bool test(uint8_t *start, int len, int32_t expected) {
   uint8_t *code;
   int32_t value;
   code = eval(start, &value);
-  printf("code-start=%d len=%d\n", code - start, len);
-  if (!(value == expected && (code - start == expected))) return false;
+  printf("run: code-start=%ld len=%d\n", code - start, len);
+  if (!(value == expected && (code - start == len))) return false;
   code = skip(start);
-  return code - start == expected;
+  printf("skip: code-start=%ld len=%d\n", code - start, len);
+  return code - start == len;
 }
+
 
 int main() {
   printf("Hello World\n");
@@ -661,5 +668,19 @@ int main() {
   assert(test((uint8_t[]){FOR, 1, 10, 1, 1, DELAY, GET, 1}, 8, 10));
   assert(test((uint8_t[]){FOR, 20, 10, -1, 1, DELAY, GET, 1}, 8, 10));
   assert(test((uint8_t[]){WHILE, GET, 1, DELAY, SET, 1, SUB, GET, 1, 1}, 10, 0));
+  assert(test((uint8_t[]){DEF, 0, ADD, GET, 0, GET, 1}, 7, 0));
+  assert(test((uint8_t[]){CALL2, 0, 1, 2}, 4, 3));
+  assert(test((uint8_t[]){
+  DEF, 1,
+    IF, LTE, GET, 0, 2,
+      GET, 0,
+    ELSE,
+      ADD,
+        CALL1, 1, SUB, GET, 0, 1,
+        CALL1, 1, SUB, GET, 0, 2}, 23, 1));
+  assert(test((uint8_t[]){CALL1, 1, 1}, 3, 1));
+  assert(test((uint8_t[]){CALL1, 1, 2}, 3, 2));
+  assert(test((uint8_t[]){CALL1, 1, 3}, 3, 3));
+  assert(test((uint8_t[]){CALL1, 1, 5}, 3, 5));
   return 0;
 }
