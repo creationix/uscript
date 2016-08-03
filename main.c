@@ -88,60 +88,13 @@ typedef enum {
 } opcode_t;
 
 const char* names[] = {
-  "INT8",
-  "INT16",
-  "INT32",
-  "FOREVER",
-  "WHILE",
-  "IF",
-  "ELIF",
-  "ELSE",
-  "FOR",
-  "SET",
-  "GET",
-  "GSET",
-  "GGET",
-  "PEEK8",
-  "POKE8",
-  "PEEK16",
-  "POKE16",
-  "PEEK32",
-  "POKE32",
-  "DEF",
-  "CALL",
-  "CALL1",
-  "CALL2",
-  "CALL3",
-  "CALL4",
-  "RETURN",
-  "BREAK",
-  "CONTINUE",
-  "ADD",
-  "SUB",
-  "MUL",
-  "DIV",
-  "MOD",
-  "NEG",
-  "BAND",
-  "BOR",
-  "BXOR",
-  "BNOT",
-  "LSHIFT",
-  "RSHIFT",
-  "GT",
-  "GTE",
-  "LT",
-  "LTE",
-  "EQ",
-  "NEQ",
-  "AND",
-  "OR",
-  "XOR",
-  "NOT",
-  "DO",
-  "END",
+  "INT8", "INT16", "INT32", "FOREVER", "WHILE", "IF", "ELIF", "ELSE", "FOR",
+  "SET", "GET", "GSET", "GGET", "PEEK8", "POKE8", "PEEK16", "POKE16", "PEEK32",
+  "POKE32", "DEF", "CALL", "CALL1", "CALL2", "CALL3", "CALL4", "RETURN",
+  "BREAK", "CONTINUE", "ADD", "SUB", "MUL", "DIV", "MOD", "NEG", "BAND", "BOR",
+  "BXOR", "BNOT", "LSHIFT", "RSHIFT", "GT", "GTE", "LT", "LTE", "EQ", "NEQ",
+  "AND", "OR", "XOR", "NOT", "DO", "END",
 };
-
 
 typedef struct {
   union {
@@ -153,6 +106,15 @@ typedef struct {
   };
   uint8_t len;
 } fn_t;
+
+int32_t stack[64];
+int offset;
+int highest;
+
+uint8_t *user[32];
+
+uint8_t *mem[1024];
+
 
 int pinMode(int pin, int mode) {
   printf("pinMode(%d, %d)\n", pin, mode);
@@ -174,19 +136,52 @@ int delay(int ms) {
   return ms;
 }
 
-int32_t stack[64];
-int offset;
-int highest;
+int tone(int pin, int freq, int ms) {
+  printf("tone(%d, %d, %d)\n", pin, freq, ms);
+  return freq;
+}
 
-uint8_t *user[32];
-
-uint8_t *mem[1024];
+int neopixRgb(int pin, int offset, int len) {
+  for (int end = offset + len; offset < end; offset++) {
+    uint32_t color = ((uint32_t*)mem)[offset];
+    uint8_t r = (color >> 16) & 0xff;
+    uint8_t g = (color >> 8) & 0xff;
+    uint8_t b = color & 0xff;
+    printf("send %d %02x-%02x-%02x\n", pin, r, g, b);
+  }
+  return len;
+}
+int neopixGrb(int pin, int offset, int len) {
+  for (int end = offset + len; offset < end; offset++) {
+    uint32_t color = ((uint32_t*)mem)[offset];
+    uint8_t r = (color >> 16) & 0xff;
+    uint8_t g = (color >> 8) & 0xff;
+    uint8_t b = color & 0xff;
+    printf("send %d %02x-%02x-%02x\n", pin, g, r, b);
+  }
+  return len;
+}
+int neopixRgbw(int pin, int offset, int len) {
+  for (int end = offset + len; offset < end; offset++) {
+    uint32_t color = ((uint32_t*)mem)[offset];
+    uint8_t r = (color >> 16) & 0xff;
+    uint8_t g = (color >> 8) & 0xff;
+    uint8_t b = color & 0xff;
+    uint8_t w = (color >> 24) & 0xff;
+    printf("send %d %02x-%02x-%02x-%02x\n", pin, g, r, b, w);
+  }
+  return len;
+}
 
 fn_t funcs[] = {
   {.fn2=pinMode,.len=2},
   {.fn2=digitalWrite,.len=2},
   {.fn1=digitalRead,.len=1},
   {.fn1=delay,.len=1},
+  {.fn3=tone,.len=3},
+  {.fn3=neopixRgb,.len=3},
+  {.fn3=neopixGrb,.len=3},
+  {.fn3=neopixRgbw,.len=3},
 };
 
 enum user {
@@ -194,6 +189,10 @@ enum user {
   DW,
   DR,
   DELAY,
+  TONE,
+  NEOPIXRGB,
+  NEOPIXGRB,
+  NEOPIXRGBW,
 };
 
 uint8_t* eval(uint8_t *code, int32_t *value);
@@ -808,6 +807,12 @@ int main() {
   assert(test((uint8_t[]){CALL1, 1, 2}, 3, 2));
   assert(test((uint8_t[]){CALL1, 1, 3}, 3, 3));
   assert(test((uint8_t[]){CALL1, 1, 4}, 3, 5));
+
+  assert(test((uint8_t[]){DO,
+    POKE32, 0, INT32, 0, 0xff, 0x88, 0x00,
+    POKE32, 1, INT32, 0, 0x00, 0x88, 0xff,
+    NEOPIXRGB, 8, 0, 2,
+  END}, 20, 2));
 
 
   return 0;
