@@ -29,6 +29,14 @@ typedef enum {
   GSET,    // (gslot, expr)
   GGET,    // (gslot)
 
+  // Memory
+  PEEK8,   // (offset)
+  POKE8,   // (offset, value)
+  PEEK16,  // (offset)
+  POKE16,  // (offset, value)
+  PEEK32,  // (offset)
+  POKE32,  // (offset, value)
+
   // User Functions
   DEF,     // (fslot, block)
   CALL,    // (fslot)
@@ -79,6 +87,60 @@ typedef enum {
   // 0-63 and 192-255 is literal int7_t
 } opcode_t;
 
+const char* names[] = {
+  "INT8",
+  "INT16",
+  "INT32",
+  "FOREVER",
+  "WHILE",
+  "IF",
+  "ELIF",
+  "ELSE",
+  "FOR",
+  "SET",
+  "GET",
+  "GSET",
+  "GGET",
+  "PEEK8",
+  "POKE8",
+  "PEEK16",
+  "POKE16",
+  "PEEK32",
+  "POKE32",
+  "DEF",
+  "CALL",
+  "CALL1",
+  "CALL2",
+  "CALL3",
+  "CALL4",
+  "RETURN",
+  "BREAK",
+  "CONTINUE",
+  "ADD",
+  "SUB",
+  "MUL",
+  "DIV",
+  "MOD",
+  "NEG",
+  "BAND",
+  "BOR",
+  "BXOR",
+  "BNOT",
+  "LSHIFT",
+  "RSHIFT",
+  "GT",
+  "GTE",
+  "LT",
+  "LTE",
+  "EQ",
+  "NEQ",
+  "AND",
+  "OR",
+  "XOR",
+  "NOT",
+  "DO",
+  "END",
+};
 
 
 typedef struct {
@@ -118,6 +180,8 @@ int highest;
 
 uint8_t *user[32];
 
+uint8_t *mem[1024];
+
 fn_t funcs[] = {
   {.fn2=pinMode,.len=2},
   {.fn2=digitalWrite,.len=2},
@@ -148,12 +212,10 @@ uint8_t* skipNative(uint8_t *code, int slot) {
 }
 
 uint8_t* callNative(uint8_t *code, int slot, int32_t *value) {
-  printf("callNative(%p,%d,%p)\n", code, slot, value);
   if (!value) return skipNative(code, slot);
   fn_t *fn = funcs + slot;
   switch (fn->len) {
     case 0: {
-      printf("fn0=%p\n", fn->fn0);
       *value = fn->fn0();
       return code;
     }
@@ -187,10 +249,15 @@ uint8_t* callNative(uint8_t *code, int slot, int32_t *value) {
 
 uint8_t* skip(uint8_t *code) {
   if (!code) return code;
-  if (*code < 64 || *code >= 192) return code + 1;
+  if (*code < 64 || *code >= 192) {
+    // printf("skip %p %d\n", code, (int8_t)*code);
+    return code + 1;
+  }
   if (*code > END) {
+    // printf("skip %p native#%d\n", code, *code - END - 1);
     return callNative(code + 1, *code - END - 1, NULL);
   }
+  // printf("skip %p %s\n", code, names[*code-INT8]);
   switch ((opcode_t)*code++) {
     case INT8: return code + 1;
     case INT16: return code + 2;
@@ -203,6 +270,7 @@ uint8_t* skip(uint8_t *code) {
     // Consume one expression
     case FOREVER:
     case GET: case GGET:
+    case PEEK8: case PEEK16: case PEEK32:
     case CALL:
     case RETURN: case BREAK:
     case NEG: case NOT: case BNOT:
@@ -211,6 +279,7 @@ uint8_t* skip(uint8_t *code) {
     // Consume two expressions
     case WHILE:
     case SET: case GSET:
+    case POKE8: case POKE16: case POKE32:
     case DEF:
     case CALL1:
     case ADD: case SUB: case MUL: case DIV: case MOD:
@@ -259,13 +328,16 @@ uint8_t* eval(uint8_t *code, int32_t *value) {
   if (!code) return code;
   if (!value) return skip(code);
   if (*code < 64 || *code >= 192) {
+    printf("eval %p %d\n", code, (int8_t)*code);
     *value = (int8_t)*code;
     return code + 1;
   }
   if (*code > END) {
+    printf("eval %p native#%d\n", code, *code - END - 1);
     return callNative(code + 1, *code - END - 1, value);
   }
   if (!value) return skip(code);
+  printf("eval %p %s\n", code, names[*code-INT8]);
   switch ((opcode_t)*code++) {
     case INT8:
       *value = (int8_t)*code;
@@ -301,27 +373,28 @@ uint8_t* eval(uint8_t *code, int32_t *value) {
       return code;
     }
     case IF: {
-      int32_t cond;
-      while (true) {
-        code = eval(code, &cond);
-        if (cond) {
+      start:
+        code = eval(code, value);
+        if (*value) {
           code = eval(code, value);
-          break;
+          goto done;
         }
+        code = skip(code);
         if (*code == ELIF) {
           code++;
-          continue;
+          goto start;
         }
         if (*code == ELSE) {
-          return eval(code + 1, value);
+          return eval(++code, value);
         }
-      }
-      while (*code == ELIF) {
-        code = skip(skip(++code));
-      }
-      if (*code == ELSE) {
-        code = skip(++code);
-      }
+      done:
+        while (*code == ELIF) {
+          code = skip(skip(++code));
+        }
+        if (*code == ELSE) {
+          code = skip(++code);
+        }
+        return code;
     }
     case FOR: {
       int32_t i, end, incr, slot;
@@ -341,6 +414,7 @@ uint8_t* eval(uint8_t *code, int32_t *value) {
     case SET: {
       int32_t slot;
       code = eval(eval(code, &slot), value);
+      // printf("set %d+%d=%d -> %d\n", offset,slot,offset + slot, *value);
       slot += offset;
       stack[slot] = *value;
       if (slot > highest) highest = slot;
@@ -349,6 +423,7 @@ uint8_t* eval(uint8_t *code, int32_t *value) {
     case GET: {
       int32_t slot;
       code = eval(code, &slot);
+      // printf("get %d+%d=%d\n", offset,slot,offset + slot);
       *value = stack[offset + slot];
       return code;
     }
@@ -363,6 +438,42 @@ uint8_t* eval(uint8_t *code, int32_t *value) {
       int32_t slot;
       code = eval(code, &slot);
       *value = stack[slot];
+      return code;
+    }
+    case PEEK8: {
+      int32_t offset;
+      code = eval(code, &offset);
+      *value = ((uint8_t*)mem)[offset];
+      return code;
+    }
+    case POKE8: {
+      int32_t offset;
+      code = eval(eval(code, &offset), value);
+      ((uint8_t*)mem)[offset] = *value;
+      return code;
+    }
+    case PEEK16: {
+      int32_t offset;
+      code = eval(code, &offset);
+      *value = ((uint16_t*)mem)[offset];
+      return code;
+    }
+    case POKE16: {
+      int32_t offset;
+      code = eval(eval(code, &offset), value);
+      ((uint16_t*)mem)[offset] = *value;
+      return code;
+    }
+    case PEEK32: {
+      int32_t offset;
+      code = eval(code, &offset);
+      *value = ((uint32_t*)mem)[offset];
+      return code;
+    }
+    case POKE32: {
+      int32_t offset;
+      code = eval(eval(code, &offset), value);
+      ((uint32_t*)mem)[offset] = *value;
       return code;
     }
     case DEF: {
@@ -393,7 +504,6 @@ uint8_t* eval(uint8_t *code, int32_t *value) {
       int start = highest + 1;
       int old = offset;
       code = eval(eval(code, &slot), stack + start);
-      printf("slot=%d\n", slot);
       offset = start;
       highest = start + 1;
       eval(user[slot], value);
@@ -601,17 +711,15 @@ bool test(uint8_t *start, int len, int32_t expected) {
   uint8_t *code;
   int32_t value;
   code = eval(start, &value);
-  printf("run: code-start=%ld len=%d\n", code - start, len);
+  printf("run (%d/%d) %d==%d?\n", (int)(code - start), len, value, expected);
   if (!(value == expected && (code - start == len))) return false;
   code = skip(start);
-  printf("skip: code-start=%ld len=%d\n", code - start, len);
+  printf("skip (%d/%d)\n", (int)(code - start), len);
   return code - start == len;
 }
 
 
 int main() {
-  printf("Hello World\n");
-  printf("%d slots left\n", 191-END);
 
   assert(test((uint8_t[]){10}, 1, 10));
   assert(test((uint8_t[]){-10}, 1, -10));
@@ -663,13 +771,31 @@ int main() {
   assert(test((uint8_t[]){XOR, 0, 0}, 3, 0));
   assert(test((uint8_t[]){NOT, 0}, 2, 1));
   assert(test((uint8_t[]){NOT, 6}, 2, 0));
+
+  assert(test((uint8_t[]){IF, 1, 2}, 3, 2));
+  assert(test((uint8_t[]){IF, 0, 2}, 3, 0));
+  assert(test((uint8_t[]){IF, 1, 2, ELSE, 3}, 5, 2));
+  assert(test((uint8_t[]){IF, 0, 2, ELSE, 3}, 5, 3));
+  assert(test((uint8_t[]){IF, 1, 2, ELIF, 1, 3}, 6, 2));
+  assert(test((uint8_t[]){IF, 0, 2, ELIF, 1, 3}, 6, 3));
+  assert(test((uint8_t[]){IF, 1, 2, ELIF, 0, 3}, 6, 2));
+  assert(test((uint8_t[]){IF, 0, 2, ELIF, 0, 3}, 6, 0));
+  assert(test((uint8_t[]){IF, 0, 2, ELIF, 1, 3, ELSE, 4}, 8, 3));
+  assert(test((uint8_t[]){IF, 0, 2, ELIF, 0, 3, ELSE, 4}, 8, 4));
+  assert(test((uint8_t[]){IF, 0, 2, ELIF, 0, 3, ELIF, 1, 5}, 9, 5));
+  assert(test((uint8_t[]){IF, 0, 2, ELIF, 0, 3, ELIF, 0, 5}, 9, 0));
+
   assert(test((uint8_t[]){SET, 0, 42}, 3, 42));
   assert(test((uint8_t[]){GET, 0}, 2, 42));
+  // PEEK/POKE Assumes Little Endian
+  assert(test((uint8_t[]){DO, POKE8, 0, 1, POKE8, 1, 2, PEEK16, 0, END}, 10, (2 << 8) | 1));
+  assert(test((uint8_t[]){DO, 1, 2, 3, END}, 5, 3));
   assert(test((uint8_t[]){FOR, 1, 10, 1, 1, DELAY, GET, 1}, 8, 10));
   assert(test((uint8_t[]){FOR, 20, 10, -1, 1, DELAY, GET, 1}, 8, 10));
   assert(test((uint8_t[]){WHILE, GET, 1, DELAY, SET, 1, SUB, GET, 1, 1}, 10, 0));
   assert(test((uint8_t[]){DEF, 0, ADD, GET, 0, GET, 1}, 7, 0));
   assert(test((uint8_t[]){CALL2, 0, 1, 2}, 4, 3));
+  // Recursive naive Fib to test recursion
   assert(test((uint8_t[]){
   DEF, 1,
     IF, LTE, GET, 0, 2,
@@ -681,6 +807,8 @@ int main() {
   assert(test((uint8_t[]){CALL1, 1, 1}, 3, 1));
   assert(test((uint8_t[]){CALL1, 1, 2}, 3, 2));
   assert(test((uint8_t[]){CALL1, 1, 3}, 3, 3));
-  assert(test((uint8_t[]){CALL1, 1, 5}, 3, 5));
+  assert(test((uint8_t[]){CALL1, 1, 4}, 3, 5));
+
+
   return 0;
 }
