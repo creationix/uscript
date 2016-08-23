@@ -50,9 +50,15 @@ else
   else
    3
   then
-then
+then set-a
 ```
 
 ## loop
 
-1 10 1 FOR x ... END
+1 10 1 FOR-x ... END
+
+limit start DO .. LOOP
+DO .. +LOOP
+LEAVE
+BEGIN .. UNTIL
+BEGIN .. WHILE .. REPEAT
