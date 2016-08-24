@@ -62,3 +62,10 @@ DO .. +LOOP
 LEAVE
 BEGIN .. UNTIL
 BEGIN .. WHILE .. REPEAT
+
+
+```forth
+10 0 DO
+  I print
+LOOP
+```
