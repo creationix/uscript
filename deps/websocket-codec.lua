@@ -1,14 +1,20 @@
-exports.name = "creationix/websocket-codec"
-exports.version = "1.0.8"
-exports.homepage = "https://github.com/luvit/lit/blob/master/deps/websocket-codec.lua"
-exports.description = "A codec implementing websocket framing and helpers for handshakeing"
-exports.tags = {"http", "websocket", "codec"}
-exports.license = "MIT"
-exports.author = { name = "Tim Caswell" }
+--[[lit-meta
+  name = "creationix/websocket-codec"
+  description = "A codec implementing websocket framing and helpers for handshakeing"
+  version = "3.0.2"
+  dependencies = {
+    "creationix/base64@2.0.0",
+    "creationix/sha1@1.0.0",
+  }
+  homepage = "https://github.com/luvit/lit/blob/master/deps/websocket-codec.lua"
+  tags = {"http", "websocket", "codec"}
+  license = "MIT"
+  author = { name = "Tim Caswell" }
+]]
 
-local digest = require('openssl').digest.digest
-local base64 = require('openssl').base64
-local random = require('openssl').random
+local base64 = require('base64').encode
+local sha1 = require('sha1')
+local bit = require('bit')
 
 local band = bit.band
 local bor = bit.bor
@@ -22,6 +28,20 @@ local gmatch = string.gmatch
 local lower = string.lower
 local gsub = string.gsub
 local concat = table.concat
+local floor = math.floor
+local random = math.random
+
+local function rand4()
+  -- Generate 32 bits of pseudo random data
+  local num = floor(random() * 0x100000000)
+  -- Return as a 4-byte string
+  return char(
+    rshift(num, 24),
+    band(rshift(num, 16), 0xff),
+    band(rshift(num, 8), 0xff),
+    band(num, 0xff)
+  )
+end
 
 local function applyMask(data, mask)
   local bytes = {
@@ -39,29 +59,31 @@ local function applyMask(data, mask)
   return concat(out)
 end
 
-function exports.decode(chunk)
-  if #chunk < 2 then return end
-  local second = byte(chunk, 2)
+local function decode(chunk, index)
+  local start = index - 1
+  local length = #chunk - start
+  if length < 2 then return end
+  local second = byte(chunk, start + 2)
   local len = band(second, 0x7f)
   local offset
   if len == 126 then
-    if #chunk < 4 then return end
+    if length < 4 then return end
     len = bor(
-      lshift(byte(chunk, 3), 8),
-      byte(chunk, 4))
+      lshift(byte(chunk, start + 3), 8),
+      byte(chunk, start + 4))
     offset = 4
   elseif len == 127 then
-    if #chunk < 10 then return end
+    if length < 10 then return end
     len = bor(
-      lshift(byte(chunk, 3), 24),
-      lshift(byte(chunk, 4), 16),
-      lshift(byte(chunk, 5), 8),
-      byte(chunk, 6)
+      lshift(byte(chunk, start + 3), 24),
+      lshift(byte(chunk, start + 4), 16),
+      lshift(byte(chunk, start + 5), 8),
+      byte(chunk, start + 6)
     ) * 0x100000000 + bor(
-      lshift(byte(chunk, 7), 24),
-      lshift(byte(chunk, 8), 16),
-      lshift(byte(chunk, 9), 8),
-      byte(chunk, 10)
+      lshift(byte(chunk, start + 7), 24),
+      lshift(byte(chunk, start + 8), 16),
+      lshift(byte(chunk, start + 9), 8),
+      byte(chunk, start + 10)
     )
     offset = 10
   else
@@ -71,15 +93,15 @@ function exports.decode(chunk)
   if mask then
     offset = offset + 4
   end
+  offset = offset + start
   if #chunk < offset + len then return end
 
-  local first = byte(chunk, 1)
+  local first = byte(chunk, start + 1)
   local payload = sub(chunk, offset + 1, offset + len)
   assert(#payload == len, "Length mismatch")
   if mask then
     payload = applyMask(payload, sub(chunk, offset - 3, offset))
   end
-  local extra = sub(chunk, offset + len + 1)
   return {
     fin = band(first, 0x80) > 0,
     rsv1 = band(first, 0x40) > 0,
@@ -89,10 +111,10 @@ function exports.decode(chunk)
     mask = mask,
     len = len,
     payload = payload
-  }, extra
+  }, offset + len + 1
 end
 
-function exports.encode(item)
+local function encode(item)
   if type(item) == "string" then
     item = {
       opcode = 2,
@@ -137,7 +159,7 @@ function exports.encode(item)
     chars[4] = char(band(len, 0xff))
   end
   if mask then
-    local key = random(4)
+    local key = rand4()
     return concat(chars) .. key .. applyMask(payload, key)
   end
   return concat(chars) .. payload
@@ -145,14 +167,25 @@ end
 
 local websocketGuid = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 
-function exports.acceptKey(key)
-  return gsub(base64(digest("sha1", key .. websocketGuid, true)), "\n", "")
+-- Given two hex characters, return a single character
+local function hexToBin(cc)
+  return string.char(tonumber(cc, 16))
 end
-local acceptKey = exports.acceptKey
+
+local function decodeHex(hex)
+  local bin = string.gsub(hex, "..", hexToBin)
+  return bin
+end
+
+local function acceptKey(key)
+  return gsub(base64(decodeHex(sha1(key .. websocketGuid))), "\n", "")
+end
 
 -- Make a client handshake connection
-function exports.handshake(options, request)
-  local key = gsub(base64(random(20)), "\n", "")
+local function handshake(options, request)
+  -- Generate 20 bytes of pseudo-random data
+  local key = concat({rand4(), rand4(), rand4(), rand4(), rand4()})
+  key = base64(key)
   local host = options.host
   local path = options.path or "/"
   local protocol = options.protocol
@@ -200,7 +233,7 @@ function exports.handshake(options, request)
   return true
 end
 
-function exports.handleHandshake(head, protocol)
+local function handleHandshake(head, protocol)
 
   -- WebSocket connections must be GET requests
   if not head.method == "GET" then return end
@@ -258,3 +291,11 @@ function exports.handleHandshake(head, protocol)
 
   return res
 end
+
+return {
+  decode = decode,
+  encode = encode,
+  acceptKey = acceptKey,
+  handshake = handshake,
+  handleHandshake = handleHandshake,
+}

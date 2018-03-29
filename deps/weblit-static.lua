@@ -1,23 +1,58 @@
-exports.name = "creationix/weblit-static"
-exports.version = "0.3.3-1"
-exports.dependencies = {
-  "creationix/mime@0.1.2",
-  "creationix/hybrid-fs@0.1.1",
-}
-exports.description = "A weblit middleware for serving static files from disk or bundle."
-exports.tags = {"weblit", "middleware", "static"}
-exports.license = "MIT"
-exports.author = { name = "Tim Caswell" }
-exports.homepage = "https://github.com/creationix/weblit/blob/master/libs/weblit-auto-headers.lua"
+--[[lit-meta
+  name = "creationix/weblit-static"
+  version = "2.2.0"
+  dependencies = {
+    "creationix/mime@2.0.0",
+    "creationix/coro-fs@2.0.0",
+    "luvit/json@2.5.2",
+    "creationix/sha1@1.0.0",
+  }
+  description = "A weblit middleware for serving static files from disk or bundle."
+  tags = {"weblit", "middleware", "static"}
+  license = "MIT"
+  author = { name = "Tim Caswell" }
+  homepage = "https://github.com/creationix/weblit/blob/master/libs/weblit-auto-headers.lua"
+]]
 
 local getType = require("mime").getType
 local jsonStringify = require('json').stringify
-
-local makeChroot = require('hybrid-fs')
+local sha1 = require('sha1')
 
 return function (rootPath)
-
-  local fs = makeChroot(rootPath)
+  local fs
+  local i, j = rootPath:find("^bundle:")
+  if i then
+    local pathJoin = require('luvi').path.join
+    local prefix = rootPath:sub(j + 1)
+    if prefix:byte(1) == 47 then
+      prefix = prefix:sub(2)
+    end
+    local bundle = require('luvi').bundle
+    fs = {}
+    -- bundle.stat
+    -- bundle.readdir
+    -- bundle.readfile
+    function fs.stat(path)
+      return bundle.stat(pathJoin(prefix, path))
+    end
+    function fs.scandir(path)
+      local dir = bundle.readdir(pathJoin(prefix, path))
+      local offset = 1
+      return function ()
+        local name = dir[offset]
+        if not name then return end
+        offset = offset + 1
+        local stat = bundle.stat(pathJoin(prefix, path, name))
+        stat.name = name
+        return stat
+      end
+    end
+    function fs.readFile(path)
+      return bundle.readfile(pathJoin(prefix, path))
+    end
+  else
+    fs = require('coro-fs').chroot(rootPath)
+  end
 
   return function (req, res, go)
     if req.method ~= "GET" then return go() end
@@ -33,6 +68,7 @@ return function (rootPath)
       local body = assert(fs.readFile(path))
       res.code = 200
       res.headers["Content-Type"] = getType(path)
+      res.headers["ETag"] = '"' .. sha1(body) .. '"'
       res.body = body
       return
     end

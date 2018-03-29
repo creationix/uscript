@@ -1,15 +1,19 @@
-exports.name = "creationix/weblit-websocket"
-exports.version = "0.2.5"
-exports.dependencies = {
-  "creationix/websocket-codec@1.0.3"
-}
-exports.description = "The websocket middleware for Weblit enables handling websocket clients."
-exports.tags = {"weblit", "middleware", "websocket"}
-exports.license = "MIT"
-exports.author = { name = "Tim Caswell" }
-exports.homepage = "https://github.com/creationix/weblit/blob/master/libs/weblit-websocket.lua"
+--[[lit-meta
+  name = "creationix/weblit-websocket"
+  version = "3.0.0"
+  dependencies = {
+    "creationix/websocket-codec@3.0.0",
+    "creationix/coro-websocket@3.0.0",
+  }
+  description = "The websocket middleware for Weblit enables handling websocket clients."
+  tags = {"weblit", "middleware", "websocket"}
+  license = "MIT"
+  author = { name = "Tim Caswell" }
+  homepage = "https://github.com/creationix/weblit/blob/master/libs/weblit-websocket.lua"
+]]
 
 local websocketCodec = require('websocket-codec')
+local wrapIo = require('coro-websocket').wrapIo
 
 local function websocketHandler(options, handler)
   return function (req, res, go)
@@ -66,6 +70,10 @@ local function websocketHandler(options, handler)
     function res.upgrade(read, write, updateDecoder, updateEncoder)
       updateDecoder(websocketCodec.decode)
       updateEncoder(websocketCodec.encode)
+      read, write = wrapIo(read, write, {
+        mask = false,
+        heartbeat = options.heartbeat
+      })
       local success, err = pcall(handler, req, read, write)
       if not success then
         print(err)

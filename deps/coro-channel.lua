@@ -1,12 +1,50 @@
-exports.name = "creationix/coro-channel"
-exports.version = "1.3.0"
-exports.homepage = "https://github.com/luvit/lit/blob/master/deps/coro-channel.lua"
-exports.description = "An adapter for wrapping uv streams as coro-streams and chaining filters."
-exports.tags = {"coro", "adapter"}
-exports.license = "MIT"
-exports.author = { name = "Tim Caswell" }
+--[[lit-meta
+  name = "creationix/coro-channel"
+  version = "3.0.1"
+  homepage = "https://github.com/luvit/lit/blob/master/deps/coro-channel.lua"
+  description = "An adapter for wrapping uv streams as coro-streams."
+  tags = {"coro", "adapter"}
+  license = "MIT"
+  author = { name = "Tim Caswell" }
+]]
 
-local function wrapRead(socket, decode)
+-- local p = require('pretty-print').prettyPrint
+
+local function makeCloser(socket)
+  local closer = {
+    read = false,
+    written = false,
+    errored = false,
+  }
+
+  local closed = false
+
+  local function close()
+    if closed then return end
+    closed = true
+    if not closer.readClosed then
+      closer.readClosed = true
+      if closer.onClose then
+        closer.onClose()
+      end
+    end
+    if not socket:is_closing() then
+      socket:close()
+    end
+  end
+
+  closer.close = close
+
+  function closer.check()
+    if closer.errored or (closer.read and closer.written) then
+      return close()
+    end
+  end
+
+  return closer
+end
+
+local function makeRead(socket, closer)
   local paused = true
 
   local queue = {}
@@ -14,6 +52,9 @@ local function wrapRead(socket, decode)
   local dindex = 0
 
   local function dispatch(data)
+
+    -- p("<-", data[1])
+
     if tindex > dindex then
       local thread = queue[dindex]
       queue[dindex] = nil
@@ -29,21 +70,28 @@ local function wrapRead(socket, decode)
     end
   end
 
-  local buffer = ""
-  local function onRead(err, chunk)
-    if not decode or not chunk or err then
-      return dispatch(err and {nil, err} or {chunk})
-    end
-    buffer = buffer .. chunk
-    while true do
-      local item, extra = decode(buffer)
-      if not extra then return end
-      buffer = extra
-      dispatch({item})
+  closer.onClose = function ()
+    if not closer.read then
+      closer.read = true
+      return dispatch {nil, closer.errored}
     end
   end
 
-  return function ()
+  local function onRead(err, chunk)
+    if err then
+      closer.errored = err
+      return closer.check()
+    end
+    if not chunk then
+      if closer.read then return end
+      closer.read = true
+      dispatch {}
+      return closer.check()
+    end
+    return dispatch {chunk}
+  end
+
+  local function read()
     if dindex > tindex then
       local data = queue[tindex]
       queue[tindex] = nil
@@ -57,14 +105,13 @@ local function wrapRead(socket, decode)
     queue[tindex] = coroutine.running()
     tindex = tindex + 1
     return coroutine.yield()
-  end,
-  function (newDecode)
-    decode = newDecode
   end
 
+  -- Auto use wrapper library for backwards compat
+  return read
 end
 
-local function wrapWrite(socket, encode)
+local function makeWrite(socket, closer)
 
   local function wait()
     local thread = coroutine.running()
@@ -73,82 +120,64 @@ local function wrapWrite(socket, encode)
     end
   end
 
-  local function shutdown()
-    socket:shutdown(wait())
-    coroutine.yield()
-    if not socket:is_closing() then
-      socket:close()
+  local function write(chunk)
+    if closer.written then
+      return nil, "already shutdown"
     end
-  end
 
-  return function (chunk)
+    -- p("->", chunk)
+
     if chunk == nil then
-      return shutdown()
+      closer.written = true
+      closer.check()
+      local success, err = socket:shutdown(wait())
+      if not success then
+        return nil, err
+      end
+      err = coroutine.yield()
+      return not err, err
     end
-    if encode then
-      chunk = encode(chunk)
+
+    local success, err = socket:write(chunk, wait())
+    if not success then
+      closer.errored = err
+      closer.check()
+      return nil, err
     end
-    assert(socket:write(chunk, wait()))
-    local err = coroutine.yield()
+    err = coroutine.yield()
     return not err, err
-  end,
-  function (newEncode)
-    encode = newEncode
   end
 
+  return write
 end
 
-exports.wrapRead = wrapRead
-exports.wrapWrite = wrapWrite
-
--- Given a raw uv_stream_t userdata, return coro-friendly read/write functions.
-function exports.wrapStream(socket, encode, decode)
-  return wrapRead(socket, encode), wrapWrite(socket, decode)
+local function wrapRead(socket)
+  local closer = makeCloser(socket)
+  closer.written = true
+  return makeRead(socket, closer), closer.close
 end
 
-
-function exports.chain(...)
-  local args = {...}
-  local nargs = select("#", ...)
-  return function (read, write)
-    local threads = {} -- coroutine thread for each item
-    local waiting = {} -- flag when waiting to pull from upstream
-    local boxes = {}   -- storage when waiting to write to downstream
-    for i = 1, nargs do
-      threads[i] = coroutine.create(args[i])
-      waiting[i] = false
-      local r, w
-      if i == 1 then
-        r = read
-      else
-        function r()
-          local j = i - 1
-          if boxes[j] then
-            local data = boxes[j]
-            boxes[j] = nil
-            assert(coroutine.resume(threads[j]))
-            return unpack(data)
-          else
-            waiting[i] = true
-            return coroutine.yield()
-          end
-        end
-      end
-      if i == nargs then
-        w = write
-      else
-        function w(...)
-          local j = i + 1
-          if waiting[j] then
-            waiting[j] = false
-            assert(coroutine.resume(threads[j], ...))
-          else
-            boxes[i] = {...}
-            coroutine.yield()
-          end
-        end
-      end
-      assert(coroutine.resume(threads[i], r, w))
-    end
-  end
+local function wrapWrite(socket)
+  local closer = makeCloser(socket)
+  closer.read = true
+  return makeWrite(socket, closer), closer.close
 end
+
+local function wrapStream(socket)
+  assert(socket
+    and socket.write
+    and socket.shutdown
+    and socket.read_start
+    and socket.read_stop
+    and socket.is_closing
+    and socket.close, "socket does not appear to be a socket/uv_stream_t")
+
+  local closer = makeCloser(socket)
+  return makeRead(socket, closer), makeWrite(socket, closer), closer.close
+end
+
+return {
+  wrapRead = wrapRead,
+  wrapWrite = wrapWrite,
+  wrapStream = wrapStream,
+}

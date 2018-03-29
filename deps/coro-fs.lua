@@ -1,14 +1,19 @@
-exports.name = "creationix/coro-fs"
-exports.version = "1.3.0"
-exports.homepage = "https://github.com/luvit/lit/blob/master/deps/coro-fs.lua"
-exports.description = "A coro style interface to the filesystem."
-exports.tags = {"coro", "fs"}
-exports.license = "MIT"
-exports.author = { name = "Tim Caswell" }
+--[[lit-meta
+  name = "creationix/coro-fs"
+  version = "2.2.1"
+  homepage = "https://github.com/luvit/lit/blob/master/deps/coro-fs.lua"
+  description = "A coro style interface to the filesystem."
+  tags = {"coro", "fs"}
+  license = "MIT"
+  dependencies = {
+    "creationix/pathjoin@2.0.0"
+  }
+  author = { name = "Tim Caswell" }
+]]
 
 local uv = require('uv')
-local fs = exports
-local pathJoin = require('luvi').path.join
+local fs = {}
+local pathJoin = require('pathjoin').pathJoin
 
 local function noop() end
 
@@ -109,7 +114,13 @@ function fs.scandir(path)
   local req, err = coroutine.yield()
   if not req then return nil, err end
   return function ()
-    return uv.fs_scandir_next(req)
+    local name, typ = uv.fs_scandir_next(req)
+    if not name then return name, typ end
+    if type(name) == "table" then return name end
+    return {
+      name = name,
+      type = typ
+    }
   end
 end
 
@@ -217,3 +228,5 @@ function fs.chroot(base)
   end
   return chroot
 end
+
+return fs

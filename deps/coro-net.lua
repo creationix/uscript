@@ -1,18 +1,27 @@
-
-exports.name = "creationix/coro-net"
-exports.version = "1.2.0"
-exports.dependencies = {
-  "creationix/coro-channel@1.3.0"
-}
-exports.homepage = "https://github.com/luvit/lit/blob/master/deps/coro-net.lua"
-exports.description = "An coro style client and server helper for tcp and pipes."
-exports.tags = {"coro", "tcp", "pipe", "net"}
-exports.license = "MIT"
-exports.author = { name = "Tim Caswell" }
+--[[lit-meta
+  name = "creationix/coro-net"
+  version = "3.2.0"
+  dependencies = {
+    "creationix/coro-channel@3.0.0",
+    "creationix/coro-wrapper@3.0.0",
+  }
+  optionalDependencies = {
+    "luvit/secure-socket@1.0.0"
+  }
+  homepage = "https://github.com/luvit/lit/blob/master/deps/coro-net.lua"
+  description = "An coro style client and server helper for tcp and pipes."
+  tags = {"coro", "tcp", "pipe", "net"}
+  license = "MIT"
+  author = { name = "Tim Caswell" }
+]]
 
 local uv = require('uv')
-local wrapRead = require('coro-channel').wrapRead
-local wrapWrite = require('coro-channel').wrapWrite
+local wrapStream = require('coro-channel').wrapStream
+local wrapper = require('coro-wrapper')
+local merger = wrapper.merger
+local decoder = wrapper.decoder
+local encoder = wrapper.encoder
+local secureSocket -- Lazy required from "secure-socket" on first use.
 
 local function makeCallback(timeout)
   local thread = coroutine.running()
@@ -36,9 +45,8 @@ local function makeCallback(timeout)
     return assert(coroutine.resume(thread, data or true))
   end
 end
-exports.makeCallback = makeCallback
 
-local function normalize(options)
+local function normalize(options, server)
   local t = type(options)
   if t == "string" then
     options = {path=options}
@@ -52,21 +60,35 @@ local function normalize(options)
     options.host = options.host or "127.0.0.1"
     assert(options.port, "options.port is required for tcp connections")
   elseif options.path then
-    options.isTcp = true
+    options.isTcp = false
   else
     error("Must set either options.path or options.port")
+  end
+  if options.tls == true then
+    options.tls = {}
+  end
+  if options.tls then
+    if server then
+      options.tls.server = true
+      assert(options.tls.cert, "TLS servers require a certificate")
+      assert(options.tls.key, "TLS servers require a key")
+    else
+      options.tls.server = false
+      options.tls.servername = options.host
+    end
   end
   return options
 end
 
-function exports.connect(options)
+local function connect(options)
   local socket, success, err
   options = normalize(options)
   if options.isTcp then
-    assert(uv.getaddrinfo(options.host, options.port, {
+    success, err = uv.getaddrinfo(options.host, options.port, {
       socktype = options.socktype or "stream",
       family = options.family or "inet",
-    }, makeCallback(options.timeout)))
+    }, makeCallback(options.timeout))
+    if not success then return nil, err end
     local res
     res, err = coroutine.yield()
     if not res then return nil, err end
@@ -78,14 +100,35 @@ function exports.connect(options)
   end
   success, err = coroutine.yield()
   if not success then return nil, err end
-  local read, updateDecoder = wrapRead(socket, options.decode)
-  local write, updateEncoder = wrapWrite(socket, options.encode)
-  return read, write, socket, updateDecoder, updateEncoder
+  local dsocket
+  if options.tls then
+    if not secureSocket then secureSocket = require('secure-socket') end
+    dsocket, err = secureSocket(socket, options.tls)
+    if not dsocket then
+      return nil, err
+    end
+  else
+    dsocket = socket
+  end
+
+  local read, write, close = wrapStream(dsocket)
+  local updateDecoder, updateEncoder
+  if options.scan then
+    -- TODO: Should we expose updateScan somehow?
+    read = merger(read, options.scan)
+  end
+  if options.decode then
+    read, updateDecoder = decoder(read, options.decode)
+  end
+  if options.encode then
+    write, updateEncoder = encoder(write, options.encode)
+  end
+  return read, write, dsocket, updateDecoder, updateEncoder, close
 end
 
-function exports.createServer(options, onConnect)
+local function createServer(options, onConnect)
   local server
-  options = normalize(options)
+  options = normalize(options, true)
   if options.isTcp then
     server = uv.new_tcp()
     assert(server:bind(options.host, options.port))
@@ -99,17 +142,40 @@ function exports.createServer(options, onConnect)
     server:accept(socket)
     coroutine.wrap(function ()
       local success, failure = xpcall(function ()
-        local read, updateDecode = wrapRead(socket, options.decode)
-        local write, updateEncode = wrapWrite(socket, options.encode)
-        return onConnect(read, write, socket, updateEncode, updateDecode)
+        local dsocket
+        if options.tls then
+          if not secureSocket then secureSocket = require('secure-socket') end
+          dsocket = assert(secureSocket(socket, options.tls))
+          dsocket.socket = socket
+        else
+          dsocket = socket
+        end
+
+        local read, write = wrapStream(dsocket)
+        local updateDecoder, updateEncoder
+        if options.scan then
+          -- TODO: should we expose updateScan somehow?
+          read = merger(read, options.scan)
+        end
+        if options.decode then
+          read, updateDecoder = decoder(read, options.decode)
+        end
+        if options.encode then
+          write, updateEncoder = encoder(write, options.encode)
+        end
+
+        return onConnect(read, write, dsocket, updateDecoder, updateEncoder)
       end, debug.traceback)
       if not success then
         print(failure)
-      end
-      if not socket:is_closing() then
-        socket:close()
       end
     end)()
   end))
   return server
 end
+
+return {
+  makeCallback = makeCallback,
+  connect = connect,
+  createServer = createServer,
+}

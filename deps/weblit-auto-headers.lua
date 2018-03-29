@@ -1,10 +1,12 @@
-exports.name = "creationix/weblit-auto-headers"
-exports.version = "0.1.2-1"
-exports.description = "The auto-headers middleware helps Weblit apps implement proper HTTP semantics"
-exports.tags = {"weblit", "middleware", "http"}
-exports.license = "MIT"
-exports.author = { name = "Tim Caswell" }
-exports.homepage = "https://github.com/creationix/weblit/blob/master/libs/weblit-auto-headers.lua"
+--[[lit-meta
+  name = "creationix/weblit-auto-headers"
+  version = "2.1.0"
+  description = "The auto-headers middleware helps Weblit apps implement proper HTTP semantics"
+  tags = {"weblit", "middleware", "http"}
+  license = "MIT"
+  author = { name = "Tim Caswell" }
+  homepage = "https://github.com/creationix/weblit/blob/master/libs/weblit-auto-headers.lua"
+]]
 
 
 --[[
@@ -13,7 +15,6 @@ Response automatic values:
  - Auto Server header
  - Auto Date Header
  - code defaults to 404 with body "Not Found\n"
- - if there is a string body add Content-Length and ETag if missing
  - if string body and no Content-Type, use text/plain for valid utf-8, application/octet-stream otherwise
  - Auto add "; charset=utf-8" to Content-Type when body is known to be valid utf-8
  - Auto 304 responses for if-none-match requests
@@ -26,7 +27,6 @@ Response automatic values:
 
 ]]
 
-local digest = require('openssl').digest.digest
 local date = require('os').date
 
 local success, parent = pcall(require, '../package')
@@ -75,11 +75,6 @@ return function (req, res, go)
     if type(body) == "string" then
       if needLength then
         headers[#headers + 1] = {"Content-Length", #body}
-      end
-      if not lowerHeaders.etag then
-        local etag = '"' .. digest("sha1", body) .. '"'
-        lowerHeaders.etag = etag
-        headers[#headers + 1] = {"ETag", etag}
       end
     else
       if needLength then
